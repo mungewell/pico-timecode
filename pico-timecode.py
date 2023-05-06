@@ -11,10 +11,9 @@ import rp2
 @rp2.asm_pio(set_init=rp2.PIO.OUT_LOW, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def blink_led():
-    set(pins, 0)
-    out(x, 32)                      # first cycle may be slightly different
-                                    # so LED is exactly timed...
-    irq(block, 4)               # Wait for sync
+    out(x, 32)                      # first cycle lenght may be slightly
+                                    # different so LED is exactly timed...
+    irq(block, 4)                   # Wait for sync'ed start
 
     label("read_new")
     wrap_target()
@@ -34,8 +33,8 @@ def blink_led():
     nop() [2]                       # this section 4 cycles
         
     label("cont2")
-    jmp(x_dec, "cont")              # Loop, so it is 80 * 8 =  640 cycles
-                                    # X = 126  -> 1 + 4 + (126 * (4 +1)) + 5 cycles
+    jmp(x_dec, "cont")              # Loop, so it is 80 * 16 =  1280 cycles
+                                    # X = 254  -> 1 + 4 + (254 * (4 +1)) + 5 cycles
     out(x, 32) [4]
     wrap()
 
@@ -43,20 +42,19 @@ def blink_led():
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
     
 def encode_dmc():
-    set(pins, 0)
-    irq(block, 4)                   # Wait for Sync
+    irq(block, 4)                   # Wait for Sync'ed start
     
     wrap_target()
     label("toggle-0")
-    mov(pins, invert(pins)) [2]     # Always toogle pin at start of cycle, "0" or "1"
+    mov(pins, invert(pins)) [6]     # Always toogle pin at start of cycle, "0" or "1"
 
     jmp(pin, "toggle-1")            # Check output of SM-1 buffer, jump if 1
 
-    nop() [2]                       # Wait out rest of cycle, "0"
+    nop() [6]                       # Wait out rest of cycle, "0"
     jmp("toggle-0")
     
     label("toggle-1")
-    mov(pins, invert(pins)) [3]     # Toggle for signal '1'
+    mov(pins, invert(pins)) [7]     # Toggle pin to signal '1'
     wrap()
 
 
@@ -64,10 +62,10 @@ def encode_dmc():
              fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def buffer_out():
-    irq(block, 4)                   # Wait for Sync
+    irq(block, 4)                   # Wait for Sync'ed start
     
     label("start")
-    out(pins, 1) [6]
+    out(pins, 1) [14]
     
     jmp(not_osre, "start")
                                     # UNDERFLOW - when Python fails to fill FIFOs
@@ -101,7 +99,8 @@ def start_from_pin():
 
     label("halt")
     jmp("halt") [31]
-    
+
+
 #---------------------------------------------
 
 # parity check, count 1's in byte
@@ -125,6 +124,7 @@ class timecode(object):
 
     # User bits - format depends on BF2 and BF0
     bgf0 = True     # 4 ASCII characters
+    bgf1 = False
     bgf2 = False
 
     uf1 = 0x0       # 'PICO'
@@ -224,6 +224,7 @@ class timecode(object):
         f59 = False
 
         self.acquire()
+        f58 = self.bgf1
         if self.fps == 25:
             f27 = self.bgf0
             f43 = self.bgf2
@@ -265,59 +266,63 @@ def handler(flags, sm):
             m.active(0)
         still_running = False
 
-def pico_timecode_thread(tc, sm):
+def pico_timecode_thread(tc, rc, sm):
     sync_sent = False
     start_sent = False
     
     # Loop, increasing frame count each time
     while still_running:
-        # Wait for FIFO to be empty enough
-        if sm[1].tx_fifo() < 5:
+        # Wait for TX FIFO to be empty enough
+        if sm[2].tx_fifo() < 5:
             # build LTC frame
             b = tc.build_packet_bytes()
 
             # We want to send 'whole' 32bit words...
             if sync_sent:
-                sm[1].put(b[0] + (b[1] << 8) + (b[2] << 16) + (b[3] << 24))
-                sm[1].put(b[4] + (b[5] << 8) + (b[6] << 16) + (b[7] << 24))
+                sm[2].put(b[0] + (b[1] << 8) + (b[2] << 16) + (b[3] << 24))
+                sm[2].put(b[4] + (b[5] << 8) + (b[6] << 16) + (b[7] << 24))
                 sync_sent = False
             else:
-                sm[1].put(0xBFFC             + (b[0] << 16) + (b[1] << 24))
-                sm[1].put(b[2] + (b[3] << 8) + (b[4] << 16) + (b[5] << 24))
-                sm[1].put(b[6] + (b[7] << 8) + (0xBFFC << 16))
+                sm[2].put(0xBFFC             + (b[0] << 16) + (b[1] << 24))
+                sm[2].put(b[2] + (b[3] << 8) + (b[4] << 16) + (b[5] << 24))
+                sm[2].put(b[6] + (b[7] << 8) + (0xBFFC << 16))
                 sync_sent = True
 
             # Does the LED flash for this frame?
             tc.acquire()
             # Send values as 32bit
             if not start_sent:
-                sm[0].put(124)#0x00000060)          # 1st cycle sync correction
+                sm[1].put(304)			# 1st cycle 'extra sync' correction
             else:
-                sm[0].put(125)#0x0000007F)          # '126'
+                sm[1].put(253)			# '253' is perfect length
                 
             if tc.ff == 0:
-                sm[0].put(10)#0x00000010)           # Y - duration on flash
+                sm[1].put(210)			# Y - duration of flash
             else:
-                sm[0].put(0)#0x00000000)
+                sm[1].put(0)
             '''
             # Send values as 16bit
             if not start_sent:
-                sm[0].put(0x0000007C)
+                sm[1].put(0x0000007C)
             else:
                 if tc.ff == 0:
-                    sm[0].put(0x0010007F)
+                    sm[1].put(0x0010007F)
                     #               ^^^^ X - duration of loop
                     #           ^^^^     Y - duration on flash
                 else:
-                    sm[0].put(0x0000007D)
+                    sm[1].put(0x0000007D)
             '''
             tc.release()
 
-            # We can start StateMachines now that they have data queued to send
+            # We can start StateMachines now that they have some data queued to send
             if not start_sent:
-                for m in sm:
-                    m.active(1)
-                    utime.sleep(0.001)
+                for m in range(len(sm)-1):
+                    sm[m+1].active(1)
+                    utime.sleep(0.005)
+                    
+                # start 'Start' machine last, so others can synchronise
+                sm[0].active(1)
+                start_sent = True
                 
                 '''
                 # Wait to start handler, as its interfers with statemachine-sync
@@ -330,7 +335,7 @@ def pico_timecode_thread(tc, sm):
             
         utime.sleep(0.01)
 
-def ascii_display_thread(tc):
+def ascii_display_thread(tc, rc):
     while still_running:
         print(tc.to_ascii())
         
@@ -342,6 +347,7 @@ if __name__ == "__main__":
     print("Starting")
     # set up starting values...
     tc = timecode()
+    rc = timecode()
     
     tc.acquire()
     fps = tc.fps
@@ -351,23 +357,28 @@ if __name__ == "__main__":
 
     # Allocate appropriate StateMachines, and their pins
     sm = []
-    sm.append(rp2.StateMachine(0, blink_led, freq=80 * fps * 8,
+
+    # always want the 'start' SM to be first in the list.
+    sm.append(rp2.StateMachine(3, auto_start, freq=80 * fps * 16))
+    '''
+    sm.append(rp2.StateMachine(3, start_from_pin, freq=80 * fps * 16,
+                           jmp_pin=machine.Pin(13)))
+    '''
+
+    # TX State Machines
+    sm.append(rp2.StateMachine(0, blink_led, freq=80 * fps * 16,
                            set_base=machine.Pin(25)))       # LED on Pico board
-    sm.append(rp2.StateMachine(1, buffer_out, freq=80 * fps * 8,
+    sm.append(rp2.StateMachine(1, buffer_out, freq=80 * fps * 16,
                            out_base=machine.Pin(19)))       # Output of 'raw' bitstream
-    sm.append(rp2.StateMachine(2, encode_dmc, freq=80 * fps * 8,
+    sm.append(rp2.StateMachine(2, encode_dmc, freq=80 * fps * 16,
                            jmp_pin=machine.Pin(19),
                            in_base=machine.Pin(18),
                            out_base=machine.Pin(18)))       # Encoded LTC Output
-    sm.append(rp2.StateMachine(3, auto_start, freq=80 * fps * 8))
-    '''
-    sm.append(rp2.StateMachine(3, start_from_pin, freq=80 * fps * 8,
-                           jmp_pin=machine.Pin(13)))
-    '''
- 
+
+
     # Start up threads
     still_running = True
-    _thread.start_new_thread(pico_timecode_thread, (tc, sm))
-    ascii_display_thread(tc)
+    _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm))
+    ascii_display_thread(tc, rc)
 
     print("Threads Completed")

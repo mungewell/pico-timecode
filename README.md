@@ -14,10 +14,10 @@ In the following screen shot the top trace is the 'raw' bitstream, and the lower
 
 # Build Your Own
 
-My intent is that the project could be used to build your own devices. The proof-of-concept script can 
+My intent is that the project could be used to build your own devices. The proof-of-concept script(s) can 
 just be dropped onto a 'bare-bones' Pico.
 
-If you want a more fleshed out solution, you could look at ['Buy A Pi'](https://www.pishop.ca) (my 'go to'
+If you want a more fleshed out solution, you could look at ['PiShop'](https://www.pishop.ca) (my go-to
 supplier up here in Canada-land).
 
 For example:
@@ -37,4 +37,30 @@ If you make a device to sell, please send me an sample to test.
 To find out more about the structure of the LTC packet:
 [Wikipedia](https://en.wikipedia.org/wiki/Linear_timecode)
 
-I'll add documentation on the code as the project continues....
+## Note on accuracy/precision
+
+The **whole** purpose of the time-code system it to be time prescise, this is not normally something that
+you'd expect from a Python script - let alone one running on a micro-controller.
+
+The Pi Pico is different as it has small, cycle precise, PIO engines. This code implements the LTC processing
+in various PIO engines. These handle small chunks of the process and are synchronised with interupts.
+
+The MicroPython script *only* needs to (pre-)compute the data for the LTC, and place it in a FIFO ahead of
+when it is actually required.
+
+
+All the PIOs are set to clock at the same speed (16x LTC bit clock), whilst there may be some jitter 
+in the clocks (due to fractional dividing) this should not be a problem.
+
+The Pico is clocked from a 12.0MHz crystal. Whilst this may not be the 'worlds best', it could also be
+replaced with a better one. See:
+
+(https://github.com/dorsic/PicoPET)
+
+## So how good is it?
+
+Given my interest (nee obsession) with TimeCode, I have already aquired some specialised test equipment. I
+will measure the accuracy of the Pico modules and post results soon.
+
+
+*I'll add documentation on the code as the project continues....*

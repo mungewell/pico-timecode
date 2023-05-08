@@ -79,7 +79,6 @@ output LTC. Using my test equipment I can monitor the LTC value from my source, 
 
 ![Test Equipment](test_equipment.png)
 
-Evertz #2 will also tell me the phase difference between the VITC (embedding in Video) and the LTC.
+Evertz #2 will also tell me the phase difference between the VITC (embedded in Video) and the LTC.
 
-
-*I'll add documentation on the code as the project continues....*
+![Test Equipment](test_equipment2.png)

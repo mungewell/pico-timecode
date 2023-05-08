@@ -42,11 +42,12 @@ If you make a device to sell, please send me an sample to test.
 
 # LTC Information
 
-LTC is an audio signal, which contains infomation about the progression of time and some other
-infomation. This signal helps synchronise multiple recording, for example a multi-camera shoot could
-record LTC on each camera together with an audio track on sound equipment.
+LTC is an audio signal, which contains information about the progression of time and some other
+infomation. This signal helps synchronise multiple recordings, for example a multi-camera shoot could
+record LTC on each camera and match together with a LTC audio track recorder on sound equipment.
 
-Timecode can also be embedded in a video signal (VITC or HDMI Timecode).
+Timecode can also be embedded in a video signal (VITC or HDMI Timecode), or as meta-data in audio 
+(BWAV) files.
 
 Technically Timecode can be run/scrubbed both backwards and forwards, but this project is only interested
 in replicating an accurate clock, real-time in the forward direction.
@@ -72,9 +73,7 @@ in the clocks (due to fractional dividing) this should not be a problem.
 The Pico is normally clocked from a 'cheap' 12.0MHz crystal. Whilst this may not be the 'worlds best' 
 crystal, it can also be replaced with a better one if need be.
 
-See:
-
-[https://github.com/dorsic/PicoPET](https://github.com/dorsic/PicoPET)
+See: [https://github.com/dorsic/PicoPET](https://github.com/dorsic/PicoPET)
 
 
 ## So how good is it?

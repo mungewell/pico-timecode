@@ -190,9 +190,14 @@ class timecode(object):
     ss = 0
     ff = 0
 
+    # Colour Frame flag
+    cf = False
+
+    # Clock flag
+    bgf1 = False
+
     # User bits - format depends on BF2 and BF0
     bgf0 = True     # 4 ASCII characters
-    bgf1 = False
     bgf2 = False
 
     uf1 = 0x0       # 'PICO'
@@ -285,14 +290,11 @@ class timecode(object):
             self.validate_for_drop_frame()
 
     def to_ltc_packet(self, send_sync=False):
-        cf = False
         f27 = False
         f43 = False
-        f58 = False
         f59 = False
 
         self.acquire()
-        f58 = self.bgf1
         if self.fps == 25:
             f27 = self.bgf0
             f43 = self.bgf2
@@ -301,18 +303,18 @@ class timecode(object):
             f59 = self.bgf2
 
         p = []
-        p.append((self.uf2 << 12) + (cf  << 11) + (self.df << 10) + \
-                ((int(self.ff/10) & 0x3) << 8) + \
-                (self.uf1 << 4) + (self.ff % 10) + \
-                (self.uf4 << 28) + (f27 << 27) + \
-                ((int(self.ss/10) & 0x7) << 20) + \
+        p.append((self.uf2 << 12) + (self.cf  << 11) + (self.df << 10) +
+                ((int(self.ff/10) & 0x3) << 8) +
+                (self.uf1 << 4) + (self.ff % 10) +
+                (self.uf4 << 28) + (f27 << 27) +
+                ((int(self.ss/10) & 0x7) << 24) +
                 (self.uf3 << 20) + ((self.ss % 10) << 16))
 
-        p.append((self.uf6 << 12) + (f43 << 11) + \
-                ((int(self.mm/10) & 0x7) << 8) + \
-                (self.uf5 << 4) + (self.mm % 10) + \
-                (self.uf8 << 28) + (f59 << 27) + (f58 << 26) + \
-                ((int(self.hh/10) & 0x3) << 20) + \
+        p.append((self.uf6 << 12) + (f43 << 11) +
+                ((int(self.mm/10) & 0x7) << 8) +
+                (self.uf5 << 4) + (self.mm % 10) +
+                (self.uf8 << 28) + (f59 << 27) + (self.bgf1 << 26) +
+                ((int(self.hh/10) & 0x3) << 24) +
                 (self.uf7 << 20) + ((self.hh % 10) << 16))
 
         # polarity correction

@@ -30,7 +30,7 @@ There needs to be some electronics to 'buffer' the audio signal in-to/out-from t
 create a small PCB to do this. The above display is cheap and has both a SPI and I2C interface, it's
 connections are as follows:
 
-![OLED PinOut](pico-1.3-oled.png)
+[OLED PinOut](pico-1.3-oled.png)
 
 Which leaves the 'South' end of the Pico usable for LTC connections. My code uses separate PIO blocks and
 each has it's own input/output pins. Once designed my LTC interface card will need to buffer audio and 
@@ -72,6 +72,14 @@ replaced with a better one. See:
 
 Given my interest (nee obsession) with TimeCode, I have already aquired some specialised test equipment. I
 will measure the accuracy of the Pico modules and post results soon.
+
+My approach will be to get the code to a point where it will 'Jam' to incoming LTC and then 'free-run' it's
+output LTC. Using my test equipment I can monitor the LTC value from my source, as well as from the 
+'Pico-Timecode' device.
+
+[Test Equipment](test_equipment.png)
+
+Evertz #2 will also tell me the phase difference between the VITC (embedding in Video) and the LTC.
 
 
 *I'll add documentation on the code as the project continues....*

@@ -2,7 +2,7 @@
 # Proof of Concept
 
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
-and the PIO blocks on the Pico make it very possible.
+and the PIO blocks on the Pico make it very possible...
 
 The `ltc_freerun.py` script is a proof-of-concept, and outputs a counting LTC stream. Connecting this to
 PC audios input (via a resistor divider to reduce level), confirms that the LTC content in the audio 
@@ -42,26 +42,37 @@ If you make a device to sell, please send me an sample to test.
 
 # LTC Information
 
+LTC is an audio signal, which contains infomation about the progression of time and some other
+infomation. This signal helps synchronise multiple recording, for example a multi-camera shoot could
+record LTC on each camera together with an audio track on sound equipment.
+
+Timecode can also be embedded in a video signal (VITC or HDMI Timecode).
+
+Technically Timecode can be run/scrubbed both backwards and forwards, but this project is only interested
+in replicating an accurate clock, real-time in the forward direction.
+
 To find out more about the structure of the LTC packet:
 [Wikipedia](https://en.wikipedia.org/wiki/Linear_timecode)
 
 ## Note on accuracy/precision
 
-The **whole** purpose of the time-code system it to be time prescise, this is not normally something that
+The **whole** purpose of the time-code system it to be time precise, this is not normally something that
 you'd expect from a Python script - let alone one running on a micro-controller.
 
-The Pi Pico is different as it has small, cycle precise, PIO engines. This code implements the LTC processing
-in various PIO engines. These handle small chunks of the process and are synchronised with interupts.
+The Pi Pico is different as it has a number of small (cycle precise) PIO engines. This code implements 
+the LTC processing with multiple PIO engines. These each handle small chunks of the process and are 
+synchronised with interupts between the PIO blocks.
 
 The MicroPython script *only* needs to (pre-)compute the data for the LTC, and place it in a FIFO ahead of
 when it is actually required. It will also run the 'UI', sending data to the screen and sensing buttons.
 
-
 All the PIOs are set to clock at the same speed (16x LTC bit clock), whilst there may be some jitter 
 in the clocks (due to fractional dividing) this should not be a problem.
 
-The Pico is clocked from a 12.0MHz crystal. Whilst this may not be the 'worlds best', it could also be
-replaced with a better one. See:
+The Pico is normally clocked from a 'cheap' 12.0MHz crystal. Whilst this may not be the 'worlds best' 
+crystal, it can also be replaced with a better one if need be.
+
+See:
 
 [https://github.com/dorsic/PicoPET](https://github.com/dorsic/PicoPET)
 

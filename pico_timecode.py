@@ -179,9 +179,9 @@ def lp(b):
 
 
 class timecode(object):
-    mode = 0        # -1 = Halted, 0 = FreeRun, 1 = Jam
+    mode = 0        # -1=Halted, 0=FreeRun, 1=Monitor RX, 2>=Jam to RX
 
-    fps = 25
+    fps = 30
     df = False      # Drop-Frame
 
     # Timecode - starting value
@@ -364,14 +364,25 @@ def handler(flags, sm):
             m.active(0)
 
 def pico_timecode_thread(tc, rc, sm):
-    send_sync = True        # 1st packet with sync
+    send_sync = True        # send 1st packet with sync
     start_sent = False
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
-    if not start_sent:
-        # needs to be bit doubled
-        # 0xBFFC -> 0xCFFFFFF0
-        sm[5].put(3489660912)
+    # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
+    sm[5].put(3489660912)
+
+    # Set up Blink/LED timing
+    sm[1].put(304)          # 1st cycle includes 'extra sync' correction
+    sm[1].put(0)
+
+    # Start the StateMachines (except Sync)
+    for m in range(1, len(sm)):
+        sm[m].active(1)
+        utime.sleep(0.005)
+
+    tc.acquire()
+    mode = tc.mode
+    tc.release()
 
     # Loop, increasing frame count each time
     while True:
@@ -379,59 +390,46 @@ def pico_timecode_thread(tc, rc, sm):
         # Empty RX FIFO as it fills
         if sm[5].rx_fifo() >= 2:
             p = []
+            p.append(sm[5].get())
+            p.append(sm[5].get())
             if len(p) == 2:
                 rc.from_ltc_packet(p)
 
+            if mode > 1:
+                s = rc.to_ascii()
+                tc.from_ascii(s)
+
+                tc.acquire()
+                tc.mode = 0
+                mode = 0
+                tc.release()
+
+                # Jam to RX timecode (plus 2 frames)
+                tc.next_frame()
+                tc.next_frame()
+
         # Wait for TX FIFO to be empty enough to accept more
-        if sm[2].tx_fifo() < 5:
+        if mode == 0 and sm[2].tx_fifo() < 5:
             for w in tc.to_ltc_packet(send_sync):
                 sm[2].put(w)
             send_sync = (send_sync + 1) & 1
 
-            # Does the LED flash for this frame?
-            tc.acquire()
-            # Send values as 32bit
-            if not start_sent:
-                sm[1].put(304)          # 1st cycle 'extra sync' correction
-            else:
-                sm[1].put(253)          # '253' is extact loop length
-                
-            if tc.ff == 0:
-                sm[1].put(210)          # Y - duration of flash
-            else:
-                sm[1].put(0)
-            '''
-            # Send values as 16bit
-            if not start_sent:
-                sm[1].put(0x0000007C)
-            else:
-                if tc.ff == 0:
-                    sm[1].put(0x0010007F)
-                    #               ^^^^ X - duration of loop
-                    #           ^^^^     Y - duration on flash
-                else:
-                    sm[1].put(0x0000007D)
-            '''
-            tc.release()
-
-            # We can start StateMachines now that they have some data queued to send
-            if not start_sent:
-                for m in range(1, len(sm)):
-                    sm[m].active(1)
-                    utime.sleep(0.005)
-                    
-                # do 'Start' machine last, so others can synchronise to it
-                sm[0].active(1)
-                start_sent = True
-                
-                '''
-                # Wait to start handler, as its interfers with statemachine-sync
-                utime.sleep(0.01)
-                rp2.PIO(0).irq(lambda pio: handler(pio.irq().flags()))
-                '''
-
             # Calculate next frame value
             tc.next_frame()
+
+            # Does the LED flash for this frame?
+            tc.acquire()
+            sm[1].put(253)          # '253' is extact loop length
+            if tc.ff == 0:
+                sm[1].put(210)      # Y - duration of flash
+            else:
+                sm[1].put(0)
+            tc.release()
+
+            if mode == 0 and not start_sent:
+                # enable 'Start' machine last, so others can synchronise to it
+                sm[0].active(1)
+                start_sent = True
             
         utime.sleep(0.001)
 
@@ -439,14 +437,58 @@ def pico_timecode_thread(tc, rc, sm):
 def ascii_display_thread(tc, rc):
     tc.acquire()
     mode = tc.mode
+    fps = tc.fps
     tc.release()
 
-    print("test")
-    if mode > 0:
+    # Allocate appropriate StateMachines, and their pins
+    sm = []
+    sm_freq = int(fps * 80 * 16)
+
+    # Note: we always want the 'sync' SM to be first in the list.
+    if mode > 1:
+        # We will only start after a trigger pin goes high
+        sm.append(rp2.StateMachine(3, start_from_pin, freq=sm_freq,
+                           jmp_pin=machine.Pin(21)))        # RX Decoding
+    else:
+        sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
+
+    # TX State Machines
+    sm.append(rp2.StateMachine(0, blink_led, freq=sm_freq,
+                           set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
+    sm.append(rp2.StateMachine(1, buffer_out, freq=sm_freq,
+                           out_base=machine.Pin(20)))       # Output of 'raw' bitstream
+    sm.append(rp2.StateMachine(2, encode_dmc, freq=sm_freq,
+                           jmp_pin=machine.Pin(20),
+                           in_base=machine.Pin(18),         # same as pin as out
+                           out_base=machine.Pin(18)))       # Encoded LTC Output
+
+    # RX State Machines
+    if mode > 1:
+        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+                               jmp_pin=machine.Pin(13),
+                               in_base=machine.Pin(13),
+                               set_base=machine.Pin(19)))   # Decoded LTC Input
+    else:
+        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+                               jmp_pin=machine.Pin(18),     # Test - read from self/tx
+                               in_base=machine.Pin(18),     # Test - read from self/tx
+                               set_base=machine.Pin(19)))   # Decoded LTC Input
+
+    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
+                           jmp_pin=machine.Pin(19),
+                           in_base=machine.Pin(19),
+                           out_base=machine.Pin(21),
+                           set_base=machine.Pin(21)))       # 'sync' from RX bitstream
+
+    # Start up threads
+    still_running = True
+    _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm))
+
+    if mode > 1:
         print("Waiting to Jam")
 
     while True:
-        if mode > 0:
+        if mode > 1:
             tc.acquire()
             mode = tc.mode
             tc.release()
@@ -466,55 +508,12 @@ if __name__ == "__main__":
     tc = timecode()
     rc = timecode()
 
-    tc.acquire()
     fps = tc.fps
-    #tc.mode = 1			# Force TX to Jam from RX
-    mode = tc.mode
-    tc.release()
+    #tc.mode = 2			# Force TX to Jam from RX
 
-    print("Starting")
+    print("Starting:")
     print(tc.to_ascii(), fps, "fps")
 
-    # Allocate appropriate StateMachines, and their pins
-    sm = []
-    sm_freq = int(fps * 80 * 16)
-
-    # always want the 'start' SM to be first in the list.
-    '''
-    if mode > 0:
-        # We will only start after a trigger pin goes high
-        sm.append(rp2.StateMachine(3, start_from_pin, freq=sm_freq,
-                           jmp_pin=machine.Pin(17)))        # OLED User key-0
-                           #jmp_pin=machine.Pin(21)))        # RX Decoding
-    else:
-        sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
-    '''
-    sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
-
-    # TX State Machines
-    sm.append(rp2.StateMachine(0, blink_led, freq=sm_freq,
-                           set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
-    sm.append(rp2.StateMachine(1, buffer_out, freq=sm_freq,
-                           out_base=machine.Pin(20)))       # Output of 'raw' bitstream
-    sm.append(rp2.StateMachine(2, encode_dmc, freq=sm_freq,
-                           jmp_pin=machine.Pin(20),
-                           in_base=machine.Pin(18),         # same as pin as out
-                           out_base=machine.Pin(18)))       # Encoded LTC Output
-
-    # RX State Machines
-    sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=machine.Pin(18),         # Test - read from self/tx
-                           in_base=machine.Pin(18),         # Test - read from self/tx
-                           set_base=machine.Pin(19)))       # Decoded LTC Input
-    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
-                           jmp_pin=machine.Pin(19),
-                           in_base=machine.Pin(19),
-                           out_base=machine.Pin(21),
-                           set_base=machine.Pin(21)))       # 'sync' from RX bitstream
-
-    # Start up threads
-    still_running = True
-    _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm))
     ascii_display_thread(tc, rc)
 
-    print("Threads Completed")
+    print("Threads Completed!")

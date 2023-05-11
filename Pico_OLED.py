@@ -13,6 +13,10 @@ MOSI = 11
 SCK = 10
 CS = 9
 
+'''
+keyA = Pin(15,Pin.IN,Pin.PULL_UP)
+keyB = Pin(17,Pin.IN,Pin.PULL_UP)
+'''
 
 class OLED_1inch3(framebuf.FrameBuffer):
     def __init__(self):

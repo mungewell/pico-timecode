@@ -363,7 +363,7 @@ def handler(flags, sm):
         for m in sm:
             m.active(0)
 
-def pico_timecode_thread(tc, rc, sm):
+def pico_timecode_thread(tc, rc, sm, stop):
     send_sync = True        # send 1st packet with sync
     start_sent = False
     
@@ -385,8 +385,7 @@ def pico_timecode_thread(tc, rc, sm):
     tc.release()
 
     # Loop, increasing frame count each time
-    while True:
-
+    while not stop():
         # Empty RX FIFO as it fills
         if sm[5].rx_fifo() >= 2:
             p = []
@@ -401,7 +400,7 @@ def pico_timecode_thread(tc, rc, sm):
 
                 tc.acquire()
                 tc.mode = 0
-                mode = 0
+                mode = 1
                 tc.release()
 
                 # Jam to RX timecode (plus 2 frames)
@@ -409,7 +408,7 @@ def pico_timecode_thread(tc, rc, sm):
                 tc.next_frame()
 
         # Wait for TX FIFO to be empty enough to accept more
-        if mode == 0 and sm[2].tx_fifo() < 5:
+        if mode < 2 and sm[2].tx_fifo() < 5:
             for w in tc.to_ltc_packet(send_sync):
                 sm[2].put(w)
             send_sync = (send_sync + 1) & 1
@@ -426,12 +425,17 @@ def pico_timecode_thread(tc, rc, sm):
                 sm[1].put(0)
             tc.release()
 
-            if mode == 0 and not start_sent:
+            if not start_sent:
                 # enable 'Start' machine last, so others can synchronise to it
                 sm[0].active(1)
                 start_sent = True
             
         utime.sleep(0.001)
+
+    # Stop the StateMachines
+    for m in range(len(sm)):
+        sm[m].active(0)
+        utime.sleep(0.005)
 
 
 def ascii_display_thread(tc, rc):
@@ -445,12 +449,15 @@ def ascii_display_thread(tc, rc):
     sm_freq = int(fps * 80 * 16)
 
     # Note: we always want the 'sync' SM to be first in the list.
+    '''
     if mode > 1:
         # We will only start after a trigger pin goes high
         sm.append(rp2.StateMachine(3, start_from_pin, freq=sm_freq,
                            jmp_pin=machine.Pin(21)))        # RX Decoding
     else:
         sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
+    '''
+    sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
 
     # TX State Machines
     sm.append(rp2.StateMachine(0, blink_led, freq=sm_freq,
@@ -481,8 +488,8 @@ def ascii_display_thread(tc, rc):
                            set_base=machine.Pin(21)))       # 'sync' from RX bitstream
 
     # Start up threads
-    still_running = True
-    _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm))
+    stop = False
+    _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
 
     if mode > 1:
         print("Waiting to Jam")
@@ -508,12 +515,5 @@ if __name__ == "__main__":
     tc = timecode()
     rc = timecode()
 
-    fps = tc.fps
-    #tc.mode = 2			# Force TX to Jam from RX
-
-    print("Starting:")
-    print(tc.to_ascii(), fps, "fps")
-
+    tc.mode = 0
     ascii_display_thread(tc, rc)
-
-    print("Threads Completed!")

@@ -1,14 +1,28 @@
 
-# Proof of Concept
-
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
 and the PIO blocks on the Pico make it very possible...
 
-The `ltc_freerun.py` script is a proof-of-concept, and outputs a counting LTC stream. Connecting this to
-PC audios input (via a resistor divider to reduce level), confirms that the LTC content in the audio 
-can be decoded.
+# First JAM
 
-In the following screen shot the top trace is the 'raw' bitstream, and the lower is the encoded LTC stream.
+We've moved past the Proof-of-concept stage!
+
+I built up a couple of boards, with the Pico-OLED-1.3 display and was able to link LTC (at TTL levels)
+between them. One board was configured to output, and the second was configured to Jam to incoming
+LTC and then switch to outputing... and it worked.
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/T8Qv-cR-q_s" title="YouTube video player"
+frameborder="0" allowfullscreen></iframe>
+
+This code is in three files, all three if you have the same hardware. `Pico_LED.py` is library of screen 
+functions, `pico_timecode.py` and `main.py` is the GUI app.
+
+![Save to Pico](save_to_pico.PNG)
+
+The `pico_timecode.py` script is also a self contained for use without a display.
+
+In the following screen shot from before the top trace is the 'raw' bitstream, and the lower is the encoded 
+LTC stream. We will need some interfacing hardware before the TTL level can be fed nicely into other 
+hardware. 
 
 ![First Decode](first_decode.PNG)
 
@@ -78,10 +92,15 @@ See: [https://github.com/dorsic/PicoPET](https://github.com/dorsic/PicoPET)
 
 ## So how good is it?
 
-*Time will tell...*
+*Time will still tell...*
 
 Given my interest (nee obsession) with TimeCode, I have already aquired some specialised test equipment. I
 will measure the accuracy of the Pico modules and post results soon.
+
+On the above 'first jam' video the two units started well in sync, but after ~20hrs it was clear that the
+LEDs had drifted appart - by around 4 frames. This is still pretty good for a 'crappy' crystal. I will 
+need to do some investigations as to whether this is coding error, or attributed to some other (fixable) 
+issue. Otherwise we'll have to look at compensating somehow, or replacing the crystal with a better one. 
 
 My approach will be to get the code to a point where it will 'Jam' to incoming LTC and then 'free-run' it's
 output LTC. Using my test equipment I can monitor the LTC value from my source, as well as from the 

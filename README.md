@@ -10,7 +10,7 @@ I built up a couple of boards, with the Pico-OLED-1.3 display and was able to li
 between them. One board was configured to output, and the second was configured to Jam to incoming
 LTC and then switch to outputing... and it worked.
 
-![Demo Video]("https://www.youtube.com/embed/T8Qv-cR-q_s")
+[Demo Video](https://www.youtube.com/embed/T8Qv-cR-q_s)
 
 This code is in three files, all three if you have the same hardware. `Pico_LED.py` is library of screen 
 functions, `pico_timecode.py` and `main.py` is the GUI app.

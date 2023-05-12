@@ -97,7 +97,6 @@ def callback_stop_start():
     global tc, rc, sm, stop
 
     if stop == False:
-        # Stop/Start
         stop = True
 
         tc.acquire()
@@ -115,6 +114,7 @@ def callback_stop_start():
 
         stop = False
         _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
+
 
 def callback_monitor():
     global tc, rc, sm, stop
@@ -151,24 +151,58 @@ def callback_jam():
     stop = False
     _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
 
+def callback_fps_df(set):
+    global tc, rc, sm, stop
+
+    tc.acquire()
+    fps = tc.fps
+    df = tc.df
+    tc.release()
+
+    if set=="Yes":
+        df = True
+    elif set == "No":
+        df = False
+    else:
+        fps = float(set)
+
+    # if change is accepted, stop TX
+    if tc.set_fps_df(fps, df):
+        stop = True
+        tc.acquire()
+        tc.mode = 0
+        tc.release()
+
 
 def callback_exit():
     global menu_hidden
     menu_hidden = True
 
 
+def callback_check_stopped():
+    global tc, rc, sm, stop
+
+    if stop:
+        return True
+    else:
+        return False
+
+
 #---------------------------------------------
 
 if __name__ == "__main__":
+    '''
     global tc, rc, sm, stop
     global menu_hidden
     global rx_phase, tx_phase
+    '''
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
 
     tc.acquire()
     fps = tc.fps
+    tc.mode=0
     mode = tc.mode
     format = "FPS: "+ str(tc.fps)
     if tc.fps != 25:
@@ -192,9 +226,12 @@ if __name__ == "__main__":
     menu = Menu(OLED, 4, 10)
     menu.set_screen(MenuScreen('Main Menu')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
+        .add(SubMenuItem('TX Setting', visible=callback_check_stopped)
+             .add(EnumItem("FPS", ["25", "29.97", "30", "24", "23.976"], callback_fps_df))
+             .add(EnumItem("Drop Frame", ["Yes", "No"], callback_fps_df)))
         .add(CallbackItem("Monitor RX", callback_monitor, return_parent=True))
-        .add(ConfirmItem("Jam RX", callback_jam, "Confirm?", ('Yes', 'No')))
-        .add(ConfirmItem("Stop/Start", callback_stop_start, "Confirm?", ('Yes', 'No')))
+        .add(CallbackItem("Jam RX", callback_jam, return_parent=True))
+        .add(ConfirmItem("Stop/Start TX", callback_stop_start, "Confirm?", ('Yes', 'No')))
     )
 
     # Allocate appropriate StateMachines, and their pins
@@ -208,42 +245,56 @@ if __name__ == "__main__":
     _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
 
     while True:
-        if menu_hidden == False:
-            if keyA.value()==0:
-                menu.move(2)		# Requires patched umenu to work
-            if keyB.value()==0:
-                menu.click()
-            menu.draw()
+        tc.acquire()
+        fps = tc.fps
+        format = "FPS: "+ str(tc.fps)
+        if tc.fps != 25 and tc.fps != 24:
+            if tc.df:
+                format += " DF"
+            else:
+                format += " NDF"
+        tc.release()
 
-            # Clear screen after Menu Exits
-            if menu_hidden == True:
+        while True:
+            if menu_hidden == False:
+                if keyA.value()==0:
+                    menu.move(2)        # Requires patched umenu to work
+                if keyB.value()==0:
+                    menu.click()
+                menu.draw()
+
+                # Clear screen after Menu Exits
+                if menu_hidden == True:
+                    OLED.fill(0x0000)
+                    OLED.show(True)
+            else:
+                if keyA.value()==0:
+                    menu.reset()
+                    menu_hidden = False
+
+
+            if menu_hidden:
+                # Only show the following when menu is not active
                 OLED.fill(0x0000)
-                OLED.show(True)
-        else:
-            # re-enable menu
-            if keyA.value()==0:
-                menu_hidden = False
+                OLED.text("Menu:" ,0,2,OLED.white)
 
-        if menu_hidden:
-            # Only show the following when menu is not active
-            OLED.fill(0x0000)
-            OLED.text("Menu:" ,0,2,OLED.white)
-            
-            tc.acquire()
-            mode = tc.mode
-            tc.release()
+                tc.acquire()
+                mode = tc.mode
+                tc.release()
 
-            if mode:
-                OLED.text("RX:" + rc.to_ascii(),0,22,OLED.white)
-                if mode > 1:
-                    OLED.text("Waiting to Jam",0,12,OLED.white)
+                if mode:
+                    OLED.text("RX:" + rc.to_ascii(),0,22,OLED.white)
+                    if mode > 1:
+                        OLED.text("Waiting to Jam",0,12,OLED.white)
 
-            OLED.text(format,0,40,OLED.white)
+                OLED.text(format,0,40,OLED.white)
 
-        # Always show the TX timecode, 'cos that's important!
-        OLED.text("TX:" + tc.to_ascii(),0,54,OLED.white)
-        OLED.show(True)
+            # Always show the TX timecode, 'cos that's important!
+            OLED.text("TX:" + tc.to_ascii(),0,54,OLED.white)
+            OLED.show(True)
 
-        utime.sleep(0.1)
-
+            if not stop:
+                utime.sleep(0.1)
+            else:
+                break
 

@@ -492,19 +492,19 @@ def ascii_display_thread(tc, rc):
                            out_base=machine.Pin(20)))       # Output of 'raw' bitstream
     sm.append(rp2.StateMachine(2, encode_dmc, freq=sm_freq,
                            jmp_pin=machine.Pin(20),
-                           in_base=machine.Pin(18),         # same as pin as out
-                           out_base=machine.Pin(18)))       # Encoded LTC Output
+                           in_base=machine.Pin(13),         # same as pin as out
+                           out_base=machine.Pin(13)))       # Encoded LTC Output
 
     # RX State Machines
     if mode > 1:
         sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                               jmp_pin=machine.Pin(13),
-                               in_base=machine.Pin(13),
+                               jmp_pin=machine.Pin(18),
+                               in_base=machine.Pin(18),
                                set_base=machine.Pin(19)))   # Decoded LTC Input
     else:
         sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                               jmp_pin=machine.Pin(18),     # Test - read from self/tx
-                               in_base=machine.Pin(18),     # Test - read from self/tx
+                               jmp_pin=machine.Pin(13),     # Test - read from self/tx
+                               in_base=machine.Pin(13),     # Test - read from self/tx
                                set_base=machine.Pin(19)))   # Decoded LTC Input
 
     sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,

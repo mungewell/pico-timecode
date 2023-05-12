@@ -20,11 +20,12 @@
 #
 # We'll allocate the following to the PIO blocks
 #
-# GP13 - RX: LTC_INPUT  (physical connection)
-# GP18 - TX: LTC_OUTPUT (physical connection)
+# GP18 - RX: LTC_INPUT  (physical connection)
 # GP19 - RX: raw/decoded LTC input (debug)
-# GP20 - TX: raw LTC bitstream output (debug)
 # GP21 - RX: sync from LTC input (debug)
+#
+# GP20 - TX: raw LTC bitstream output (debug)
+# GP13 - TX: LTC_OUTPUT (physical connection)
 #
 # In the future we will also use:
 #
@@ -50,17 +51,22 @@ sm = []
 stop = False
 tc = timecode()
 rc = timecode()
+
 menu_hidden = True
+menu_hidden2 = False
 
 
 class NoShowScreen(OLED_1inch3):
-    def show(self, really=False):
+    def show(self, start=0):
         # This allows us to superimpose a running 'TC' on the menu
-        if not really:
+        line = 0
+        if start==0:
             return
+        elif start > 1:
+            line = start
 
         self.write_cmd(0xb0)
-        for page in range(0,64):
+        for page in range(line,64):
             self.column = 63 - page
             self.write_cmd(0x00 + (self.column & 0x0f))
             self.write_cmd(0x10 + (self.column >> 4))
@@ -77,13 +83,13 @@ def add_state_machines(sm, sm_freq):
                                out_base=machine.Pin(20)))       # Output of 'raw' bitstream
     sm.append(rp2.StateMachine(2, encode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(20),
-                               in_base=machine.Pin(18),         # same as pin as out
-                               out_base=machine.Pin(18)))       # Encoded LTC Output
+                               in_base=machine.Pin(13),         # same as pin as out
+                               out_base=machine.Pin(13)))       # Encoded LTC Output
 
     # RX State Machines
     sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                               jmp_pin=machine.Pin(13),         # Input from 'other' device
-                               in_base=machine.Pin(13),         # Input from 'other' device
+                               jmp_pin=machine.Pin(18),         # LTC Input ...
+                               in_base=machine.Pin(18),         # ... from 'other' device
                                set_base=machine.Pin(19)))       # Decoded LTC Input
     sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
                                jmp_pin=machine.Pin(19),
@@ -95,14 +101,19 @@ def add_state_machines(sm, sm_freq):
 
 def callback_stop_start():
     global tc, rc, sm, stop
+    global menu_hidden, menu_hidden2
 
     if stop == False:
         stop = True
 
+        # Also stop any Monitor/Jam
         tc.acquire()
         tc.mode = 0
         tc.release()
     else:
+        menu_hidden = True
+        menu_hidden2 = False
+
         tc.acquire()
         fps = tc.fps
         tc.release()
@@ -118,10 +129,10 @@ def callback_stop_start():
 
 def callback_monitor():
     global tc, rc, sm, stop
-    global menu_hidden
+    global menu_hidden, menu_hidden2
     menu_hidden = True
+    menu_hidden2 = False
 
-    # Monitor incoming LTC only
     tc.acquire()
     if tc.mode == 0:
         tc.mode = 1
@@ -132,8 +143,9 @@ def callback_monitor():
 
 def callback_jam():
     global tc, rc, sm, stop
-    global menu_hidden
+    global menu_hidden, menu_hidden2
     menu_hidden = True
+    menu_hidden2 = False
 
     stop = True
     utime.sleep(1)
@@ -166,12 +178,7 @@ def callback_fps_df(set):
     else:
         fps = float(set)
 
-    # if change is accepted, stop TX
-    if tc.set_fps_df(fps, df):
-        stop = True
-        tc.acquire()
-        tc.mode = 0
-        tc.release()
+    tc.set_fps_df(fps, df)
 
 
 def callback_exit():
@@ -186,6 +193,14 @@ def callback_check_stopped():
         return True
     else:
         return False
+
+def callback_check_running():
+    global tc, rc, sm, stop
+
+    if stop:
+        return False
+    else:
+        return True
 
 
 #---------------------------------------------
@@ -220,17 +235,18 @@ if __name__ == "__main__":
     OLED.text("www.github.com/",0,24,OLED.white)
     OLED.text("mungewell/",10,36,OLED.white)
     OLED.text("pico-timecode",20,48,OLED.white)
-    OLED.show(True)
+    OLED.show(1)
     utime.sleep(2)
 
     menu = Menu(OLED, 4, 10)
     menu.set_screen(MenuScreen('Main Menu')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
-        .add(SubMenuItem('TX Setting', visible=callback_check_stopped)
-             .add(EnumItem("FPS", ["25", "29.97", "30", "24", "23.976"], callback_fps_df))
-             .add(EnumItem("Drop Frame", ["Yes", "No"], callback_fps_df)))
-        .add(CallbackItem("Monitor RX", callback_monitor, return_parent=True))
-        .add(CallbackItem("Jam RX", callback_jam, return_parent=True))
+        .add(CallbackItem("Monitor RX", callback_monitor, visible=callback_check_running))
+        .add(CallbackItem("Jam/Sync RX", callback_jam, visible=callback_check_running))
+        .add(SubMenuItem('TX/FPS Setting', visible=callback_check_stopped)
+             .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df))
+             .add(EnumItem("Drop Frame", ["No", "Yes"], callback_fps_df)))
+        .add(InfoItem("--", visible=callback_check_stopped))
         .add(ConfirmItem("Stop/Start TX", callback_stop_start, "Confirm?", ('Yes', 'No')))
     )
 
@@ -247,7 +263,7 @@ if __name__ == "__main__":
     while True:
         tc.acquire()
         fps = tc.fps
-        format = "FPS: "+ str(tc.fps)
+        format = "FPS "+ str(tc.fps)
         if tc.fps != 25 and tc.fps != 24:
             if tc.df:
                 format += " DF"
@@ -266,35 +282,41 @@ if __name__ == "__main__":
                 # Clear screen after Menu Exits
                 if menu_hidden == True:
                     OLED.fill(0x0000)
-                    OLED.show(True)
+                    OLED.show(1)
             else:
                 if keyA.value()==0:
                     menu.reset()
                     menu_hidden = False
 
 
-            if menu_hidden:
+            if (menu_hidden and mode>0) or (menu_hidden and not menu_hidden2):
                 # Only show the following when menu is not active
                 OLED.fill(0x0000)
-                OLED.text("Menu:" ,0,2,OLED.white)
+                OLED.text("<- Menu" ,0,2,OLED.white)
 
                 tc.acquire()
                 mode = tc.mode
                 tc.release()
 
                 if mode:
-                    OLED.text("RX:" + rc.to_ascii(),0,22,OLED.white)
+                    OLED.text("RX  " + rc.to_ascii(),0,22,OLED.white)
                     if mode > 1:
                         OLED.text("Waiting to Jam",0,12,OLED.white)
 
                 OLED.text(format,0,40,OLED.white)
+            else:
+                # clear the lower lines of the screen
+                OLED.rect(0,52,128,10,OLED.balck,True)
 
             # Always show the TX timecode, 'cos that's important!
-            OLED.text("TX:" + tc.to_ascii(),0,54,OLED.white)
-            OLED.show(True)
-
-            if not stop:
-                utime.sleep(0.1)
+            OLED.text("TX  " + tc.to_ascii(),0,54,OLED.white)
+            if menu_hidden and menu_hidden2 and mode==0:
+                # Only draw the very bottoms of the screen
+                OLED.show(52)
             else:
+                OLED.show(1)
+            menu_hidden2=menu_hidden
+
+            if stop:
                 break
 

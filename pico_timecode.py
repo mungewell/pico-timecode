@@ -8,6 +8,11 @@ import _thread
 import utime
 import rp2
 
+# set up Globals
+sm = []
+stop = False
+
+
 @rp2.asm_pio()
 
 def auto_start():
@@ -43,7 +48,7 @@ def blink_led():
 
     label("read_new")
     wrap_target()
-    irq(3)                          # set IRQ-3 for phase monitoring
+    irq(rel(0))                     # set IRQ for ticks_us monitoring
     out(y, 32)                      # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
@@ -96,7 +101,7 @@ def buffer_out():
     
     jmp(not_osre, "start")
                                     # UNDERFLOW - when Python fails to fill FIFOs
-    irq(1)                          # set IRQ-1 to warn other StateMachines
+    irq(rel(0))                     # set IRQ to warn other StateMachines
     wrap_target()
     set(pins, 0)
     wrap()
@@ -153,7 +158,7 @@ def sync_and_read():
 
     set(x, 31)[9]           # Read in the next 31 bits
     mov(isr, null)          # clear ISR
-    irq(2)                  # set IRQ-2 for phase monitoring
+    irq(rel(0))             # set IRQ for ticks_us monitoring
     set(pins, 0)            # signal 'data section' start
 
     label("next_bit")
@@ -172,16 +177,30 @@ def sync_and_read():
 #-------------------------------------------------------
 # handler for IRQs
 
-tx_phase = 0
-rx_phase = 0
+tx_ticks_us = 0
+rx_ticks_us = 0
 
-def tx_phase_handler(sm):
-    global tx_phase
-    tx_phase = utime.ticks_us()
+def irq_handler(m):
+    global sm, tx_ticks_us, rx_ticks_us, stop
+    global tc
 
-def rx_phase_handler(sm):
-    global rx_phase
-    rx_phase = utime.ticks_us()
+    ticks = utime.ticks_us()
+    if m==sm[1]:
+        tx_ticks_us = ticks
+        return
+
+    if m==sm[5]:
+        rx_ticks_us = ticks
+        return
+
+    if m==sm[2]:
+        # Buffer Underflow
+        stop = 1
+
+        tc.acquire()
+        tc.mode = -1
+        tc.release()
+
 
 #---------------------------------------------
 
@@ -255,6 +274,10 @@ class timecode(object):
         self.mm = (time[3]*10) + time[4]
         self.ss = (time[6]*10) + time[7]
         self.ff = (time[9]*10) + time[10]
+        if time[8] == 11:
+            self.df = True
+        else:
+            self.df = False
         self.release()
 
         if self.df:
@@ -272,6 +295,22 @@ class timecode(object):
         for x in time:
             new += chr(x + 0x30)
         return(new)
+
+    def from_int(self, time=0):
+        self.acquire()
+        self.df = (time & 0x80000000) >> 31
+        self.hh = (time & 0x7F000000) >> 24
+        self.mm = (time & 0x00FF0000) >> 16
+        self.ss = (time & 0x0000FF00) >> 8
+        self.ff = (time & 0x000000FF)
+        self.release()
+
+    def to_int(self):
+        self.acquire()
+        time = (self.df << 31) + (self.hh << 24) + (self.mm << 16) + (self.ss << 8) + self.ff
+        self.release()
+
+        return time
 
     def set_fps_df(self, fps=25, df=False):
         # should probably validate FPS/DF combo
@@ -367,7 +406,7 @@ class timecode(object):
             return False
 
         self.acquire()
-        self.df =   (p[0] >> 22) & 0x1
+        self.df = ((p[0] >> 10) & 0x01)
         self.ff = (((p[0] >>  8) & 0x3) * 10) + (p[0] & 0xF)
         self.ss = (((p[0] >> 24) & 0x7) * 10) + ((p[0] >> 16) & 0xF)
         self.mm = (((p[1] >>  8) & 0x7) * 10) + (p[1] & 0xF)
@@ -399,9 +438,14 @@ def pico_timecode_thread(tc, rc, sm, stop):
         utime.sleep(0.005)
 
     tc.acquire()
+    fps = tc.fps
     mode = tc.mode
-    df = tc.mode
+    df = tc.df
     tc.release()
+
+    gc = timecode()
+    rmf = 0
+    mark = (1000000 / fps) * 64/80
 
     # Loop, increasing frame count each time
     while not stop():
@@ -415,25 +459,66 @@ def pico_timecode_thread(tc, rc, sm, stop):
 
             if mode > 1:
                 # should perform some basic validation:
-                # check DF flag
-                # check fps
-                # check packets are counting correctly
+                rc.acquire()
+                rdf = rc.df
+                rff = rc.ff
+                rc.release()
+                fail = False
 
-                mode -= 1
+                # check DF flag
+                if rdf != df:
+                    fail = True
+
+                # check packets are counting correctly
+                g = gc.to_int()
+                r = rc.to_int()
+                if g!=0:
+                    if g!=r:
+                        fail = True
+                gc.from_int(r)
+                gc.next_frame()
+
+                if fail:
+                    mode = 64
+                else:
+                    mode -= 1
                 tc.acquire()
                 tc.mode = mode
                 tc.release()
 
                 if mode == 1:
-                    s = rc.to_ascii()
-                    tc.from_ascii(s)
+                    # Figure out what RX frame to Jam to
+                    while True:
+                        r1 = rx_ticks_us
+                        f = sm[5].rx_fifo()
+                        g = rc.to_ascii()
+                        r2 = rx_ticks_us
+                        n = utime.ticks_us()
 
-                    # Jam to RX timecode (plus 2 frames)
-                    tc.next_frame()
-                    tc.next_frame()
+                        if r1==r2:
+                            tc.from_ascii(g)
+                            for i in range(f/2):        # allow for FIFO queue
+                                tc.next_frame()
+                            if (n - r1) < (mark + 50):  # Before DZ
+                                tc.next_frame()
+                                mode = 1
+                                break
+
+                            # Skip frame and try next
+                            break
+
+                    # Jam to 'next' RX timecode
+                    if mode == 1:
+                        tc.next_frame()
+                        '''
+                        mode = 0
+                        tc.acquire()
+                        tc.mode = mode
+                        tc.release()
+                        '''
 
         # Wait for TX FIFO to be empty enough to accept more
-        if mode < 2 and sm[2].tx_fifo() < 5:
+        if mode < 2 and sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:
             for w in tc.to_ltc_packet(send_sync):
                 sm[2].put(w)
             send_sync = (send_sync + 1) & 1
@@ -463,7 +548,9 @@ def pico_timecode_thread(tc, rc, sm, stop):
         utime.sleep(0.005)
 
 
-def ascii_display_thread(tc, rc):
+def ascii_display_thread():
+    global tc, rc, sm, stop
+
     tc.acquire()
     mode = tc.mode
     fps = tc.fps
@@ -477,20 +564,19 @@ def ascii_display_thread(tc, rc):
     '''
     if mode > 1:
         # We will only start after a trigger pin goes high
-        sm.append(rp2.StateMachine(3, start_from_pin, freq=sm_freq,
+        sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
                            jmp_pin=machine.Pin(21)))        # RX Decoding
     else:
-        sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
+        sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
     '''
-    sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
+    sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
 
     # TX State Machines
-    sm.append(rp2.StateMachine(0, blink_led, freq=sm_freq,
+    sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
                            set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
-    sm[-1].irq(tx_phase_handler)
-    sm.append(rp2.StateMachine(1, buffer_out, freq=sm_freq,
+    sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
                            out_base=machine.Pin(20)))       # Output of 'raw' bitstream
-    sm.append(rp2.StateMachine(2, encode_dmc, freq=sm_freq,
+    sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
                            jmp_pin=machine.Pin(20),
                            in_base=machine.Pin(13),         # same as pin as out
                            out_base=machine.Pin(13)))       # Encoded LTC Output
@@ -512,14 +598,14 @@ def ascii_display_thread(tc, rc):
                            in_base=machine.Pin(19),
                            out_base=machine.Pin(21),
                            set_base=machine.Pin(21)))       # 'sync' from RX bitstream
-    sm[-1].irq(rx_phase_handler)
+
+    # set up IRQ handler
+    for m in sm:
+        m.irq(irq_handler)
 
     # Start up threads
     stop = False
     _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
-
-    if mode > 1:
-        print("Waiting to Jam")
 
     while True:
         if mode > 1:
@@ -528,19 +614,25 @@ def ascii_display_thread(tc, rc):
             tc.release()
 
         if mode:
+            if mode>1:
+                print("Jamming:", mode)
             print("RX:", rc.to_ascii())
-        else:
+
+        if mode == 0:
             print("TX:", tc.to_ascii())
+
+        if mode < 0:
+            print("Underflow Error")
+            break
 
         utime.sleep(0.1)
 
-
 #---------------------------------------------
 
-if __name__ == "__main__":
-    # set up starting values...
-    tc = timecode()
-    rc = timecode()
+tc = timecode()
+rc = timecode()
 
+if __name__ == "__main__":
+    # set upstarting values...
     tc.mode = 0
-    ascii_display_thread(tc, rc)
+    ascii_display_thread()

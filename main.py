@@ -46,14 +46,33 @@ import _thread
 import utime
 import rp2
 
-# set up starting values...
-sm = []
-stop = False
-tc = timecode()
-rc = timecode()
-
+# Set up globals
 menu_hidden = True
 menu_hidden2 = False
+
+def irq_handler(m):
+    global sm, tx_ticks_us, rx_ticks_us, stop
+    global menu_hidden, menu_hidden2
+
+    ticks = utime.ticks_us()
+    if m==sm[1]:
+        tx_ticks_us = ticks
+        return
+
+    if m==sm[5]:
+        rx_ticks_us = ticks
+        return
+
+    if m==sm[2]:
+        # Buffer Underflow
+        stop = 1
+
+        tc.acquire()
+        tc.mode = -1
+        tc.release()
+
+        menu_hidden = True
+        menu_hidden2 = False
 
 
 class NoShowScreen(OLED_1inch3):
@@ -74,14 +93,15 @@ class NoShowScreen(OLED_1inch3):
                 self.write_data(self.buffer[page*16+num])
 
 
-def add_state_machines(sm, sm_freq):
+def add_more_state_machines(sm_freq):
+    global sm
+
     # TX State Machines
-    sm.append(rp2.StateMachine(0, blink_led, freq=sm_freq,
+    sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
                                set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
-    sm[-1].irq(tx_phase_handler)
-    sm.append(rp2.StateMachine(1, buffer_out, freq=sm_freq,
+    sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
                                out_base=machine.Pin(20)))       # Output of 'raw' bitstream
-    sm.append(rp2.StateMachine(2, encode_dmc, freq=sm_freq,
+    sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(20),
                                in_base=machine.Pin(13),         # same as pin as out
                                out_base=machine.Pin(13)))       # Encoded LTC Output
@@ -96,7 +116,10 @@ def add_state_machines(sm, sm_freq):
                                in_base=machine.Pin(19),
                                out_base=machine.Pin(21),
                                set_base=machine.Pin(21)))       # 'sync' from RX bitstream
-    sm[-1].irq(rx_phase_handler)
+
+    # set up IRQ handler
+    for m in sm:
+        m.irq(irq_handler)
 
 
 def callback_stop_start():
@@ -120,8 +143,8 @@ def callback_stop_start():
 
         sm = []
         sm_freq = int(fps * 80 * 16)
-        sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
-        add_state_machines(sm, sm_freq)
+        sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
+        add_more_state_machines(sm_freq)
 
         stop = False
         _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
@@ -147,19 +170,28 @@ def callback_jam():
     menu_hidden = True
     menu_hidden2 = False
 
+    # Turn off Jam if already enabled
+    tc.acquire()
+    '''
+    mode = tc.mode
+    if mode > 1:
+        tc.mode = 0
+        tc.release()
+        return
+    '''
+
+    fps = tc.fps
+    tc.mode = 64
+    tc.release()
+
     stop = True
     utime.sleep(1)
 
-    tc.acquire()
-    fps = tc.fps
-    tc.mode = 2
-    tc.release()
-
     sm = []
     sm_freq = int(fps * 80 * 16)
-    sm.append(rp2.StateMachine(3, start_from_pin, freq=sm_freq,
+    sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
                                jmp_pin=machine.Pin(21)))        # Sync from RX LTC
-    add_state_machines(sm, sm_freq)
+    add_more_state_machines(sm_freq)
     stop = False
     _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
 
@@ -206,11 +238,10 @@ def callback_check_running():
 #---------------------------------------------
 
 if __name__ == "__main__":
-    '''
     global tc, rc, sm, stop
-    global menu_hidden
-    global rx_phase, tx_phase
-    '''
+    global tx_ticks_us, rx_ticks_us
+
+    gc = timecode()
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
@@ -242,19 +273,18 @@ if __name__ == "__main__":
     menu.set_screen(MenuScreen('Main Menu')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
         .add(CallbackItem("Monitor RX", callback_monitor, visible=callback_check_running))
-        .add(CallbackItem("Jam/Sync RX", callback_jam, visible=callback_check_running))
         .add(SubMenuItem('TX/FPS Setting', visible=callback_check_stopped)
              .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df))
              .add(EnumItem("Drop Frame", ["No", "Yes"], callback_fps_df)))
-        .add(InfoItem("--", visible=callback_check_stopped))
+        .add(CallbackItem("Jam/Sync RX", callback_jam))
         .add(ConfirmItem("Stop/Start TX", callback_stop_start, "Confirm?", ('Yes', 'No')))
     )
 
     # Allocate appropriate StateMachines, and their pins
     sm = []
     sm_freq = int(fps * 80 * 16)
-    sm.append(rp2.StateMachine(3, auto_start, freq=sm_freq))
-    add_state_machines(sm, sm_freq)    
+    sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
+    add_more_state_machines(sm_freq)
 
     # Start up threads
     stop = False
@@ -270,6 +300,7 @@ if __name__ == "__main__":
             else:
                 format += " NDF"
         tc.release()
+        cycle = (1000000 / fps)
 
         while True:
             if menu_hidden == False:
@@ -299,19 +330,63 @@ if __name__ == "__main__":
                 tc.release()
 
                 if mode:
-                    OLED.text("RX  " + rc.to_ascii(),0,22,OLED.white)
+                    # Figure out what RX frame to display
+                    while True:
+                        r1 = rx_ticks_us
+                        t1 = tx_ticks_us
+                        f = sm[5].rx_fifo()
+                        g = rc.to_int()
+                        r2 = rx_ticks_us
+                        n = utime.ticks_us()
+                        if r1==r2:
+                            gc.from_int(g)
+                            '''
+                            for i in range(f/2):        # allow for FIFO queue
+                                gc.next_frame()
+                            '''
+                            if (n - r1) < (cycle * 64/80):
+                                gc.next_frame()
+                            break
+
+                    # Draw an error bar to represent timing betwen TX and RX
+                    if mode == 1:
+                        while (r1 > t1 + cycle):
+                            r1 -= cycle
+                        while (r1 < t1 - cycle):
+                            r1 += cycle
+                        OLED.vline(64, 32, 4, OLED.white)
+                        if r1 > t1:
+                            length = int(640 * (r1-t1)/cycle)
+                            OLED.hline(65, 33, length, OLED.white)
+                            OLED.hline(65, 34, length, OLED.white)
+                        else:
+                            length = int(640 * (t1-r1)/cycle)
+                            OLED.hline(63-length, 33, length, OLED.white)
+                            OLED.hline(63-length, 34, length, OLED.white)
+
+                    OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
                     if mode > 1:
-                        OLED.text("Waiting to Jam",0,12,OLED.white)
+                        OLED.text("Jamming to:",0,12,OLED.white)
+
+                        # Draw a line representing time until Jam complete
+                        OLED.vline(0, 32, 4, OLED.white)
+                        OLED.hline(0, 33, mode * 2, OLED.white)
+                        OLED.hline(0, 34, mode * 2, OLED.white)
 
                 OLED.text(format,0,40,OLED.white)
             else:
                 # clear the lower lines of the screen
                 OLED.rect(0,52,128,10,OLED.balck,True)
 
-            # Always show the TX timecode, 'cos that's important!
-            OLED.text("TX  " + tc.to_ascii(),0,54,OLED.white)
+            if mode < 0:
+                OLED.text("Underflow Error",0,54,OLED.white)
+            else:
+                # Always show the TX timecode, 'cos that's important!
+                # since FIFO is in use, our current 'tc' is always ahead
+                OLED.text("TX  " + tc.to_ascii(),0,54,OLED.white)
+
             if menu_hidden and menu_hidden2 and mode==0:
-                # Only draw the very bottoms of the screen
+                # Only draw the bottom lines of the screen
                 OLED.show(52)
             else:
                 OLED.show(1)

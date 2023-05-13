@@ -94,7 +94,7 @@ The microPython script needs to monitor the FIFOs, to keep them feed or emptied.
                                set_base=machine.Pin(21)))       # 'sync' from RX bitstream
 ```
 
-##start_from_pin
+## start_from_pin
 
 Triggers start up, either automatically or from a pin. This sends IRQ to all of the TX
 machines so that they start in unison. All of the PIO run at the same clock rate, which
@@ -103,26 +103,26 @@ machines so that they start in unison. All of the PIO run at the same clock rate
 Although they run at the same clock speed, the RX machines are not nessecarily synchronised 
 with the TX machines.
 
-##blink_led
+## blink_led
 
 This loops precisely every frame, pushed values determine whether the LED blinks (for how
 long) and the length of the loop. The very first cycle is slight longer to align blink with
 start of frame - as we actually send Sync word before data.
 
-##buffer_out
+## buffer_out
 
 Data and Sync words are loaded by script via FIFO and machine plays out a 'raw' bit stream.
 
-##encode_dmc
+## encode_dmc
 
 Takes the 'raw' bit stream and 'modulates' it into LTC stream (Differential Machester Encoding).
 
-##decode_dmc
+## decode_dmc
 
 Receives the LTC stream (from the 'other device') and 'demodulates' it into a raw stream.
 Uses a IRQ to signal the start of each bit, helping the reader keep sync.
 
-##sync_and_read 
+## sync_and_read 
 
 Takes the 'raw' bit stream, and processes in 2 halves... firstly uses a shift like arrangement
 to clock the data into the ISR and then compares value with the Sync word. 

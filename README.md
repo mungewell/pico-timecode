@@ -2,9 +2,9 @@
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
 and the PIO blocks on the Pico make it very possible...
 
-# First JAM
+# Now we're JAM'ing
 
-We've moved past the Proof-of-concept stage!
+We've moved past the Proof-of-concept stage! Well past....
 
 I built up a couple of boards, with the Pico-OLED-1.3 display and was able to link LTC (at TTL levels)
 between them. One board was configured to output, and the second was configured to Jam to incoming
@@ -12,14 +12,21 @@ LTC and then switch to outputing... and it worked.
 
 [Demo Video](https://www.youtube.com/embed/T8Qv-cR-q_s)
 
-This code is in three files, all three if you have the same hardware. `Pico_LED.py` is library of screen 
-functions, `pico_timecode.py` and `main.py` is the GUI app.
+Expect a new demo video soon... The script(s) now has a menu which can be used to control the device, 
+and to navigate the settings. The incoming LTC is validated before Jam is performed, and the RX monitor
+has indicator bar to show the relative timing between RX and TX.
+
+This code is in four files; uploaded all four if you have the same hardware.
+
+`Pico_LED.py` is library of screen functions, `umenu.py` is menuing library, `pico_timecode.py` and 
+`main.py` combine to make the GUI app.
 
 ![Save to Pico](save_to_pico.PNG)
 
-The `pico_timecode.py` script is also a self contained for use without a display.
+The `pico_timecode.py` script is also a self contained for use without a display, ie can be used on 
+its own on a 'bare' Pico board.
 
-In the following screen shot from before the top trace is the 'raw' bitstream, and the lower is the encoded 
+In the following screen shot the top trace is the 'raw' bitstream, and the lower is the encoded 
 LTC stream. We will need some interfacing hardware before the TTL level can be fed nicely into other 
 hardware. 
 
@@ -52,6 +59,83 @@ connect into the Pico.
 
 If you do use my code for a personal project, drop me an email/picture.
 If you make a device to sell, please send me an sample to test.
+
+# How it works - PIO in detail
+
+All of the LTC decoding is done in the PIO blocks, each has it's own task. Communincation
+between the PIO is via their in/out pins, and with interrupts. 
+
+The microPython script needs to monitor the FIFOs, to keep them feed or emptied.
+
+```
+    # Start-up/Trigger
+    sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
+                               jmp_pin=machine.Pin(21)))        # Sync from RX LTC
+
+    # TX State Machines
+    sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
+                               set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
+    sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
+                               out_base=machine.Pin(20)))       # Output of 'raw' bitstream
+    sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
+                               jmp_pin=machine.Pin(20),
+                               in_base=machine.Pin(13),         # same as pin as out
+                               out_base=machine.Pin(13)))       # Encoded LTC Output
+
+    # RX State Machines
+    sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+                               jmp_pin=machine.Pin(18),         # LTC Input ...
+                               in_base=machine.Pin(18),         # ... from 'other' device
+                               set_base=machine.Pin(19)))       # Decoded LTC Input
+    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
+                               jmp_pin=machine.Pin(19),
+                               in_base=machine.Pin(19),
+                               out_base=machine.Pin(21),
+                               set_base=machine.Pin(21)))       # 'sync' from RX bitstream
+```
+
+##start_from_pin
+
+Triggers start up, either automatically or from a pin. This sends IRQ to all of the TX
+machines so that they start in unison. All of the PIO run at the same clock rate, which
+(at preset) is 16x the LTC bit clock.
+
+Although they run at the same clock speed, the RX machines are not nessecarily synchronised 
+with the TX machines.
+
+##blink_led
+
+This loops precisely every frame, pushed values determine whether the LED blinks (for how
+long) and the length of the loop. The very first cycle is slight longer to align blink with
+start of frame - as we actually send Sync word before data.
+
+##buffer_out
+
+Data and Sync words are loaded by script via FIFO and machine plays out a 'raw' bit stream.
+
+##encode_dmc
+
+Takes the 'raw' bit stream and 'modulates' it into LTC stream (Differential Machester Encoding).
+
+##decode_dmc
+
+Receives the LTC stream (from the 'other device') and 'demodulates' it into a raw stream.
+Uses a IRQ to signal the start of each bit, helping the reader keep sync.
+
+##sync_and_read 
+
+Takes the 'raw' bit stream, and processes in 2 halves... firstly uses a shift like arrangement
+to clock the data into the ISR and then compares value with the Sync word. 
+
+Value of Sync word is pre-loaded to Y via the FIFO. As the PIO does not have math functions, it 
+**double-clocks** into the ISR, and can then use the `jmp(X != Y)` function to evaluate Sync word. 
+
+When a Sync is found, it then clocks data portion into the ISR and pushes into the RX FIFO, as
+two words. *It does not send Sync word to FIFO.*
+
+It also sends a sync pulse on it's output pin, this is used to trigger the TX machine(s) when 
+we are Jamming to received LTC.
+
 
 # LTC Information
 

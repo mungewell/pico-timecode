@@ -12,18 +12,20 @@ LTC and then switch to outputing... and it worked.
 
 [Demo Video](https://www.youtube.com/embed/T8Qv-cR-q_s)
 
-Expect a new demo video soon... The script(s) now has a menu which can be used to control the device, 
-and to navigate the settings. The incoming LTC is validated before Jam is performed, and the RX monitor
-has indicator bar to show the relative timing between RX and TX.
+Expect a new demo video soon... 
 
-This code is in four files; uploaded all four if you have the same hardware.
+The script(s) now has a menu which can be used to control the device, and to navigate the settings. 
+The incoming LTC is now validated before Jam is performed, and the RX monitor has indicator bar to 
+show the relative timing between RX and TX.
+
+This code is in four files; upload all four if you have the same hardware.
 
 `Pico_LED.py` is library of screen functions, `umenu.py` is menuing library, `pico_timecode.py` and 
 `main.py` combine to make the GUI app.
 
 ![Save to Pico](save_to_pico.PNG)
 
-The `pico_timecode.py` script is also a self contained for use without a display, ie can be used on 
+The `pico_timecode.py` script is also self contained for use without a display, ie can be used on 
 its own on a 'bare' Pico board.
 
 In the following screen shot the top trace is the 'raw' bitstream, and the lower is the encoded 

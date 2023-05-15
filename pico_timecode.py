@@ -34,7 +34,6 @@ def start_from_pin():
 
     label("start")
     irq(clear, 4)                   # Trigger Sync
-    #irq(rel(0))                     # set IRQ for ticks_us monitoring
 
     label("halt")
     jmp("halt") [31]
@@ -108,7 +107,7 @@ def buffer_out():
     wrap()
 
 
-@rp2.asm_pio(set_init=rp2.PIO.OUT_LOW)
+@rp2.asm_pio(set_init=(rp2.PIO.OUT_LOW,)*2)
 
 def decode_dmc():
     label("previously_low")
@@ -151,8 +150,8 @@ def sync_and_read():
     mov(isr, x)             # force X value back into ISR, clears counter
     irq(block, 5)           # wait for input, databit ready
                             # Note: the following sample is from previous bit
-    in_(pins, 1)            # Double clock input (ie duplicate bits)
-    in_(pins, 1)            # auto-push will NOT trigger...
+    in_(pins, 2)            # Double clock input (ie duplicate bits)
+    #in_(pins, 1)            # auto-push will NOT trigger...
     mov(x, isr)[10]
 
     jmp(x_not_y, "find_sync")
@@ -160,7 +159,7 @@ def sync_and_read():
 
     set(x, 31)[8]#[14]           # Read in the next 32 bits
     mov(isr, null)          # clear ISR
-    #irq(rel(0))             # set IRQ for ticks_us monitoring
+    irq(rel(0))             # set IRQ for ticks_us monitoring
     set(pins, 0)            # signal 'data section' start
 
     label("next_bit")
@@ -430,7 +429,8 @@ def pico_timecode_thread(tc, rc, sm, stop):
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
-    sm[5].put(3489660912)
+    #sm[5].put(3489660912)
+    sm[5].put(1163220304)
 
     # Set up Blink/LED timing
     sm[1].put(304)          # 1st cycle includes 'extra sync' correction
@@ -448,7 +448,8 @@ def pico_timecode_thread(tc, rc, sm, stop):
     tc.release()
 
     gc = timecode()
-    rmf = 0
+    gc.set_fps_df(fps, df)
+
     mark = (1000000 / fps) * 64/80
 
     # Loop, increasing frame count each time
@@ -463,19 +464,15 @@ def pico_timecode_thread(tc, rc, sm, stop):
 
             if mode > 1:
                 # should perform some basic validation:
-                rc.acquire()
-                rdf = rc.df
-                rff = rc.ff
-                rc.release()
+                g = gc.to_int()
+                r = rc.to_int()
                 fail = False
 
-                # check DF flag
-                if rdf != df:
+                # check DF flags match
+                if (r >> 31) != df:
                     fail = True
 
                 # check packets are counting correctly
-                g = gc.to_int()
-                r = rc.to_int()
                 if g!=0:
                     if g!=r:
                         fail = True
@@ -483,7 +480,7 @@ def pico_timecode_thread(tc, rc, sm, stop):
                 gc.next_frame()
 
                 if fail:
-                    mode = 64
+                    mode = 64       # Start process again
                 else:
                     mode -= 1
                 tc.acquire()
@@ -570,7 +567,7 @@ def ascii_display_thread():
     sm_freq = int(fps * 80 * 16)
 
     # Note: we always want the 'sync' SM to be first in the list.
-    '''
+
     if mode > 1:
         # We will only start after a trigger pin goes high
         sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
@@ -579,14 +576,14 @@ def ascii_display_thread():
         sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
     '''
     sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
-
+    '''
     # TX State Machines
     sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
                            set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
     sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
-                           out_base=machine.Pin(20)))       # Output of 'raw' bitstream
+                           out_base=machine.Pin(22)))       # Output of 'raw' bitstream
     sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
-                           jmp_pin=machine.Pin(20),
+                           jmp_pin=machine.Pin(22),
                            in_base=machine.Pin(13),         # same as pin as out
                            out_base=machine.Pin(13)))       # Encoded LTC Output
 
@@ -644,4 +641,5 @@ rc = timecode()
 if __name__ == "__main__":
     # set upstarting values...
     tc.mode = 0
+
     ascii_display_thread()

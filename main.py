@@ -22,15 +22,16 @@
 #
 # GP18 - RX: LTC_INPUT  (physical connection)
 # GP19 - RX: raw/decoded LTC input (debug)
+# GP20 - ditto - Hack to accomodate running out of memory
 # GP21 - RX: sync from LTC input (debug)
 #
-# GP20 - TX: raw LTC bitstream output (debug)
+# GP22 - TX: raw LTC bitstream output (debug)
 # GP13 - TX: LTC_OUTPUT (physical connection)
 #
 # In the future we will also use:
 #
-# GP14 - IN_DET (reserved)
-# GP16 - OUT_DET (reserved)
+# GP14 - OUT_DET (reserved)
+# GP16 - IN_DET (reserved)
 # GP26 - BLINK_LED (reserved)
 # (this will enable both Pico and off board LED simulataneously)
 #
@@ -100,9 +101,9 @@ def add_more_state_machines(sm_freq):
     sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
                                set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
     sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
-                               out_base=machine.Pin(20)))       # Output of 'raw' bitstream
+                               out_base=machine.Pin(22)))       # Output of 'raw' bitstream
     sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
-                               jmp_pin=machine.Pin(20),
+                               jmp_pin=machine.Pin(22),
                                in_base=machine.Pin(13),         # same as pin as out
                                out_base=machine.Pin(13)))       # Encoded LTC Output
 
@@ -331,7 +332,6 @@ if __name__ == "__main__":
 
                 if mode:
                     # Figure out what RX frame to display
-                    '''
                     while True:
                         r1 = rx_ticks_us
                         t1 = tx_ticks_us
@@ -341,26 +341,22 @@ if __name__ == "__main__":
                         n = utime.ticks_us()
                         if r1==r2:
                             gc.from_int(g)
-                            for i in range(f/2):        # allow for FIFO queue
-                                gc.next_frame()
-                            if (n - r1) < (cycle * 64/80):
-                                gc.next_frame()
                             break
-                    '''
-                    g = rc.to_int()
-                    gc.from_int(g)
+
                     gc.next_frame()			# TC is ahead due to buffers...
                     gc.next_frame()
                     gc.next_frame()
                     gc.next_frame()
 
                     # Draw an error bar to represent timing betwen TX and RX
-                    '''
                     if mode == 1:
+                        '''
                         while (r1 > t1 + cycle):
                             r1 -= cycle
                         while (r1 < t1 - cycle):
                             r1 += cycle
+                        '''
+                        r1 -= 1000000 / (fps * 80)
                         OLED.vline(64, 32, 4, OLED.white)
                         if r1 > t1:
                             length = int(640 * (r1-t1)/cycle)
@@ -370,7 +366,6 @@ if __name__ == "__main__":
                             length = int(640 * (t1-r1)/cycle)
                             OLED.hline(63-length, 33, length, OLED.white)
                             OLED.hline(63-length, 34, length, OLED.white)
-                    '''
 
                     OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
                     if mode > 1:

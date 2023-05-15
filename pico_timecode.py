@@ -34,6 +34,7 @@ def start_from_pin():
 
     label("start")
     irq(clear, 4)                   # Trigger Sync
+    #irq(rel(0))                     # set IRQ for ticks_us monitoring
 
     label("halt")
     jmp("halt") [31]
@@ -110,29 +111,32 @@ def buffer_out():
 @rp2.asm_pio(set_init=rp2.PIO.OUT_LOW)
 
 def decode_dmc():
-    label("initial_high")
-    wait(1, pin, 0)
-    irq(clear, 5)[10]        # trigger sync engine, and wait til 3/4s mark
+    label("previously_low")
+    wait(1, pin, 0)         # Line going high
+    irq(clear, 5)           # trigger sync engine, and wait til 3/4s mark
+    nop()[18]
 
-    jmp(pin, "high_0")
-    label("high_1")
-    set(pins, 1)            # Second transition detected (a `1` data symbol)
-    jmp("initial_high")
-    label("high_0")
-    set(pins, 0)            # Line still high, no centre transition (data is `0`)
-                            # fall through... a few cycles early
-    wrap_target()
-    label("initial_low")
-    wait(0, pin, 0)
-    irq(clear, 5)[10]        # trigger sync engine, and wait til 3/4s mark
-
-    jmp(pin, "low_1")
-    label("low_0")
-    set(pins, 0)            # Line still low, no centre transition (data is `0`)
-    jmp("initial_high")
-    label("low_1")
+    jmp(pin, "staying_high")
     set(pins, 1)            # Second transition detected (data is `1`)
+    jmp("previously_low")   # Wait for next bit...
 
+    label("staying_high")
+    set(pins, 0)            # Line still high, no centre transition (data is `0`)
+                            # |
+                            # | fall through... a few cycles early
+                            # V
+    wrap_target()
+    label("previously_high")
+    wait(0, pin, 0)         # Line going Low
+    irq(clear, 5)           # trigger sync engine, and wait til 3/4s mark
+    nop()[18]
+
+    jmp(pin, "going_high")
+    set(pins, 0)            # Line still low, no centre transition (data is `0`)
+    jmp("previously_low")   # Wait for next bit...
+
+    label("going_high")
+    set(pins, 1)            # Second transition detected (therfore data is `1`)
     wrap()
 
 
@@ -143,34 +147,34 @@ def sync_and_read():
     out(y, 32)              # Read the expected sync word to Y
 
     wrap_target()
-    set(x, 0)
-
     label("find_sync")
     mov(isr, x)             # force X value back into ISR, clears counter
     irq(block, 5)           # wait for input, databit ready
-    set(pins, 1)[3]         # signal 'header section' start
-
+                            # Note: the following sample is from previous bit
     in_(pins, 1)            # Double clock input (ie duplicate bits)
     in_(pins, 1)            # auto-push will NOT trigger...
-    mov(x, isr)
+    mov(x, isr)[10]
 
     jmp(x_not_y, "find_sync")
+    set(pins, 0)
 
-    set(x, 31)[9]           # Read in the next 31 bits
+    set(x, 31)[8]#[14]           # Read in the next 32 bits
     mov(isr, null)          # clear ISR
-    irq(rel(0))             # set IRQ for ticks_us monitoring
+    #irq(rel(0))             # set IRQ for ticks_us monitoring
     set(pins, 0)            # signal 'data section' start
 
     label("next_bit")
-    in_(pins, 1)
-    jmp(x_dec, "next_bit")[14]
+    in_(pins, 1)			# 1st should be 32 cycles after last IRQ
+    jmp(x_dec, "next_bit")[30]
 
-    set(x, 31)              # Read in the next 31 bits
+    set(x, 30)              # Read in the next 31 bits
 
     label("next_bit2")
     in_(pins, 1)
-    jmp(x_dec, "next_bit2")[14]
+    jmp(x_dec, "next_bit2")[30]
 
+    set(pins, 1)
+    in_(pins, 1)			# Read last bit
     wrap()
 
 
@@ -488,6 +492,7 @@ def pico_timecode_thread(tc, rc, sm, stop):
 
                 if mode == 1:
                     # Figure out what RX frame to Jam to
+                    '''
                     while True:
                         r1 = rx_ticks_us
                         f = sm[5].rx_fifo()
@@ -506,9 +511,13 @@ def pico_timecode_thread(tc, rc, sm, stop):
 
                             # Skip frame and try next
                             break
+                    '''
 
                     # Jam to 'next' RX timecode
                     if mode == 1:
+                        g = rc.to_int()
+                        tc.from_int(g)
+                        tc.next_frame()
                         tc.next_frame()
                         '''
                         mode = 0
@@ -583,17 +592,17 @@ def ascii_display_thread():
 
     # RX State Machines
     if mode > 1:
-        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq*2,
                                jmp_pin=machine.Pin(18),
                                in_base=machine.Pin(18),
                                set_base=machine.Pin(19)))   # Decoded LTC Input
     else:
-        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq*2,
                                jmp_pin=machine.Pin(13),     # Test - read from self/tx
                                in_base=machine.Pin(13),     # Test - read from self/tx
                                set_base=machine.Pin(19)))   # Decoded LTC Input
 
-    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
+    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq*2,
                            jmp_pin=machine.Pin(19),
                            in_base=machine.Pin(19),
                            out_base=machine.Pin(21),

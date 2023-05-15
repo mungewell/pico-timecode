@@ -107,11 +107,11 @@ def add_more_state_machines(sm_freq):
                                out_base=machine.Pin(13)))       # Encoded LTC Output
 
     # RX State Machines
-    sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+    sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq*2,
                                jmp_pin=machine.Pin(18),         # LTC Input ...
                                in_base=machine.Pin(18),         # ... from 'other' device
                                set_base=machine.Pin(19)))       # Decoded LTC Input
-    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
+    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq*2,
                                jmp_pin=machine.Pin(19),
                                in_base=machine.Pin(19),
                                out_base=machine.Pin(21),
@@ -331,6 +331,7 @@ if __name__ == "__main__":
 
                 if mode:
                     # Figure out what RX frame to display
+                    '''
                     while True:
                         r1 = rx_ticks_us
                         t1 = tx_ticks_us
@@ -340,15 +341,21 @@ if __name__ == "__main__":
                         n = utime.ticks_us()
                         if r1==r2:
                             gc.from_int(g)
-                            '''
                             for i in range(f/2):        # allow for FIFO queue
                                 gc.next_frame()
-                            '''
                             if (n - r1) < (cycle * 64/80):
                                 gc.next_frame()
                             break
+                    '''
+                    g = rc.to_int()
+                    gc.from_int(g)
+                    gc.next_frame()			# TC is ahead due to buffers...
+                    gc.next_frame()
+                    gc.next_frame()
+                    gc.next_frame()
 
                     # Draw an error bar to represent timing betwen TX and RX
+                    '''
                     if mode == 1:
                         while (r1 > t1 + cycle):
                             r1 -= cycle
@@ -363,6 +370,7 @@ if __name__ == "__main__":
                             length = int(640 * (t1-r1)/cycle)
                             OLED.hline(63-length, 33, length, OLED.white)
                             OLED.hline(63-length, 34, length, OLED.white)
+                    '''
 
                     OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
                     if mode > 1:

@@ -39,6 +39,7 @@
 #
 
 from umenu import *
+from neotimer import *
 from Pico_OLED import *
 from pico_timecode import *
 
@@ -246,6 +247,8 @@ if __name__ == "__main__":
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
+    timerA = Neotimer(250)
+    timerB = Neotimer(250)
 
     tc.acquire()
     fps = tc.fps
@@ -305,9 +308,9 @@ if __name__ == "__main__":
 
         while True:
             if menu_hidden == False:
-                if keyA.value()==0:
+                if timerA.debounce_signal(keyA.value()):
                     menu.move(2)        # Requires patched umenu to work
-                if keyB.value()==0:
+                if timerB.debounce_signal(keyB.value()):
                     menu.click()
                 menu.draw()
 
@@ -316,7 +319,7 @@ if __name__ == "__main__":
                     OLED.fill(0x0000)
                     OLED.show(1)
             else:
-                if keyA.value()==0:
+                if timerA.debounce_signal(keyA.value()):
                     menu.reset()
                     menu_hidden = False
 

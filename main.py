@@ -56,13 +56,17 @@ def irq_handler(m):
     global sm, tx_ticks_us, rx_ticks_us, stop
     global menu_hidden, menu_hidden2
 
+    disable = machine.disable_irq()
+
     ticks = utime.ticks_us()
     if m==sm[1]:
         tx_ticks_us = ticks
+        machine.enable_irq(disable)
         return
 
     if m==sm[5]:
         rx_ticks_us = ticks
+        machine.enable_irq(disable)
         return
 
     if m==sm[2]:
@@ -75,6 +79,8 @@ def irq_handler(m):
 
         menu_hidden = True
         menu_hidden2 = False
+
+    machine.enable_irq(disable)
 
 
 class NoShowScreen(OLED_1inch3):
@@ -308,9 +314,9 @@ if __name__ == "__main__":
 
         while True:
             if menu_hidden == False:
-                if timerA.debounce_signal(keyA.value()):
+                if timerA.debounce_signal(keyA.value()==0):
                     menu.move(2)        # Requires patched umenu to work
-                if timerB.debounce_signal(keyB.value()):
+                if timerB.debounce_signal(keyB.value()==0):
                     menu.click()
                 menu.draw()
 
@@ -319,7 +325,7 @@ if __name__ == "__main__":
                     OLED.fill(0x0000)
                     OLED.show(1)
             else:
-                if timerA.debounce_signal(keyA.value()):
+                if timerA.debounce_signal(keyA.value()==0):
                     menu.reset()
                     menu_hidden = False
 
@@ -347,9 +353,6 @@ if __name__ == "__main__":
                             break
 
                     gc.next_frame()			# TC is ahead due to buffers...
-                    gc.next_frame()
-                    gc.next_frame()
-                    gc.next_frame()
 
                     # Draw an error bar to represent timing betwen TX and RX
                     if mode == 1:
@@ -389,13 +392,20 @@ if __name__ == "__main__":
             else:
                 # Always show the TX timecode, 'cos that's important!
                 # since FIFO is in use, our current 'tc' is always ahead
-                OLED.text("TX  " + tc.to_ascii(),0,54,OLED.white)
+                g = tc.to_int()
+                gc.from_int(g)
+                gc.prev_frame()
+                gc.prev_frame()
+                gc.prev_frame()
+
+                OLED.text("TX  " + gc.to_ascii(),0,54,OLED.white)
 
             if menu_hidden and menu_hidden2 and mode==0:
                 # Only draw the bottom lines of the screen
                 OLED.show(52)
             else:
                 OLED.show(1)
+
             menu_hidden2=menu_hidden
 
             if stop:

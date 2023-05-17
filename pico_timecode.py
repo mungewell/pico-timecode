@@ -116,7 +116,7 @@ def decode_dmc():
     nop()[18]
 
     jmp(pin, "staying_high")
-    set(pins, 1)            # Second transition detected (data is `1`)
+    set(pins, 3)            # Second transition detected (data is `1`)
     jmp("previously_low")   # Wait for next bit...
 
     label("staying_high")
@@ -135,7 +135,7 @@ def decode_dmc():
     jmp("previously_low")   # Wait for next bit...
 
     label("going_high")
-    set(pins, 1)            # Second transition detected (therfore data is `1`)
+    set(pins, 3)            # Second transition detected (therfore data is `1`)
     wrap()
 
 
@@ -187,13 +187,17 @@ def irq_handler(m):
     global sm, tx_ticks_us, rx_ticks_us, stop
     global tc
 
+    disable = machine.disable_irq()
+
     ticks = utime.ticks_us()
     if m==sm[1]:
         tx_ticks_us = ticks
+        machine.enable_irq(disable)
         return
 
     if m==sm[5]:
         rx_ticks_us = ticks
+        machine.enable_irq(disable)
         return
 
     if m==sm[2]:
@@ -204,6 +208,7 @@ def irq_handler(m):
         tc.mode = -1
         tc.release()
 
+    machine.enable_irq(disable)
 
 #---------------------------------------------
 
@@ -256,12 +261,22 @@ class timecode(object):
     def release(self):
         self.lock.release()
 
-    def validate_for_drop_frame(self):
+    def validate_for_drop_frame(self, reverse=False):
         self.acquire()
-        if self.df and self.ss == 0 and \
+        if not reverse and self.df and self.ss == 0 and \
                 (self.ff == 0 or self.ff == 1):
             if self.mm % 10 != 0:
                 self.ff += (2 - self.ff)
+        if reverse and self.df and self.ss == 0 and \
+                (self.ff == 0 or self.ff == 1):
+            if self.mm % 10 != 0:
+                if self.hh == 0:
+                    self.hh = 23
+                else:
+                    self.hh -= 1
+                self.mm = 59                    # only happens on mm==0
+                self.ss = 59
+                self.ff = self.fps - 1
         self.release()
 
     def from_ascii(self, start="00:00:00:00"):
@@ -347,6 +362,25 @@ class timecode(object):
         if self.df:
             self.validate_for_drop_frame()
 
+    def prev_frame(self):
+        self.acquire()
+        self.ff -= 1
+        if self.ff < 0:
+            self.ff = self.fps - 1
+            self.ss -= 1
+            if self.ss < 0:
+                self.ss = 59
+                self.mm -= 1
+                if self.mm < 0:
+                    self.mm = 59
+                    self.hh -= 1
+                    if self.hh < 0:
+                        self.hh = 23
+        self.release()
+
+        if self.df:
+            self.validate_for_drop_frame(True)
+
     def to_ltc_packet(self, send_sync=False):
         f27 = False
         f43 = False
@@ -429,8 +463,7 @@ def pico_timecode_thread(tc, rc, sm, stop):
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
-    #sm[5].put(3489660912)
-    sm[5].put(1163220304)
+    sm[5].put(3489660912)
 
     # Set up Blink/LED timing
     sm[1].put(304)          # 1st cycle includes 'extra sync' correction

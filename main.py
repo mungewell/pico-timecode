@@ -256,7 +256,11 @@ def OLED_display_thread():
 
     tc.acquire()
     fps = tc.fps
-    tc.mode=0
+
+    # automatically Jam if booted with 'B' pressed
+    if keyB.value() == 0:
+        tc.mode=64
+
     mode = tc.mode
     format = "FPS: "+ str(tc.fps)
     if tc.fps != 25:

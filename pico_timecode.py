@@ -8,9 +8,20 @@ import _thread
 import utime
 import rp2
 
+'''
+import micropython
+micropython.alloc_emergency_exception_buf(100)
+'''
+
 # set up Globals
 sm = []
 stop = False
+stopped = True
+
+core_dis = [0, 0]
+
+tx_ticks_us = 0
+rx_ticks_us = 0
 
 
 @rp2.asm_pio()
@@ -180,24 +191,21 @@ def sync_and_read():
 #-------------------------------------------------------
 # handler for IRQs
 
-tx_ticks_us = 0
-rx_ticks_us = 0
-
 def irq_handler(m):
-    global sm, tx_ticks_us, rx_ticks_us, stop
-    global tc
+    global sm, stop, tx_ticks_us, rx_ticks_us
+    global core_dis
 
-    disable = machine.disable_irq()
+    core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
 
     ticks = utime.ticks_us()
     if m==sm[1]:
         tx_ticks_us = ticks
-        machine.enable_irq(disable)
+        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
 
     if m==sm[5]:
         rx_ticks_us = ticks
-        machine.enable_irq(disable)
+        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
 
     if m==sm[2]:
@@ -208,7 +216,7 @@ def irq_handler(m):
         tc.mode = -1
         tc.release()
 
-    machine.enable_irq(disable)
+    machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
 
 #---------------------------------------------
 
@@ -457,7 +465,11 @@ class timecode(object):
 
 #-------------------------------------------------------
 
-def pico_timecode_thread(tc, rc, sm, stop):
+def pico_timecode_thread(tc, rc, sm, stop, cb_stopped):
+    global stopped
+
+    stopped = False
+
     send_sync = True        # send 1st packet with sync
     start_sent = False
     
@@ -586,9 +598,12 @@ def pico_timecode_thread(tc, rc, sm, stop):
         sm[m].active(0)
         utime.sleep(0.005)
 
+    stopped = True
+
 
 def ascii_display_thread():
-    global tc, rc, sm, stop
+    global tc, rc, sm
+    global stop, stopped
 
     tc.acquire()
     mode = tc.mode
@@ -640,7 +655,7 @@ def ascii_display_thread():
 
     # set up IRQ handler
     for m in sm:
-        m.irq(irq_handler)
+        m.irq(handler=irq_handler, hard=True)
 
     # Start up threads
     stop = False

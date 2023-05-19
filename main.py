@@ -48,25 +48,27 @@ import _thread
 import utime
 import rp2
 
-# Set up globals
+# Set up (extra) globals
+
 menu_hidden = True
 menu_hidden2 = False
 
 def irq_handler(m):
-    global sm, tx_ticks_us, rx_ticks_us, stop
-    global menu_hidden, menu_hidden2
+    global sm, stop
+    global tx_ticks_us, rx_ticks_us
+    global core_dis
 
-    disable = machine.disable_irq()
+    core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
 
     ticks = utime.ticks_us()
     if m==sm[1]:
         tx_ticks_us = ticks
-        machine.enable_irq(disable)
+        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
 
     if m==sm[5]:
         rx_ticks_us = ticks
-        machine.enable_irq(disable)
+        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
 
     if m==sm[2]:
@@ -80,7 +82,7 @@ def irq_handler(m):
         menu_hidden = True
         menu_hidden2 = False
 
-    machine.enable_irq(disable)
+    machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
 
 
 class NoShowScreen(OLED_1inch3):
@@ -127,15 +129,17 @@ def add_more_state_machines(sm_freq):
 
     # set up IRQ handler
     for m in sm:
-        m.irq(irq_handler)
+        m.irq(handler=irq_handler, hard=True)
 
 
 def callback_stop_start():
-    global tc, rc, sm, stop
+    global tc, rc, sm
+    global stop, stopped
     global menu_hidden, menu_hidden2
 
-    if stop == False:
+    if not stop:
         stop = True
+        utime.sleep(1)
 
         # Also stop any Monitor/Jam
         tc.acquire()
@@ -161,6 +165,7 @@ def callback_stop_start():
 def callback_monitor():
     global tc, rc, sm, stop
     global menu_hidden, menu_hidden2
+
     menu_hidden = True
     menu_hidden2 = False
 
@@ -173,8 +178,10 @@ def callback_monitor():
 
 
 def callback_jam():
-    global tc, rc, sm, stop
+    global tc, rc, sm
+    global stop, stopped
     global menu_hidden, menu_hidden2
+
     menu_hidden = True
     menu_hidden2 = False
 
@@ -200,8 +207,10 @@ def callback_jam():
     sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
                                jmp_pin=machine.Pin(21)))        # Sync from RX LTC
     add_more_state_machines(sm_freq)
+
     stop = False
     _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
+
 
 def callback_fps_df(set):
     global tc, rc, sm, stop
@@ -223,30 +232,33 @@ def callback_fps_df(set):
 
 def callback_exit():
     global menu_hidden
+
     menu_hidden = True
 
 
 def callback_check_stopped():
-    global tc, rc, sm, stop
+    global stop
 
     if stop:
         return True
     else:
         return False
+
 
 def callback_check_running():
-    global tc, rc, sm, stop
+    global stop
 
     if stop:
         return False
     else:
         return True
-
 
 #---------------------------------------------
 
-if __name__ == "__main__":
-    global tc, rc, sm, stop
+def OLED_display_thread():
+    global tc, rc, sm
+    global stop, stopped
+    global menu_hidden, menu_hidden2
     global tx_ticks_us, rx_ticks_us
 
     gc = timecode()
@@ -310,7 +322,7 @@ if __name__ == "__main__":
             else:
                 format += " NDF"
         tc.release()
-        cycle = (1000000 / fps)
+        cycle_us = (1000000 / fps)
 
         while True:
             if menu_hidden == False:
@@ -356,22 +368,28 @@ if __name__ == "__main__":
 
                     # Draw an error bar to represent timing betwen TX and RX
                     if mode == 1:
-                        '''
-                        while (r1 > t1 + cycle):
-                            r1 -= cycle
-                        while (r1 < t1 - cycle):
-                            r1 += cycle
-                        '''
-                        r1 -= 1000000 / (fps * 80)
+                        d = utime.ticks_diff(t1, r1)
+
+                        # RX is offset by ~2/3 bit
+                        d += cycle_us * 2/ (3 * 80)
+
+                        # correct delta, if adjacent frame
+                        if d > (-2 * cycle_us) and d < 0:
+                            while d < -(cycle_us/2):
+                                d += cycle_us
+                        if d < (2 * cycle_us) and d > 0:
+                            while d > (cycle_us/2):
+                                d -= cycle_us
+
                         OLED.vline(64, 32, 4, OLED.white)
-                        if r1 > t1:
-                            length = int(640 * (r1-t1)/cycle)
+
+                        length = int(1280 * d/cycle_us)
+                        if d > 0:
                             OLED.hline(65, 33, length, OLED.white)
                             OLED.hline(65, 34, length, OLED.white)
                         else:
-                            length = int(640 * (t1-r1)/cycle)
-                            OLED.hline(63-length, 33, length, OLED.white)
-                            OLED.hline(63-length, 34, length, OLED.white)
+                            OLED.hline(63+length, 33, -length, OLED.white)
+                            OLED.hline(63+length, 34, -length, OLED.white)
 
                     OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
                     if mode > 1:
@@ -411,3 +429,6 @@ if __name__ == "__main__":
             if stop:
                 break
 
+
+if __name__ == "__main__":
+    OLED_display_thread()

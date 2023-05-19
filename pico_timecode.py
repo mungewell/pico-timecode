@@ -16,7 +16,6 @@ micropython.alloc_emergency_exception_buf(100)
 # set up Globals
 sm = []
 stop = False
-stopped = True
 
 core_dis = [0, 0]
 
@@ -263,11 +262,25 @@ class timecode(object):
     # Lock for multithreading
     lock = _thread.allocate_lock()
 
+    # state of running (ie whether being used for output)
+    stopped = True
+
     def acquire(self):
         self.lock.acquire()
 
     def release(self):
         self.lock.release()
+
+    def is_stopped(self):
+        return self.stopped
+
+    def is_running(self):
+        return not self.stopped
+
+    def set_stopped(self, s):
+        self.acquire()
+        self.stopped = s
+        self.release()
 
     def validate_for_drop_frame(self, reverse=False):
         self.acquire()
@@ -465,10 +478,9 @@ class timecode(object):
 
 #-------------------------------------------------------
 
-def pico_timecode_thread(tc, rc, sm, stop, cb_stopped):
-    global stopped
+def pico_timecode_thread(tc, rc, sm, stop):
 
-    stopped = False
+    tc.set_stopped(False)
 
     send_sync = True        # send 1st packet with sync
     start_sent = False
@@ -598,12 +610,12 @@ def pico_timecode_thread(tc, rc, sm, stop, cb_stopped):
         sm[m].active(0)
         utime.sleep(0.005)
 
-    stopped = True
+    tc.set_stopped(True)
 
 
 def ascii_display_thread():
     global tc, rc, sm
-    global stop, stopped
+    global stop
 
     tc.acquire()
     mode = tc.mode

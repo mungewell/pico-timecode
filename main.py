@@ -134,12 +134,13 @@ def add_more_state_machines(sm_freq):
 
 def callback_stop_start():
     global tc, rc, sm
-    global stop, stopped
+    global stop
     global menu_hidden, menu_hidden2
 
-    if not stop:
+    if tc.is_running():
         stop = True
-        utime.sleep(1)
+        while tc.is_running():
+            utime.sleep(0.1)
 
         # Also stop any Monitor/Jam
         tc.acquire()
@@ -179,11 +180,16 @@ def callback_monitor():
 
 def callback_jam():
     global tc, rc, sm
-    global stop, stopped
+    global stop
     global menu_hidden, menu_hidden2
 
     menu_hidden = True
     menu_hidden2 = False
+
+    if tc.is_running():
+        stop = True
+        while tc.is_running():
+            utime.sleep(0.1)
 
     # Turn off Jam if already enabled
     tc.acquire()
@@ -198,9 +204,6 @@ def callback_jam():
     fps = tc.fps
     tc.mode = 64
     tc.release()
-
-    stop = True
-    utime.sleep(1)
 
     sm = []
     sm_freq = int(fps * 80 * 16)
@@ -236,28 +239,11 @@ def callback_exit():
     menu_hidden = True
 
 
-def callback_check_stopped():
-    global stop
-
-    if stop:
-        return True
-    else:
-        return False
-
-
-def callback_check_running():
-    global stop
-
-    if stop:
-        return False
-    else:
-        return True
-
 #---------------------------------------------
 
 def OLED_display_thread():
     global tc, rc, sm
-    global stop, stopped
+    global stop
     global menu_hidden, menu_hidden2
     global tx_ticks_us, rx_ticks_us
 
@@ -280,6 +266,8 @@ def OLED_display_thread():
             format += " NDF"
     tc.release()
 
+    tc.set_stopped(True)
+
     #OLED = OLED_1inch3()
     OLED = NoShowScreen()
     
@@ -294,8 +282,8 @@ def OLED_display_thread():
     menu = Menu(OLED, 4, 10)
     menu.set_screen(MenuScreen('Main Menu')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
-        .add(CallbackItem("Monitor RX", callback_monitor, visible=callback_check_running))
-        .add(SubMenuItem('TX/FPS Setting', visible=callback_check_stopped)
+        .add(CallbackItem("Monitor RX", callback_monitor, visible=tc.is_running))
+        .add(SubMenuItem('TX/FPS Setting', visible=tc.is_stopped)
              .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df))
              .add(EnumItem("Drop Frame", ["No", "Yes"], callback_fps_df)))
         .add(CallbackItem("Jam/Sync RX", callback_jam))
@@ -426,7 +414,7 @@ def OLED_display_thread():
 
             menu_hidden2=menu_hidden
 
-            if stop:
+            if tc.is_stopped():
                 break
 
 

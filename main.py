@@ -117,11 +117,11 @@ def add_more_state_machines(sm_freq):
                                out_base=machine.Pin(13)))       # Encoded LTC Output
 
     # RX State Machines
-    sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq*2,
+    sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(18),         # LTC Input ...
                                in_base=machine.Pin(18),         # ... from 'other' device
                                set_base=machine.Pin(19)))       # Decoded LTC Input
-    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq*2,
+    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
                                jmp_pin=machine.Pin(19),
                                in_base=machine.Pin(19),
                                out_base=machine.Pin(21),
@@ -155,7 +155,7 @@ def callback_stop_start():
         tc.release()
 
         sm = []
-        sm_freq = int(fps * 80 * 16)
+        sm_freq = int(fps * 80 * 32)
         sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
         add_more_state_machines(sm_freq)
 
@@ -206,7 +206,7 @@ def callback_jam():
     tc.release()
 
     sm = []
-    sm_freq = int(fps * 80 * 16)
+    sm_freq = int(fps * 80 * 32)
     sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
                                jmp_pin=machine.Pin(21)))        # Sync from RX LTC
     add_more_state_machines(sm_freq)
@@ -296,7 +296,7 @@ def OLED_display_thread():
 
     # Allocate appropriate StateMachines, and their pins
     sm = []
-    sm_freq = int(fps * 80 * 16)
+    sm_freq = int(fps * 80 * 32)
     sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
     add_more_state_machines(sm_freq)
 

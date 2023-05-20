@@ -52,14 +52,14 @@ def start_from_pin():
 @rp2.asm_pio(set_init=rp2.PIO.OUT_LOW, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def blink_led():
-    out(x, 32)                      # first cycle lenght may be slightly
+    out(x, 16)                      # first cycle lenght may be slightly
                                     # different so LED is exactly timed...
     irq(block, 4)                   # Wait for sync'ed start
 
     label("read_new")
     wrap_target()
     irq(rel(0))                     # set IRQ for ticks_us monitoring
-    out(y, 32)                      # Read pulse duration from FIFO
+    out(y, 16)                      # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
     set(pins, 1)
@@ -75,9 +75,9 @@ def blink_led():
     nop() [2]                       # this section 4 cycles
         
     label("cont2")
-    jmp(x_dec, "cont")              # Loop, so it is 80 * 16 =  1280 cycles
-                                    # X = 254  -> 2 + 3 + (254 * (4 +1)) + 5 cycles
-    out(x, 32) [4]
+    jmp(x_dec, "cont")              # Loop, so it is 80 * 32 =  2560 cycles
+                                    # X = 510 -> 2 + 3 + (510 * (4 +1)) + 5 cycles
+    out(x, 16) [4]
     wrap()
 
 
@@ -88,15 +88,15 @@ def encode_dmc():
     
     wrap_target()
     label("toggle-0")
-    mov(pins, invert(pins)) [6]     # Always toogle pin at start of cycle, "0" or "1"
+    mov(pins, invert(pins)) [14]    # Always toogle pin at start of cycle, "0" or "1"
 
     jmp(pin, "toggle-1")            # Check output of SM-1 buffer, jump if 1
 
-    nop() [6]                       # Wait out rest of cycle, "0"
+    nop() [14]                      # Wait out rest of cycle, "0"
     jmp("toggle-0")
     
     label("toggle-1")
-    mov(pins, invert(pins)) [7]     # Toggle pin to signal '1'
+    mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
     wrap()
 
 
@@ -107,7 +107,7 @@ def buffer_out():
     irq(block, 4)                   # Wait for Sync'ed start
     
     label("start")
-    out(pins, 1) [14]
+    out(pins, 1) [30]
     
     jmp(not_osre, "start")
                                     # UNDERFLOW - when Python fails to fill FIFOs
@@ -490,8 +490,8 @@ def pico_timecode_thread(tc, rc, sm, stop):
     sm[5].put(3489660912)
 
     # Set up Blink/LED timing
-    sm[1].put(304)          # 1st cycle includes 'extra sync' correction
-    sm[1].put(0)
+    sm[1].put(612)          # 1st cycle includes 'extra sync' correction
+                            # (80 + 16) * 32 = 3072 cycles
 
     # Start the StateMachines (except Sync)
     for m in range(1, len(sm)):
@@ -506,8 +506,6 @@ def pico_timecode_thread(tc, rc, sm, stop):
 
     gc = timecode()
     gc.set_fps_df(fps, df)
-
-    mark = (1000000 / fps) * 64/80
 
     # Loop, increasing frame count each time
     while not stop():
@@ -545,40 +543,12 @@ def pico_timecode_thread(tc, rc, sm, stop):
                 tc.release()
 
                 if mode == 1:
-                    # Figure out what RX frame to Jam to
-                    '''
-                    while True:
-                        r1 = rx_ticks_us
-                        f = sm[5].rx_fifo()
-                        g = rc.to_ascii()
-                        r2 = rx_ticks_us
-                        n = utime.ticks_us()
-
-                        if r1==r2:
-                            tc.from_ascii(g)
-                            for i in range(f/2):        # allow for FIFO queue
-                                tc.next_frame()
-                            if (n - r1) < (mark + 50):  # Before DZ
-                                tc.next_frame()
-                                mode = 1
-                                break
-
-                            # Skip frame and try next
-                            break
-                    '''
-
                     # Jam to 'next' RX timecode
                     if mode == 1:
                         g = rc.to_int()
                         tc.from_int(g)
                         tc.next_frame()
                         tc.next_frame()
-                        '''
-                        mode = 0
-                        tc.acquire()
-                        tc.mode = mode
-                        tc.release()
-                        '''
 
         # Wait for TX FIFO to be empty enough to accept more
         if mode < 2 and sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:
@@ -591,11 +561,10 @@ def pico_timecode_thread(tc, rc, sm, stop):
 
             # Does the LED flash for this frame?
             tc.acquire()
-            sm[1].put(253)          # '253' is extact loop length
             if tc.ff == 0:
-                sm[1].put(210)      # Y - duration of flash
+                sm[1].put((210 << 16)+ 509) # '209' duration of flash
             else:
-                sm[1].put(0)
+                sm[1].put(509)              # '509' is complete cycle length
             tc.release()
 
             if not start_sent:
@@ -624,7 +593,7 @@ def ascii_display_thread():
 
     # Allocate appropriate StateMachines, and their pins
     sm = []
-    sm_freq = int(fps * 80 * 16)
+    sm_freq = int(fps * 80 * 32)
 
     # Note: we always want the 'sync' SM to be first in the list.
 
@@ -649,17 +618,17 @@ def ascii_display_thread():
 
     # RX State Machines
     if mode > 1:
-        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq*2,
+        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(18),
                                in_base=machine.Pin(18),
                                set_base=machine.Pin(19)))   # Decoded LTC Input
     else:
-        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq*2,
+        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(13),     # Test - read from self/tx
                                in_base=machine.Pin(13),     # Test - read from self/tx
                                set_base=machine.Pin(19)))   # Decoded LTC Input
 
-    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq*2,
+    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
                            jmp_pin=machine.Pin(19),
                            in_base=machine.Pin(19),
                            out_base=machine.Pin(21),

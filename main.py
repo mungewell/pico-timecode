@@ -103,7 +103,7 @@ class NoShowScreen(OLED_1inch3):
                 self.write_data(self.buffer[page*16+num])
 
 
-def add_more_state_machines(sm_freq):
+def add_more_state_machines(sm_freq, fps):
     global sm
 
     # TX State Machines
@@ -126,6 +126,9 @@ def add_more_state_machines(sm_freq):
                                in_base=machine.Pin(19),
                                out_base=machine.Pin(21),
                                set_base=machine.Pin(21)))       # 'sync' from RX bitstream
+
+    # correct clock dividers
+    pico_timecode_frig_clocks(fps)
 
     # set up IRQ handler
     for m in sm:
@@ -157,7 +160,7 @@ def callback_stop_start():
         sm = []
         sm_freq = int(fps * 80 * 32)
         sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
-        add_more_state_machines(sm_freq)
+        add_more_state_machines(sm_freq, fps)
 
         stop = False
         _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
@@ -209,7 +212,7 @@ def callback_jam():
     sm_freq = int(fps * 80 * 32)
     sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
                                jmp_pin=machine.Pin(21)))        # Sync from RX LTC
-    add_more_state_machines(sm_freq)
+    add_more_state_machines(sm_freq, fps)
 
     stop = False
     _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
@@ -294,11 +297,14 @@ def OLED_display_thread():
         .add(ConfirmItem("Stop/Start TX", callback_stop_start, "Confirm?", ('Yes', 'No')))
     )
 
+    # Reduce the CPU clock, for better computation of PIO freqs
+    machine.freq(120000000)
+
     # Allocate appropriate StateMachines, and their pins
     sm = []
     sm_freq = int(fps * 80 * 32)
     sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
-    add_more_state_machines(sm_freq)
+    add_more_state_machines(sm_freq, fps)
 
     # Start up threads
     stop = False

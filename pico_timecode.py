@@ -582,6 +582,22 @@ def pico_timecode_thread(tc, rc, sm, stop):
     tc.set_stopped(True)
 
 
+def pico_timecode_frig_clocks(fps):
+    # divider computed for CPU clock at 120MHz
+    if fps == 29.97:
+        new_div = 0x061c1000
+    elif fps == 23.976:
+        new_div = 0x07a31400
+    else:
+        return
+
+    # Set dividers for all PIO machines
+    for base in [0x50200000, 0x50300000]:
+        for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
+            machine.mem32[base + offset] = new_div
+            #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+
+
 def ascii_display_thread():
     global tc, rc, sm
     global stop
@@ -591,12 +607,14 @@ def ascii_display_thread():
     fps = tc.fps
     tc.release()
 
+    # Reduce the CPU clock, for better computation of PIO freqs
+    machine.freq(120000000)
+
     # Allocate appropriate StateMachines, and their pins
     sm = []
     sm_freq = int(fps * 80 * 32)
 
     # Note: we always want the 'sync' SM to be first in the list.
-
     if mode > 1:
         # We will only start after a trigger pin goes high
         sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
@@ -633,6 +651,9 @@ def ascii_display_thread():
                            in_base=machine.Pin(19),
                            out_base=machine.Pin(21),
                            set_base=machine.Pin(21)))       # 'sync' from RX bitstream
+
+    # correct clock dividers
+    pico_timecode_frig_clocks(fps)
 
     # set up IRQ handler
     for m in sm:

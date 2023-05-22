@@ -2,26 +2,33 @@
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
 and the PIO blocks on the Pico make it very possible...
 
-# Now we're JAM'ing
+# Now we're JAM'ing in the real world.
 
 We've moved past the Proof-of-concept stage! Well past....
 
-I built up a couple of boards, with the Pico-OLED-1.3 display and was able to link LTC (at TTL levels)
-between them. One board was configured to output, and the second was configured to Jam to incoming
-LTC and then switch to outputing... and it worked.
+Mk-1 of the audio inteface is built, and I was able to Jam with the LTC from my Sync-IO, and feed
+the regenerated LTC to an Evertz 5300 LTC Analyzer. After Jam the LTC is spot on, but (as expected)
+'drifted off' as time went by.
 
-[Demo Video](https://www.youtube.com/embed/T8Qv-cR-q_s)
+My next task is attempt to add compensation for the stock (inaccurate) XTAL on the Pico, or to 
+replace it with a better one.
 
-Expect a new demo video soon... 
+[Demo Video](https://youtu.be/miWlGS6fJNI)
 
 The script(s) now has a menu which can be used to control the device, and to navigate the settings. 
 The incoming LTC is now validated before Jam is performed, and the RX monitor has indicator bar to 
 show the relative timing between RX and TX.
 
-This code is in four files; upload all four if you have the same hardware.
+This code is in five files; upload all five if you have the same hardware.
 
-`Pico_LED.py` is library of screen functions, `umenu.py` is menuing library, `pico_timecode.py` and 
-`main.py` combine to make the GUI app.
+`Pico_LED.py` is library of screen functions, `umenu.py` is menuing library, `neotimer.py` is timer
+library, `pico_timecode.py` and `main.py` combine to make the GUI app.
+
+The first 3 are from other projects, which I use permissively under their own licenses:
+
+- https://www.waveshare.com/wiki/Pico-OLED-1.3
+- https://github.com/plugowski/umenu
+- https://github.com/jrullan/micropython_neotimer
 
 ![Save to Pico](save_to_pico.PNG)
 
@@ -31,8 +38,6 @@ its own on a 'bare' Pico board.
 In the following screen shot the top trace is the 'raw' bitstream, and the lower is the encoded 
 LTC stream. We will need some interfacing hardware before the TTL level can be fed nicely into other 
 hardware. 
-
-![First Decode](first_decode.PNG)
 
 # Build Your Own
 

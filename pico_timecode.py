@@ -458,10 +458,12 @@ class timecode(object):
             return False
 
         # reject if parity is not 1, note we are not including Sync word
+        '''
         c = lp(p[0])
         c+= lp(p[1])
         if not c & 1:
             return False
+        '''
 
         self.acquire()
         self.df = ((p[0] >> 10) & 0x01)
@@ -516,6 +518,11 @@ def pico_timecode_thread(tc, rc, sm, stop):
             p.append(sm[5].get())
             if len(p) == 2:
                 rc.from_ltc_packet(p)
+            '''
+                print("%d 0x%x 0x%x" % (utime.ticks_us(), p[0], p[1]))
+            else:
+                print("Error: failed get()", len(p))
+            '''
 
             if mode > 1:
                 # should perform some basic validation:
@@ -525,14 +532,20 @@ def pico_timecode_thread(tc, rc, sm, stop):
 
                 # check DF flags match
                 if (r >> 31) != df:
+                    #print("DF flags not matching")
                     fail = True
 
                 # check packets are counting correctly
                 if g!=0:
                     if g!=r:
+                        #print("Frame count fail", rc.to_ascii(), gc.to_ascii())
                         fail = True
-                gc.from_int(r)
-                gc.next_frame()
+
+                if r!=0:
+                    gc.from_int(r)
+                    gc.next_frame()
+                else:
+                    fail = True
 
                 if fail:
                     mode = 64       # Start process again

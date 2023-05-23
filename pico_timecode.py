@@ -8,6 +8,8 @@ import _thread
 import utime
 import rp2
 
+from neotimer import *
+
 '''
 import micropython
 micropython.alloc_emergency_exception_buf(100)
@@ -511,6 +513,9 @@ def pico_timecode_thread(tc, rc, sm, stop):
 
     # Loop, increasing frame count each time
     while not stop():
+        # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
+        #pico_timecode_micro_adjust(-1/2)          # hardcoded value for test
+
         # Empty RX FIFO as it fills
         if sm[5].rx_fifo() >= 2:
             p = []
@@ -609,6 +614,104 @@ def pico_timecode_frig_clocks(fps):
         for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
             machine.mem32[base + offset] = new_div
             #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+
+def pico_timecode_inc_clocks():
+    integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
+    fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
+
+    if fraction == 0xFF:
+        fraction = 0
+        integer += 1
+    else:
+        fraction += 1
+
+    # Set dividers for all PIO machines
+    for base in [0x50200000, 0x50300000]:
+        for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
+            machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
+            #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+
+def pico_timecode_dec_clocks():
+    integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
+    fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
+
+    if fraction == 0:
+        fraction = 0xFF
+        integer -= 1
+    else:
+        fraction -= 1
+
+    # Set dividers for all PIO machines
+    for base in [0x50200000, 0x50300000]:
+        for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
+            machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
+            #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+
+timer = None
+state = False
+on_at = 0
+off_at = 0
+
+correction = 1
+rduty = 0
+rcache = []
+
+def pico_timecode_micro_adjust(duty, period = 60000): # period in ms
+    global timer, state
+    global on_at, off_at
+    global rduty, correction, rcache
+
+    now = utime.ticks_us()
+
+    if timer == None:
+        # start up new timer
+        timer = Neotimer(period * abs(duty))
+        timer.start()
+        if duty > 0:
+            pico_timecode_inc_clocks()
+        else:
+            pico_timecode_dec_clocks()
+        on_at = now
+        return
+
+    if timer.finished() and not state:
+        # flip to the 'off' state
+        timer = Neotimer(period * (1-(abs(duty)/correction)))
+        timer.start()
+        if duty > 0:
+            pico_timecode_dec_clocks()
+        else:
+            pico_timecode_inc_clocks()
+        off_at = now
+        state = True
+        return
+
+    if timer.finished() and state:
+        # start ASAP
+        timer = Neotimer(period * (abs(duty)/correction))
+        timer.start()
+        if duty > 0:
+            pico_timecode_inc_clocks()
+        else:
+            pico_timecode_dec_clocks()
+
+        cduty = utime.ticks_diff(off_at, on_at) / utime.ticks_diff(now, on_at)
+
+        on_at = now
+        state = False
+
+        # then re-calculate the correction factor
+        # using average of last ten values
+        rduty += cduty
+        rcache.append(cduty)
+        if len(rcache) > 10:
+            rduty -= rcache[0]
+            rcache = rcache[1:]
+
+        correction = (rduty/len(rcache)) / abs(duty)
+        #print("Duty check:", now, cduty, rduty/len(rcache), correction)
+
+        return
 
 
 def ascii_display_thread():

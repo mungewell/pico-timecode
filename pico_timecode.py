@@ -10,20 +10,16 @@ import rp2
 
 from neotimer import *
 
-'''
-import micropython
-micropython.alloc_emergency_exception_buf(100)
-'''
-
 # set up Globals
-sm = []
+eng = None
 stop = False
-
-core_dis = [0, 0]
 
 tx_ticks_us = 0
 rx_ticks_us = 0
 
+core_dis = [0, 0]
+
+#---------------------------------------------
 
 @rp2.asm_pio()
 
@@ -193,45 +189,33 @@ def sync_and_read():
 # handler for IRQs
 
 def irq_handler(m):
-    global sm, stop, tx_ticks_us, rx_ticks_us
+    global eng, stop
+    global tx_ticks_us, rx_ticks_us
     global core_dis
 
     core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
 
     ticks = utime.ticks_us()
-    if m==sm[1]:
+    if m==eng.sm[1]:
         tx_ticks_us = ticks
         machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
 
-    if m==sm[5]:
+    if m==eng.sm[5]:
         rx_ticks_us = ticks
         machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
 
-    if m==sm[2]:
+    if m==eng.sm[2]:
         # Buffer Underflow
         stop = 1
-
-        tc.acquire()
-        tc.mode = -1
-        tc.release()
+        eng.mode = -1
 
     machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
 
 #---------------------------------------------
 
-# parity check, count 1's in 32-bit word
-def lp(b):
-    c = 0
-    for i in range(32):
-        c += (b >> i) & 1
-
-    return(c)
-
-
 class timecode(object):
-    mode = 0        # -1=Halted, 0=FreeRun, 1=Monitor RX, 2>=Jam to RX
 
     fps = 30
     df = False      # Drop-Frame
@@ -264,25 +248,11 @@ class timecode(object):
     # Lock for multithreading
     lock = _thread.allocate_lock()
 
-    # state of running (ie whether being used for output)
-    stopped = True
-
     def acquire(self):
         self.lock.acquire()
 
     def release(self):
         self.lock.release()
-
-    def is_stopped(self):
-        return self.stopped
-
-    def is_running(self):
-        return not self.stopped
-
-    def set_stopped(self, s):
-        self.acquire()
-        self.stopped = s
-        self.release()
 
     def validate_for_drop_frame(self, reverse=False):
         self.acquire()
@@ -337,21 +307,21 @@ class timecode(object):
             new += chr(x + 0x30)
         return(new)
 
-    def from_int(self, time=0):
+    def from_raw(self, raw=0):
         self.acquire()
-        self.df = (time & 0x80000000) >> 31
-        self.hh = (time & 0x7F000000) >> 24
-        self.mm = (time & 0x00FF0000) >> 16
-        self.ss = (time & 0x0000FF00) >> 8
-        self.ff = (time & 0x000000FF)
+        self.df = (raw & 0x80000000) >> 31
+        self.hh = (raw & 0x7F000000) >> 24
+        self.mm = (raw & 0x00FF0000) >> 16
+        self.ss = (raw & 0x0000FF00) >> 8
+        self.ff = (raw & 0x000000FF)
         self.release()
 
-    def to_int(self):
+    def to_raw(self):
         self.acquire()
-        time = (self.df << 31) + (self.hh << 24) + (self.mm << 16) + (self.ss << 8) + self.ff
+        raw = (self.df << 31) + (self.hh << 24) + (self.mm << 16) + (self.ss << 8) + self.ff
         self.release()
 
-        return time
+        return raw
 
     def set_fps_df(self, fps=25, df=False):
         # should probably validate FPS/DF combo
@@ -404,6 +374,14 @@ class timecode(object):
         if self.df:
             self.validate_for_drop_frame(True)
 
+    # parity check, count 1's in 32-bit word
+    def lp(self, b):
+        c = 0
+        for i in range(32):
+            c += (b >> i) & 1
+
+        return(c)
+
     def to_ltc_packet(self, send_sync=False):
         f27 = False
         f43 = False
@@ -435,7 +413,7 @@ class timecode(object):
         # polarity correction
         count = 13
         for i in p:
-            count += lp(i)
+            count += self.lp(i)
 
         if count & 1:
             if self.fps == 25:
@@ -461,8 +439,8 @@ class timecode(object):
 
         # reject if parity is not 1, note we are not including Sync word
         '''
-        c = lp(p[0])
-        c+= lp(p[1])
+        c = self.lp(p[0])
+        c+= self.lp(p[1])
         if not c & 1:
             return False
         '''
@@ -480,33 +458,173 @@ class timecode(object):
         
         return True
 
+
+class engine(object):
+    mode = 0        # -1=Halted, 0=FreeRun, 1=Monitor RX, 2>=Jam to RX
+
+    tc = timecode()
+    rc = timecode()
+    sm = None
+
+    timer = None
+    asserted = False
+    on_at = 0
+    off_at = 0
+
+    correction = 1
+    rduty = 0
+    rcache = []
+
+    # state of running (ie whether being used for output)
+    stopped = True
+
+    def is_stopped(self):
+        return self.stopped
+
+    def is_running(self):
+        return not self.stopped
+
+    def set_stopped(self, s=True):
+        self.stopped = s
+
+    def frig_clocks(self, fps):
+        # divider computed for CPU clock at 120MHz
+        if fps == 29.97:
+            new_div = 0x061c1000
+        elif fps == 23.976:
+            new_div = 0x07a31400
+        else:
+            return
+
+        # Set dividers for all PIO machines
+        for base in [0x50200000, 0x50300000]:
+            for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
+                machine.mem32[base + offset] = new_div
+                #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+
+    def inc_divider(self):
+        # increasing divider -> slower clock
+        integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
+        fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
+
+        if fraction == 0xFF:
+            fraction = 0
+            integer += 1
+        else:
+            fraction += 1
+
+        # Set dividers for all PIO machines
+        for base in [0x50200000, 0x50300000]:
+            for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
+                machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
+                #print("Inc to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+
+    def dec_divider(self):
+        # decreasing divider -> faster clock
+        integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
+        fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
+
+        if fraction == 0:
+            fraction = 0xFF
+            integer -= 1
+        else:
+            fraction -= 1
+
+        # Set dividers for all PIO machines
+        for base in [0x50200000, 0x50300000]:
+            for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
+                machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
+                #print("Dec to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+
+    def micro_adjust(self, duty, period=60000): # period in ms
+        now = utime.ticks_us()
+
+        if self.timer == None:
+            # start up new timer
+            self.timer = Neotimer(period * (abs(duty) % 1))
+            self.timer.start()
+            if duty > 0:
+                self.dec_divider()
+
+                # First time only
+                for i in range(1, int(abs(duty))):
+                    self.dec_divider()
+            else:
+                self.inc_divider()
+
+                # First time only
+                for i in range(1, int(abs(duty))):
+                    self.inc_divider()
+            self.on_at = now
+            return
+
+        if self.timer.finished() and not self.asserted:
+            # flip to the 'off' asserted
+            timer = Neotimer(period * (1-((abs(duty) % 1)/self.correction)))
+            timer.start()
+            if duty > 0:
+                self.inc_divider()
+            else:
+                self.dec_divider()
+            self.off_at = now
+            self.asserted = True
+            return
+
+        if self.timer.finished() and self.asserted:
+            # start ASAP
+            self.timer = Neotimer(period * ((abs(duty) % 1)/self.correction))
+            self.timer.start()
+            if duty > 0:
+                self.dec_divider()
+            else:
+                self.inc_divider()
+
+            cduty = utime.ticks_diff(self.off_at, self.on_at) / utime.ticks_diff(now, self.on_at)
+
+            self.on_at = now
+            self.asserted = False
+
+            # then re-calculate the correction factor
+            # using average of last ten values
+            self.rduty += cduty
+            self.rcache.append(cduty)
+            if len(self.rcache) > 10:
+                self.rduty -= self.rcache[0]
+                self.rcache = self.rcache[1:]
+
+            self.correction = (self.rduty/len(self.rcache)) / (abs(duty) % 1)
+            '''
+            print("Duty check:", now, cduty, self.rduty/len(self.rcache) \
+                    , len(self.rcache), self.correction)
+            '''
+
+            return
+
 #-------------------------------------------------------
 
-def pico_timecode_thread(tc, rc, sm, stop):
-
-    tc.set_stopped(False)
+def pico_timecode_thread(eng, stop):
+    eng.set_stopped(False)
 
     send_sync = True        # send 1st packet with sync
     start_sent = False
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
-    sm[5].put(3489660912)
+    eng.sm[5].put(3489660912)
 
     # Set up Blink/LED timing
-    sm[1].put(612)          # 1st cycle includes 'extra sync' correction
+    eng.sm[1].put(612)          # 1st cycle includes 'extra sync' correction
                             # (80 + 16) * 32 = 3072 cycles
 
     # Start the StateMachines (except Sync)
-    for m in range(1, len(sm)):
-        sm[m].active(1)
+    for m in range(1, len(eng.sm)):
+        eng.sm[m].active(1)
         utime.sleep(0.005)
 
-    tc.acquire()
-    fps = tc.fps
-    mode = tc.mode
-    df = tc.df
-    tc.release()
+    eng.tc.acquire()
+    fps = eng.tc.fps
+    df = eng.tc.df
+    eng.tc.release()
 
     gc = timecode()
     gc.set_fps_df(fps, df)
@@ -514,25 +632,26 @@ def pico_timecode_thread(tc, rc, sm, stop):
     # Loop, increasing frame count each time
     while not stop():
         # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
-        #pico_timecode_micro_adjust(-1/2)          # hardcoded value for test
+        # -1 -> +1 : +ve = faster clock, -ve = slower clock
+        #eng.micro_adjust(1.6, 10000)          # hardcoded value for test
 
         # Empty RX FIFO as it fills
-        if sm[5].rx_fifo() >= 2:
+        if eng.sm[5].rx_fifo() >= 2:
             p = []
-            p.append(sm[5].get())
-            p.append(sm[5].get())
+            p.append(eng.sm[5].get())
+            p.append(eng.sm[5].get())
             if len(p) == 2:
-                rc.from_ltc_packet(p)
+                eng.rc.from_ltc_packet(p)
             '''
                 print("%d 0x%x 0x%x" % (utime.ticks_us(), p[0], p[1]))
             else:
                 print("Error: failed get()", len(p))
             '''
 
-            if mode > 1:
+            if eng.mode > 1:
                 # should perform some basic validation:
-                g = gc.to_int()
-                r = rc.to_int()
+                g = gc.to_raw()
+                r = eng.rc.to_raw()
                 fail = False
 
                 # check DF flags match
@@ -547,253 +666,130 @@ def pico_timecode_thread(tc, rc, sm, stop):
                         fail = True
 
                 if r!=0:
-                    gc.from_int(r)
+                    gc.from_raw(r)
                     gc.next_frame()
                 else:
                     fail = True
 
                 if fail:
-                    mode = 64       # Start process again
+                    eng.mode = 64       # Start process again
                 else:
-                    mode -= 1
-                tc.acquire()
-                tc.mode = mode
-                tc.release()
+                    eng.mode -= 1
 
-                if mode == 1:
+                if eng.mode == 1:
                     # Jam to 'next' RX timecode
-                    if mode == 1:
-                        g = rc.to_int()
-                        tc.from_int(g)
-                        tc.next_frame()
-                        tc.next_frame()
+                    if eng.mode == 1:
+                        g = eng.rc.to_raw()
+                        eng.tc.from_raw(g)
+                        eng.tc.next_frame()
+                        eng.tc.next_frame()
 
         # Wait for TX FIFO to be empty enough to accept more
-        if mode < 2 and sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:
-            for w in tc.to_ltc_packet(send_sync):
-                sm[2].put(w)
+        if eng.mode < 2 and eng.sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:
+            for w in eng.tc.to_ltc_packet(send_sync):
+                eng.sm[2].put(w)
             send_sync = (send_sync + 1) & 1
 
             # Calculate next frame value
-            tc.next_frame()
+            eng.tc.next_frame()
 
             # Does the LED flash for this frame?
-            tc.acquire()
-            if tc.ff == 0:
-                sm[1].put((210 << 16)+ 509) # '209' duration of flash
+            eng.tc.acquire()
+            if eng.tc.ff == 0:
+                eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
             else:
-                sm[1].put(509)              # '509' is complete cycle length
-            tc.release()
+                eng.sm[1].put(509)              # '509' is complete cycle length
+            eng.tc.release()
 
             if not start_sent:
                 # enable 'Start' machine last, so others can synchronise to it
-                sm[0].active(1)
+                eng.sm[0].active(1)
                 start_sent = True
             
         utime.sleep(0.001)
 
     # Stop the StateMachines
-    for m in range(len(sm)):
-        sm[m].active(0)
+    for m in range(len(eng.sm)):
+        eng.sm[m].active(0)
         utime.sleep(0.005)
 
-    tc.set_stopped(True)
+    eng.set_stopped(True)
 
+#-------------------------------------------------------
 
-def pico_timecode_frig_clocks(fps):
-    # divider computed for CPU clock at 120MHz
-    if fps == 29.97:
-        new_div = 0x061c1000
-    elif fps == 23.976:
-        new_div = 0x07a31400
-    else:
-        return
+def ascii_display_thread(mode = 0):
+    global eng, stop
 
-    # Set dividers for all PIO machines
-    for base in [0x50200000, 0x50300000]:
-        for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
-            machine.mem32[base + offset] = new_div
-            #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
-
-def pico_timecode_inc_clocks():
-    integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
-    fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
-
-    if fraction == 0xFF:
-        fraction = 0
-        integer += 1
-    else:
-        fraction += 1
-
-    # Set dividers for all PIO machines
-    for base in [0x50200000, 0x50300000]:
-        for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
-            machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-            #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
-
-def pico_timecode_dec_clocks():
-    integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
-    fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
-
-    if fraction == 0:
-        fraction = 0xFF
-        integer -= 1
-    else:
-        fraction -= 1
-
-    # Set dividers for all PIO machines
-    for base in [0x50200000, 0x50300000]:
-        for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
-            machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-            #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
-
-timer = None
-state = False
-on_at = 0
-off_at = 0
-
-correction = 1
-rduty = 0
-rcache = []
-
-def pico_timecode_micro_adjust(duty, period = 60000): # period in ms
-    global timer, state
-    global on_at, off_at
-    global rduty, correction, rcache
-
-    now = utime.ticks_us()
-
-    if timer == None:
-        # start up new timer
-        timer = Neotimer(period * abs(duty))
-        timer.start()
-        if duty > 0:
-            pico_timecode_inc_clocks()
-        else:
-            pico_timecode_dec_clocks()
-        on_at = now
-        return
-
-    if timer.finished() and not state:
-        # flip to the 'off' state
-        timer = Neotimer(period * (1-(abs(duty)/correction)))
-        timer.start()
-        if duty > 0:
-            pico_timecode_dec_clocks()
-        else:
-            pico_timecode_inc_clocks()
-        off_at = now
-        state = True
-        return
-
-    if timer.finished() and state:
-        # start ASAP
-        timer = Neotimer(period * (abs(duty)/correction))
-        timer.start()
-        if duty > 0:
-            pico_timecode_inc_clocks()
-        else:
-            pico_timecode_dec_clocks()
-
-        cduty = utime.ticks_diff(off_at, on_at) / utime.ticks_diff(now, on_at)
-
-        on_at = now
-        state = False
-
-        # then re-calculate the correction factor
-        # using average of last ten values
-        rduty += cduty
-        rcache.append(cduty)
-        if len(rcache) > 10:
-            rduty -= rcache[0]
-            rcache = rcache[1:]
-
-        correction = (rduty/len(rcache)) / abs(duty)
-        #print("Duty check:", now, cduty, rduty/len(rcache), correction)
-
-        return
-
-
-def ascii_display_thread():
-    global tc, rc, sm
-    global stop
-
-    tc.acquire()
-    mode = tc.mode
-    fps = tc.fps
-    tc.release()
+    eng = engine()
+    eng.mode = mode
+    eng.set_stopped(True)
 
     # Reduce the CPU clock, for better computation of PIO freqs
     machine.freq(120000000)
 
     # Allocate appropriate StateMachines, and their pins
-    sm = []
-    sm_freq = int(fps * 80 * 32)
+    eng.sm = []
+    sm_freq = int(eng.tc.fps * 80 * 32)
 
     # Note: we always want the 'sync' SM to be first in the list.
-    if mode > 1:
+    if eng.mode > 1:
         # We will only start after a trigger pin goes high
-        sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
+        eng.sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
                            jmp_pin=machine.Pin(21)))        # RX Decoding
     else:
-        sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
+        eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
     '''
-    sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
+    eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
     '''
     # TX State Machines
-    sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
                            set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
-    sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
                            out_base=machine.Pin(22)))       # Output of 'raw' bitstream
-    sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
                            jmp_pin=machine.Pin(22),
                            in_base=machine.Pin(13),         # same as pin as out
                            out_base=machine.Pin(13)))       # Encoded LTC Output
 
     # RX State Machines
-    if mode > 1:
-        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+    if eng.mode > 1:
+        eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(18),
                                in_base=machine.Pin(18),
                                set_base=machine.Pin(19)))   # Decoded LTC Input
     else:
-        sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+        eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(13),     # Test - read from self/tx
                                in_base=machine.Pin(13),     # Test - read from self/tx
                                set_base=machine.Pin(19)))   # Decoded LTC Input
 
-    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
                            jmp_pin=machine.Pin(19),
                            in_base=machine.Pin(19),
                            out_base=machine.Pin(21),
                            set_base=machine.Pin(21)))       # 'sync' from RX bitstream
 
-    # correct clock dividers
-    pico_timecode_frig_clocks(fps)
+    # correct clock dividers for 29.98 and 23.976
+    eng.frig_clocks(eng.tc.fps)
 
     # set up IRQ handler
-    for m in sm:
+    for m in eng.sm:
         m.irq(handler=irq_handler, hard=True)
 
     # Start up threads
     stop = False
-    _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
+    _thread.start_new_thread(pico_timecode_thread, (eng, lambda: stop))
 
     while True:
-        if mode > 1:
-            tc.acquire()
-            mode = tc.mode
-            tc.release()
+        if eng.mode:
+            if eng.mode>1:
+                print("Jamming:", eng.mode)
+            print("RX:", eng.rc.to_ascii())
 
-        if mode:
-            if mode>1:
-                print("Jamming:", mode)
-            print("RX:", rc.to_ascii())
+        if eng.mode == 0:
+            print("TX:", eng.tc.to_ascii())
 
-        if mode == 0:
-            print("TX:", tc.to_ascii())
-
-        if mode < 0:
+        if eng.mode < 0:
             print("Underflow Error")
             break
 
@@ -801,11 +797,5 @@ def ascii_display_thread():
 
 #---------------------------------------------
 
-tc = timecode()
-rc = timecode()
-
 if __name__ == "__main__":
-    # set upstarting values...
-    tc.mode = 0
-
-    ascii_display_thread()
+    ascii_display_thread(0)

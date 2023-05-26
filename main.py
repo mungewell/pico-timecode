@@ -49,35 +49,31 @@ import utime
 import rp2
 
 # Set up (extra) globals
-
 menu_hidden = True
 menu_hidden2 = False
 
 def irq_handler(m):
-    global sm, stop
+    global eng, stop
     global tx_ticks_us, rx_ticks_us
     global core_dis
 
     core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
 
     ticks = utime.ticks_us()
-    if m==sm[1]:
+    if m==eng.sm[1]:
         tx_ticks_us = ticks
         machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
 
-    if m==sm[5]:
+    if m==eng.sm[5]:
         rx_ticks_us = ticks
         machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
 
-    if m==sm[2]:
+    if m==eng.sm[2]:
         # Buffer Underflow
         stop = 1
-
-        tc.acquire()
-        tc.mode = -1
-        tc.release()
+        eng.mode = -1
 
         menu_hidden = True
         menu_hidden2 = False
@@ -103,128 +99,108 @@ class NoShowScreen(OLED_1inch3):
                 self.write_data(self.buffer[page*16+num])
 
 
-def add_more_state_machines(sm_freq, fps):
-    global sm
+def add_more_state_machines(eng):
+    sm_freq = int(eng.tc.fps * 80 * 32)
 
     # TX State Machines
-    sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
                                set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
-    sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
                                out_base=machine.Pin(22)))       # Output of 'raw' bitstream
-    sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(22),
                                in_base=machine.Pin(13),         # same as pin as out
                                out_base=machine.Pin(13)))       # Encoded LTC Output
 
     # RX State Machines
-    sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                                jmp_pin=machine.Pin(18),         # LTC Input ...
                                in_base=machine.Pin(18),         # ... from 'other' device
                                set_base=machine.Pin(19)))       # Decoded LTC Input
-    sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
                                jmp_pin=machine.Pin(19),
                                in_base=machine.Pin(19),
                                out_base=machine.Pin(21),
                                set_base=machine.Pin(21)))       # 'sync' from RX bitstream
 
     # correct clock dividers
-    pico_timecode_frig_clocks(fps)
+    eng.frig_clocks(eng.tc.fps)
 
     # set up IRQ handler
-    for m in sm:
+    for m in eng.sm:
         m.irq(handler=irq_handler, hard=True)
 
 
 def callback_stop_start():
-    global tc, rc, sm
-    global stop
+    global eng, stop
     global menu_hidden, menu_hidden2
 
-    if tc.is_running():
+    if eng.is_running():
         stop = True
-        while tc.is_running():
+        while eng.is_running():
             utime.sleep(0.1)
 
         # Also stop any Monitor/Jam
-        tc.acquire()
-        tc.mode = 0
-        tc.release()
+        eng.mode = 0
     else:
         menu_hidden = True
         menu_hidden2 = False
 
-        tc.acquire()
-        fps = tc.fps
-        tc.release()
+        eng.tc.acquire()
+        fps = eng.tc.fps
+        eng.tc.release()
 
-        sm = []
-        sm_freq = int(fps * 80 * 32)
-        sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
-        add_more_state_machines(sm_freq, fps)
+        eng.sm = []
+        eng.sm.append(rp2.StateMachine(0, auto_start, freq=int(eng.tc.fps * 80 * 32)))
+        add_more_state_machines(eng)
 
         stop = False
-        _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
+        _thread.start_new_thread(pico_timecode_thread, (eng, lambda: stop))
 
 
 def callback_monitor():
-    global tc, rc, sm, stop
+    global eng, stop
     global menu_hidden, menu_hidden2
 
     menu_hidden = True
     menu_hidden2 = False
 
-    tc.acquire()
-    if tc.mode == 0:
-        tc.mode = 1
-    elif tc.mode == 1:
-        tc.mode = 0
-    tc.release()
+    if eng.mode == 0:
+        eng.mode = 1
+    elif eng.mode == 1:
+        eng.mode = 0
 
 
 def callback_jam():
-    global tc, rc, sm
-    global stop
+    global eng, stop
     global menu_hidden, menu_hidden2
 
     menu_hidden = True
     menu_hidden2 = False
 
-    if tc.is_running():
+    if eng.is_running():
         stop = True
-        while tc.is_running():
+        while eng.is_running():
             utime.sleep(0.1)
 
     # Turn off Jam if already enabled
-    tc.acquire()
-    '''
-    mode = tc.mode
-    if mode > 1:
-        tc.mode = 0
-        tc.release()
-        return
-    '''
-
-    fps = tc.fps
-    tc.mode = 64
-    tc.release()
-
-    sm = []
-    sm_freq = int(fps * 80 * 32)
-    sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
+    eng.sm = []
+    eng.sm.append(rp2.StateMachine(0, start_from_pin, freq=int(eng.tc.fps * 80 * 32),
                                jmp_pin=machine.Pin(21)))        # Sync from RX LTC
-    add_more_state_machines(sm_freq, fps)
+    add_more_state_machines(eng)
 
+    eng.mode = 64
     stop = False
-    _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
+    _thread.start_new_thread(pico_timecode_thread, (eng, lambda: stop))
 
 
 def callback_fps_df(set):
-    global tc, rc, sm, stop
+    global eng, stop
 
-    tc.acquire()
-    fps = tc.fps
-    df = tc.df
-    tc.release()
+    eng.tc.acquire()
+    fps = eng.tc.fps
+    df = eng.tc.df
+    eng.tc.release()
 
     if set=="Yes":
         df = True
@@ -233,7 +209,7 @@ def callback_fps_df(set):
     else:
         fps = float(set)
 
-    tc.set_fps_df(fps, df)
+    eng.tc.set_fps_df(fps, df)
 
 
 def callback_exit():
@@ -244,36 +220,23 @@ def callback_exit():
 
 #---------------------------------------------
 
-def OLED_display_thread():
-    global tc, rc, sm
-    global stop
+def OLED_display_thread(mode = 0):
+    global eng, stop
     global menu_hidden, menu_hidden2
     global tx_ticks_us, rx_ticks_us
 
-    gc = timecode()
+    eng = engine()
+    eng.mode = mode
+    eng.set_stopped(True)
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
     timerA = Neotimer(250)
     timerB = Neotimer(250)
 
-    tc.acquire()
-    fps = tc.fps
-
     # automatically Jam if booted with 'B' pressed
     if keyB.value() == 0:
-        tc.mode=64
-
-    mode = tc.mode
-    format = "FPS: "+ str(tc.fps)
-    if tc.fps != 25:
-        if tc.df:
-            format += " DF"
-        else:
-            format += " NDF"
-    tc.release()
-
-    tc.set_stopped(True)
+        eng.mode=64
 
     #OLED = OLED_1inch3()
     OLED = NoShowScreen()
@@ -289,8 +252,8 @@ def OLED_display_thread():
     menu = Menu(OLED, 4, 10)
     menu.set_screen(MenuScreen('Main Menu')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
-        .add(CallbackItem("Monitor RX", callback_monitor, visible=tc.is_running))
-        .add(SubMenuItem('TX/FPS Setting', visible=tc.is_stopped)
+        .add(CallbackItem("Monitor RX", callback_monitor, visible=eng.is_running))
+        .add(SubMenuItem('TX/FPS Setting', visible=eng.is_stopped)
              .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df))
              .add(EnumItem("Drop Frame", ["No", "Yes"], callback_fps_df)))
         .add(CallbackItem("Jam/Sync RX", callback_jam))
@@ -301,26 +264,28 @@ def OLED_display_thread():
     machine.freq(120000000)
 
     # Allocate appropriate StateMachines, and their pins
-    sm = []
-    sm_freq = int(fps * 80 * 32)
-    sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
-    add_more_state_machines(sm_freq, fps)
+    eng.sm = []
+    eng.sm.append(rp2.StateMachine(0, auto_start, freq=int(eng.tc.fps * 80 * 32)))
+    add_more_state_machines(eng)
 
     # Start up threads
     stop = False
-    _thread.start_new_thread(pico_timecode_thread, (tc, rc, sm, lambda: stop))
+    _thread.start_new_thread(pico_timecode_thread, (eng, lambda: stop))
 
     while True:
-        tc.acquire()
-        fps = tc.fps
-        format = "FPS "+ str(tc.fps)
-        if tc.fps != 25 and tc.fps != 24:
-            if tc.df:
+        eng.tc.acquire()
+        fps = eng.tc.fps
+        format = "FPS "+ str(eng.tc.fps)
+        if eng.tc.fps != 25 and eng.tc.fps != 24:
+            if eng.tc.df:
                 format += " DF"
             else:
                 format += " NDF"
-        tc.release()
+        eng.tc.release()
+
         cycle_us = (1000000 / fps)
+        gc = timecode()
+        l = 0
 
         while True:
             if menu_hidden == False:
@@ -340,32 +305,28 @@ def OLED_display_thread():
                     menu_hidden = False
 
 
-            if (menu_hidden and mode>0) or (menu_hidden and not menu_hidden2):
+            if (menu_hidden and eng.mode>0) or (menu_hidden and not menu_hidden2):
                 # Only show the following when menu is not active
                 OLED.fill(0x0000)
                 OLED.text("<- Menu" ,0,2,OLED.white)
 
-                tc.acquire()
-                mode = tc.mode
-                tc.release()
-
-                if mode:
+                if eng.mode:
                     # Figure out what RX frame to display
                     while True:
                         r1 = rx_ticks_us
                         t1 = tx_ticks_us
-                        f = sm[5].rx_fifo()
-                        g = rc.to_int()
+                        f = eng.sm[5].rx_fifo()
+                        g = eng.rc.to_raw()
                         r2 = rx_ticks_us
                         n = utime.ticks_us()
                         if r1==r2:
-                            gc.from_int(g)
+                            gc.from_raw(g)
                             break
 
                     gc.next_frame()			# TC is ahead due to buffers...
 
                     # Draw an error bar to represent timing betwen TX and RX
-                    if mode == 1:
+                    if eng.mode == 1:
                         d = utime.ticks_diff(t1, r1)
 
                         # RX is offset by ~2/3 bit
@@ -379,6 +340,11 @@ def OLED_display_thread():
                             while d > (cycle_us/2):
                                 d -= cycle_us
 
+                        # test output to figure XTAL compensation
+                        if (g & 0xFF0000) != l:
+                            l = g & 0xFF0000
+                            print(gc.to_ascii(), d)
+
                         OLED.vline(64, 32, 4, OLED.white)
 
                         length = int(1280 * d/cycle_us)
@@ -390,33 +356,33 @@ def OLED_display_thread():
                             OLED.hline(63+length, 34, -length, OLED.white)
 
                     OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
-                    if mode > 1:
+                    if eng.mode > 1:
                         OLED.text("Jamming to:",0,12,OLED.white)
 
                         # Draw a line representing time until Jam complete
                         OLED.vline(0, 32, 4, OLED.white)
-                        OLED.hline(0, 33, mode * 2, OLED.white)
-                        OLED.hline(0, 34, mode * 2, OLED.white)
+                        OLED.hline(0, 33, eng.mode * 2, OLED.white)
+                        OLED.hline(0, 34, eng.mode * 2, OLED.white)
 
                 OLED.text(format,0,40,OLED.white)
             else:
                 # clear the lower lines of the screen
                 OLED.rect(0,52,128,10,OLED.balck,True)
 
-            if mode < 0:
+            if eng.mode < 0:
                 OLED.text("Underflow Error",0,54,OLED.white)
             else:
                 # Always show the TX timecode, 'cos that's important!
                 # since FIFO is in use, our current 'tc' is always ahead
-                g = tc.to_int()
-                gc.from_int(g)
+                g = eng.tc.to_raw()
+                gc.from_raw(g)
                 gc.prev_frame()
                 gc.prev_frame()
                 gc.prev_frame()
 
                 OLED.text("TX  " + gc.to_ascii(),0,54,OLED.white)
 
-            if menu_hidden and menu_hidden2 and mode==0:
+            if menu_hidden and menu_hidden2 and eng.mode==0:
                 # Only draw the bottom lines of the screen
                 OLED.show(52)
             else:
@@ -424,9 +390,10 @@ def OLED_display_thread():
 
             menu_hidden2=menu_hidden
 
-            if tc.is_stopped():
+            if eng.is_stopped():
                 break
 
+#---------------------------------------------
 
 if __name__ == "__main__":
     OLED_display_thread()

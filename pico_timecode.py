@@ -466,10 +466,13 @@ class engine(object):
     rc = timecode()
     sm = None
 
+    duty = 0.0
+    prev_duty = 0
+
     timer = None
-    asserted = False
     on_at = 0
     off_at = 0
+    off_stage = False
 
     correction = 1
     rduty = 0
@@ -486,6 +489,11 @@ class engine(object):
 
     def set_stopped(self, s=True):
         self.stopped = s
+        if s:
+            self.timer = None
+            self.asserted = False
+            rduty = 0
+            rcache = []
 
     def frig_clocks(self, fps):
         # divider computed for CPU clock at 120MHz
@@ -500,7 +508,7 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = new_div
-                #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+        #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def inc_divider(self):
         # increasing divider -> slower clock
@@ -517,7 +525,7 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-                #print("Inc to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+        #print("Inc to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def dec_divider(self):
         # decreasing divider -> faster clock
@@ -534,46 +542,62 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-                #print("Dec to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+        #print("Dec to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+
+    def crude_adjust(self, duty):
+        dif = int(duty) - int(self.prev_duty)
+        self.prev_duty = duty
+
+        for i in range(abs(dif)):
+            if dif > 0:
+                self.dec_divider()
+            else:
+                self.inc_divider()
 
     def micro_adjust(self, duty, period=60000): # period in ms
         now = utime.ticks_us()
+
+        if self.stopped:
+            return
 
         if self.timer == None:
             # start up new timer
             self.timer = Neotimer(period * (abs(duty) % 1))
             self.timer.start()
-            if duty > 0:
-                self.dec_divider()
-
-                # First time only
-                for i in range(1, int(abs(duty))):
-                    self.dec_divider()
-            else:
-                self.inc_divider()
-
-                # First time only
-                for i in range(1, int(abs(duty))):
-                    self.inc_divider()
             self.on_at = now
+            self.off_stage = False
+
+            self.crude_adjust(duty)
+
+            # For 'on_stage'
+            if duty > 0:
+                self.dec_divider()
+            else:
+                self.inc_divider()
+
             return
 
-        if self.timer.finished() and not self.asserted:
-            # flip to the 'off' asserted
-            timer = Neotimer(period * (1-((abs(duty) % 1)/self.correction)))
-            timer.start()
+        if self.timer.finished():
+            self.crude_adjust(duty)
+
+        if self.timer.finished() and not self.off_stage:
+            self.timer = Neotimer(period * (1-((abs(duty) % 1)/self.correction)))
+            self.timer.start()
+            self.off_at = now
+            self.off_stage = True
+
+            # For 'off_stage'
             if duty > 0:
                 self.inc_divider()
             else:
                 self.dec_divider()
-            self.off_at = now
-            self.asserted = True
             return
 
-        if self.timer.finished() and self.asserted:
-            # start ASAP
+        if self.timer.finished() and self.off_stage:
             self.timer = Neotimer(period * ((abs(duty) % 1)/self.correction))
             self.timer.start()
+
+            # For 'on_stage'
             if duty > 0:
                 self.dec_divider()
             else:
@@ -582,19 +606,22 @@ class engine(object):
             cduty = utime.ticks_diff(self.off_at, self.on_at) / utime.ticks_diff(now, self.on_at)
 
             self.on_at = now
-            self.asserted = False
+            self.off_stage = False
 
             # then re-calculate the correction factor
-            # using average of last ten values
+            # using average of last (up-to) ten values
             self.rduty += cduty
             self.rcache.append(cduty)
             if len(self.rcache) > 10:
                 self.rduty -= self.rcache[0]
                 self.rcache = self.rcache[1:]
 
-            self.correction = (self.rduty/len(self.rcache)) / (abs(duty) % 1)
+            if (abs(duty) % 1):
+                self.correction = (self.rduty/len(self.rcache)) / (abs(duty) % 1)
+            else:
+                self.correction = 1
             '''
-            print("Duty check:", now, cduty, self.rduty/len(self.rcache) \
+            print("Duty check:", duty, now, cduty, self.rduty/len(self.rcache) \
                     , len(self.rcache), self.correction)
             '''
 
@@ -633,7 +660,7 @@ def pico_timecode_thread(eng, stop):
     while not stop():
         # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
         # -1 -> +1 : +ve = faster clock, -ve = slower clock
-        #eng.micro_adjust(1.6, 10000)          # hardcoded value for test
+        eng.micro_adjust(eng.duty, 10000)
 
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
@@ -741,6 +768,7 @@ def ascii_display_thread(mode = 0):
     '''
     eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
     '''
+
     # TX State Machines
     eng.sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
                            set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
@@ -754,14 +782,14 @@ def ascii_display_thread(mode = 0):
     # RX State Machines
     if eng.mode > 1:
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                               jmp_pin=machine.Pin(18),
-                               in_base=machine.Pin(18),
-                               set_base=machine.Pin(19)))   # Decoded LTC Input
+                           jmp_pin=machine.Pin(18),
+                           in_base=machine.Pin(18),
+                           set_base=machine.Pin(19)))   # Decoded LTC Input
     else:
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                               jmp_pin=machine.Pin(13),     # Test - read from self/tx
-                               in_base=machine.Pin(13),     # Test - read from self/tx
-                               set_base=machine.Pin(19)))   # Decoded LTC Input
+                           jmp_pin=machine.Pin(13),     # Test - read from self/tx
+                           in_base=machine.Pin(13),     # Test - read from self/tx
+                           set_base=machine.Pin(19)))   # Decoded LTC Input
 
     eng.sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
                            jmp_pin=machine.Pin(19),

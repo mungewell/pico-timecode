@@ -38,6 +38,7 @@
 # We will also use the I2C bus to 'talk' to other devices...
 #
 
+from pid import *
 from umenu import *
 from neotimer import *
 from Pico_OLED import *
@@ -287,6 +288,15 @@ def OLED_display_thread(mode = 0):
         gc = timecode()
         l = 0
 
+        dave = 0
+        dcache = []
+
+        pid = PID(-0.001, -0.00001, -0.001, setpoint=0)
+        pid.auto_mode = False
+        pid.sample_time = 60
+        pid.output_limits = (-10.0, 10.0)
+        sync_after_jam = False
+
         while True:
             if menu_hidden == False:
                 if timerA.debounce_signal(keyA.value()==0):
@@ -333,17 +343,36 @@ def OLED_display_thread(mode = 0):
                         d += cycle_us * 2/ (3 * 80)
 
                         # correct delta, if adjacent frame
-                        if d > (-2 * cycle_us) and d < 0:
+                        if d > (-2 * cycle_us) and d <= 0:
                             while d < -(cycle_us/2):
                                 d += cycle_us
-                        if d < (2 * cycle_us) and d > 0:
+                        elif d < (2 * cycle_us) and d >= 0:
                             while d > (cycle_us/2):
                                 d -= cycle_us
+                        elif l:
+                                sync_after_jam = False
+                                pid.auto_mode = False
 
-                        # test output to figure XTAL compensation
-                        if (g & 0xFF0000) != l:
-                            l = g & 0xFF0000
-                            print(gc.to_ascii(), d)
+                        # Average recent delta's to minimise glitches
+                        dave += d
+                        dcache.append(d)
+                        if len(dcache) > 10:
+                            dave -= dcache[0]
+                            dcache = dcache[1:]
+
+                        # Update PID every 60s or so
+                        if (g & 0xFFFF0000) != l:
+                            if l:
+                                if sync_after_jam == True:
+                                    if pid.auto_mode == False:
+                                        pid.set_auto_mode(True, last_output=eng.duty)
+
+                                    eng.duty = pid(dave/len(dcache))
+                                    print(gc.to_ascii(), dave/len(dcache), eng.duty, pid.components)
+                                else:
+                                    print(gc.to_ascii(), dave/len(dcache), eng.duty)
+
+                            l = g & 0xFFFF0000
 
                         OLED.vline(64, 32, 4, OLED.white)
 
@@ -364,10 +393,15 @@ def OLED_display_thread(mode = 0):
                         OLED.hline(0, 33, eng.mode * 2, OLED.white)
                         OLED.hline(0, 34, eng.mode * 2, OLED.white)
 
+                        sync_after_jam = True
+                        #pid.set_auto_mode(True, last_output=eng.duty)
+
                 OLED.text(format,0,40,OLED.white)
             else:
                 # clear the lower lines of the screen
                 OLED.rect(0,52,128,10,OLED.balck,True)
+                sync_after_jam = False
+                pid.auto_mode = False
 
             if eng.mode < 0:
                 OLED.text("Underflow Error",0,54,OLED.white)

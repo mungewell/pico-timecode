@@ -291,10 +291,10 @@ def OLED_display_thread(mode = 0):
         dave = 0
         dcache = []
 
-        pid = PID(-0.001, -0.00001, -0.001, setpoint=0)
+        pid = PID(-0.001, -0.00001, -0.002, setpoint=0)
         pid.auto_mode = False
         pid.sample_time = 60
-        pid.output_limits = (-10.0, 10.0)
+        pid.output_limits = (-20.0, 20.0)
         sync_after_jam = False
 
         while True:

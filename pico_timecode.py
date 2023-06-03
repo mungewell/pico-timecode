@@ -8,7 +8,7 @@ import _thread
 import utime
 import rp2
 
-from neotimer import *
+from machine import Timer
 
 # set up Globals
 eng = None
@@ -212,6 +212,53 @@ def irq_handler(m):
         eng.mode = -1
 
     machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+
+
+def timer_handler(timer):
+    global eng
+    global core_dis
+
+    #core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
+
+    if eng.stopped or timer==None:
+        # don't refesh timer
+        #machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+        return
+
+    if eng.dlock.acquire(): #waitflag=0):
+        # Got lock
+        if eng.off_stage:
+            # Starting 'on' stage
+            eng.off_stage = False
+            period = int(eng.period * (abs(eng.duty) % 1))
+            if period < 5:
+                period = 5
+
+            if eng.duty > 0:
+                eng.dec_divider()
+            else:
+                eng.inc_divider()
+
+            timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
+        else:
+            # Starting 'off' stage
+            eng.off_stage = True
+            period = int(eng.period * (1-(abs(eng.duty) % 1)))
+            if period < 5:
+                period = 5
+
+            if eng.duty > 0:
+                eng.inc_divider()
+            else:
+                eng.dec_divider()
+
+            timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
+        eng.dlock.release()
+    else:
+        # Unable to aquire(), so set timer with short period and try again later
+        timer.init(period=5, mode=Timer.ONE_SHOT, callback=timer_handler)
+
+    #machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
 
 #---------------------------------------------
 
@@ -466,17 +513,12 @@ class engine(object):
     rc = timecode()
     sm = None
 
-    duty = 0.0
+    duty = 0.5
     prev_duty = 0
+    dlock = _thread.allocate_lock()
 
     timer = None
-    on_at = 0
-    off_at = 0
     off_stage = False
-
-    correction = 1
-    rduty = 0
-    rcache = []
 
     # state of running (ie whether being used for output)
     stopped = True
@@ -525,7 +567,7 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-        #print("Inc to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+        print("Inc to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def dec_divider(self):
         # decreasing divider -> faster clock
@@ -542,89 +584,46 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-        #print("Dec to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+        print("Dec to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def crude_adjust(self, duty):
         dif = int(duty) - int(self.prev_duty)
         self.prev_duty = duty
 
+        self.dlock.acquire()
         for i in range(abs(dif)):
             if dif > 0:
                 self.dec_divider()
             else:
                 self.inc_divider()
+        self.dlock.release()
 
     def micro_adjust(self, duty, period=60000): # period in ms
-        now = utime.ticks_us()
-
         if self.stopped:
             return
 
+        self.duty = duty
+        self.period = period
+        self.crude_adjust(duty)
+
         if self.timer == None:
-            # start up new timer
-            self.timer = Neotimer(period * (abs(duty) % 1))
-            self.timer.start()
-            self.on_at = now
             self.off_stage = False
-
-            self.crude_adjust(duty)
+            period = int(self.period * (abs(duty) % 1))
+            if period == 0:
+                return
 
             # For 'on_stage'
+            self.dlock.acquire()
             if duty > 0:
                 self.dec_divider()
             else:
                 self.inc_divider()
+            self.dlock.release()
 
-            return
-
-        if self.timer.finished():
-            self.crude_adjust(duty)
-
-        if self.timer.finished() and not self.off_stage:
-            self.timer = Neotimer(period * (1-((abs(duty) % 1)/self.correction)))
-            self.timer.start()
-            self.off_at = now
-            self.off_stage = True
-
-            # For 'off_stage'
-            if duty > 0:
-                self.inc_divider()
-            else:
-                self.dec_divider()
-            return
-
-        if self.timer.finished() and self.off_stage:
-            self.timer = Neotimer(period * ((abs(duty) % 1)/self.correction))
-            self.timer.start()
-
-            # For 'on_stage'
-            if duty > 0:
-                self.dec_divider()
-            else:
-                self.inc_divider()
-
-            cduty = utime.ticks_diff(self.off_at, self.on_at) / utime.ticks_diff(now, self.on_at)
-
-            self.on_at = now
-            self.off_stage = False
-
-            # then re-calculate the correction factor
-            # using average of last (up-to) ten values
-            self.rduty += cduty
-            self.rcache.append(cduty)
-            if len(self.rcache) > 10:
-                self.rduty -= self.rcache[0]
-                self.rcache = self.rcache[1:]
-
-            if (abs(duty) % 1):
-                self.correction = (self.rduty/len(self.rcache)) / (abs(duty) % 1)
-            else:
-                self.correction = 1
-            '''
-            print("Duty check:", duty, now, cduty, self.rduty/len(self.rcache) \
-                    , len(self.rcache), self.correction)
-            '''
-
+            # start up new hardware timer
+            #print("Set up timer", period, self.period, self.duty, utime.ticks_us())
+            self.timer = Timer()
+            self.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
             return
 
 #-------------------------------------------------------
@@ -661,6 +660,7 @@ def pico_timecode_thread(eng, stop):
         # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
         # -1 -> +1 : +ve = faster clock, -ve = slower clock
         eng.micro_adjust(eng.duty, 10000)
+        #eng.crude_adjust(eng.duty)
 
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
@@ -814,8 +814,10 @@ def ascii_display_thread(mode = 0):
                 print("Jamming:", eng.mode)
             print("RX:", eng.rc.to_ascii())
 
+        '''
         if eng.mode == 0:
             print("TX:", eng.tc.to_ascii())
+        '''
 
         if eng.mode < 0:
             print("Underflow Error")

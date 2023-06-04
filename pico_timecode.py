@@ -218,47 +218,86 @@ def timer_handler(timer):
     global eng
     global core_dis
 
-    #core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
-
     if eng.stopped or timer==None:
         # don't refesh timer
         #machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
+    print("=")
 
-    if eng.dlock.acquire(): #waitflag=0):
-        # Got lock
+    lock = eng.dlock.acquire(0)
+    print(lock)
+
+    if lock:
+        core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
+        #print(core_dis)
+
+        print(">")
+        # Got lock, change dividers
+        integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
+        fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
+
+        if (eng.duty > 0 and not eng.off_stage) or (eng.duty < 0 and eng.off_stage):
+            # Inc divider
+            if fraction == 0xFF:
+                fraction = 0
+                integer += 1
+            else:
+                fraction += 1
+        else:
+            # Dec divider
+            if fraction == 0:
+                fraction = 0xFF
+                integer -= 1
+            else:
+                fraction -= 1
+
+        # Set dividers for all PIO machines
+        for base in [0x50200000, 0x50300000]:
+            for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
+                machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
+
+        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+        eng.dlock.release()
+
         if eng.off_stage:
+            print("+")
             # Starting 'on' stage
             eng.off_stage = False
             period = int(eng.period * (abs(eng.duty) % 1))
-            if period < 5:
-                period = 5
+            if period < 50:
+                period = 50
 
+            '''
             if eng.duty > 0:
                 eng.dec_divider()
             else:
                 eng.inc_divider()
+            '''
 
             timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
         else:
+            print("-")
             # Starting 'off' stage
             eng.off_stage = True
             period = int(eng.period * (1-(abs(eng.duty) % 1)))
-            if period < 5:
-                period = 5
+            if period < 50:
+                period = 50
 
+            '''
             if eng.duty > 0:
                 eng.inc_divider()
             else:
                 eng.dec_divider()
+            '''
 
             timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
-        eng.dlock.release()
-    else:
-        # Unable to aquire(), so set timer with short period and try again later
-        timer.init(period=5, mode=Timer.ONE_SHOT, callback=timer_handler)
 
-    #machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+        print(".")
+    else:
+        print("/")
+        # Unable to aquire(), so set timer with short period and try again later
+        timer.init(period=50, mode=Timer.ONE_SHOT, callback=timer_handler)
+
 
 #---------------------------------------------
 
@@ -530,10 +569,14 @@ class engine(object):
         return not self.stopped
 
     def set_stopped(self, s=True):
+        global stop
+
         self.stopped = s
         if s:
+            stop = False
             self.timer = None
             self.asserted = False
+
             rduty = 0
             rcache = []
 
@@ -567,7 +610,7 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-        print("Inc to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+        #print("Inc to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def dec_divider(self):
         # decreasing divider -> faster clock
@@ -584,11 +627,15 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-        print("Dec to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
+        #print("Dec to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def crude_adjust(self, duty):
         dif = int(duty) - int(self.prev_duty)
         self.prev_duty = duty
+
+        if dif==0:
+            return
+        print(":")
 
         self.dlock.acquire()
         for i in range(abs(dif)):
@@ -601,6 +648,7 @@ class engine(object):
     def micro_adjust(self, duty, period=60000): # period in ms
         if self.stopped:
             return
+        print("X")
 
         self.duty = duty
         self.period = period
@@ -655,12 +703,13 @@ def pico_timecode_thread(eng, stop):
     gc = timecode()
     gc.set_fps_df(fps, df)
 
+    # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
+    # -1 -> +1 : +ve = faster clock, -ve = slower clock
+    eng.micro_adjust(eng.duty, 10000)
+    #eng.crude_adjust(eng.duty)
+
     # Loop, increasing frame count each time
     while not stop():
-        # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
-        # -1 -> +1 : +ve = faster clock, -ve = slower clock
-        eng.micro_adjust(eng.duty, 10000)
-        #eng.crude_adjust(eng.duty)
 
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
@@ -765,9 +814,6 @@ def ascii_display_thread(mode = 0):
                            jmp_pin=machine.Pin(21)))        # RX Decoding
     else:
         eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
-    '''
-    eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
-    '''
 
     # TX State Machines
     eng.sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
@@ -814,10 +860,8 @@ def ascii_display_thread(mode = 0):
                 print("Jamming:", eng.mode)
             print("RX:", eng.rc.to_ascii())
 
-        '''
         if eng.mode == 0:
             print("TX:", eng.tc.to_ascii())
-        '''
 
         if eng.mode < 0:
             print("Underflow Error")
@@ -828,4 +872,4 @@ def ascii_display_thread(mode = 0):
 #---------------------------------------------
 
 if __name__ == "__main__":
-    ascii_display_thread(0)
+    ascii_display_thread(1)

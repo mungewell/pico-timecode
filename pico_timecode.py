@@ -8,6 +8,9 @@ import _thread
 import utime
 import rp2
 
+import micropython
+micropython.alloc_emergency_exception_buf(100)
+
 from machine import Timer
 
 # set up Globals
@@ -17,7 +20,7 @@ stop = False
 tx_ticks_us = 0
 rx_ticks_us = 0
 
-core_dis = [0, 0]
+core_dis = [[0, 0], [False, False], [False, False]]
 
 #---------------------------------------------
 
@@ -193,25 +196,27 @@ def irq_handler(m):
     global tx_ticks_us, rx_ticks_us
     global core_dis
 
-    core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
+    if not core_dis[2][0] and not core_dis[2][1]:
+        core_dis[1][machine.mem32[0xd0000000]] = True
+        core_dis[0][machine.mem32[0xd0000000]] = machine.disable_irq()
+    else:
+        print(machine.mem32[0xd0000000])
 
     ticks = utime.ticks_us()
     if m==eng.sm[1]:
         tx_ticks_us = ticks
-        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
-        return
 
     if m==eng.sm[5]:
         rx_ticks_us = ticks
-        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
-        return
 
     if m==eng.sm[2]:
         # Buffer Underflow
         stop = 1
         eng.mode = -1
 
-    machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+    if core_dis[1][machine.mem32[0xd0000000]]:
+        machine.enable_irq(core_dis[0][machine.mem32[0xd0000000]])
+        core_dis[1][machine.mem32[0xd0000000]] = False
 
 
 def timer_handler(timer):
@@ -222,16 +227,15 @@ def timer_handler(timer):
         # don't refesh timer
         #machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         return
-    print("=")
+    #print("=")
 
     lock = eng.dlock.acquire(0)
-    print(lock)
+    #print(lock)
 
     if lock:
-        core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
-        #print(core_dis)
+        #core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
 
-        print(">")
+        #print(">")
         # Got lock, change dividers
         integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
         fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
@@ -256,8 +260,13 @@ def timer_handler(timer):
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
 
-        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+        #machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         eng.dlock.release()
+
+        if not core_dis[1][machine.mem32[0xd0000000]]:
+            core_dis[2][machine.mem32[0xd0000000]] = True
+
+        print(core_dis)
 
         if eng.off_stage:
             print("+")
@@ -291,6 +300,9 @@ def timer_handler(timer):
             '''
 
             timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
+
+        if core_dis[2][machine.mem32[0xd0000000]]:
+            core_dis[2][machine.mem32[0xd0000000]] = False
 
         print(".")
     else:

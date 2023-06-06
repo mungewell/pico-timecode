@@ -12,6 +12,7 @@ import micropython
 micropython.alloc_emergency_exception_buf(100)
 
 from machine import Timer
+from micropython import schedule
 
 # set up Globals
 eng = None
@@ -20,7 +21,7 @@ stop = False
 tx_ticks_us = 0
 rx_ticks_us = 0
 
-core_dis = [[0, 0, False], [0, 0, False]]
+core_dis = [0, 0]
 
 #---------------------------------------------
 
@@ -196,13 +197,7 @@ def irq_handler(m):
     global tx_ticks_us, rx_ticks_us
     global core_dis
 
-    if core_dis[1][2]:
-        #print("*")
-        return
-
-    core_dis[0][2] = True
-    core_dis[0][machine.mem32[0xd0000000]] = machine.disable_irq()
-
+    core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
     ticks = utime.ticks_us()
 
     if m==eng.sm[1]:
@@ -216,36 +211,25 @@ def irq_handler(m):
         stop = 1
         eng.mode = -1
 
-    machine.enable_irq(core_dis[0][machine.mem32[0xd0000000]])
-    core_dis[0][2] = False
+    machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
 
+def timer_sched(timer):
+    schedule(timer_re_init, timer)
 
-def timer_handler(timer):
+def timer_re_init(timer):
     global eng
-    global core_dis
-
-    if eng.stopped or timer==None:
-        # don't refesh timer
-        #machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
-        return
-    #print("=")
-
-    ticks = utime.ticks_ms()
 
     period = 0
     lock = eng.dlock.acquire(0)
-    #print(lock)
 
     if lock:
-        #core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
-
-        #print(">")
         # Got lock, change dividers
         integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
         fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
 
         if (eng.duty > 0 and not eng.off_stage) or (eng.duty < 0 and eng.off_stage):
             # Inc divider
+            print("+")
             if fraction == 0xFF:
                 fraction = 0
                 integer += 1
@@ -253,6 +237,7 @@ def timer_handler(timer):
                 fraction += 1
         else:
             # Dec divider
+            print("-")
             if fraction == 0:
                 fraction = 0xFF
                 integer -= 1
@@ -267,56 +252,18 @@ def timer_handler(timer):
         eng.dlock.release()
 
         if eng.off_stage:
-            #print("+")
             # Starting 'on' stage
             eng.off_stage = False
             period = int(eng.period * (abs(eng.duty) % 1))
         else:
-            #print("-")
             # Starting 'off' stage
             eng.off_stage = True
             period = int(eng.period * (1-(abs(eng.duty) % 1)))
 
-    '''
-    # disable PIO's IRQ handlers
-    for m in eng.sm:
-        m.irq(handler=None)
-    '''
-
-    while True:
-        if not core_dis[0][2]:
-            core_dis[1][2] = True
-            break
-        '''
-        else:
-            print("C", machine.mem32[0xd0000000])
-        '''
-
-    # and again, in-case IRQ 'missed' [1][2] being set...
-    utime.sleep(0.001)
-    while core_dis[0][2]:
-        #print("C", machine.mem32[0xd0000000])
-        utime.sleep(0.001)
-
-    core_dis[1][machine.mem32[0xd0000000]] = machine.disable_irq()
-
-    period -= utime.ticks_diff(ticks, utime.ticks_ms())
     if period < 50:
         period = 50
 
-    timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
-
-    machine.enable_irq(core_dis[1][machine.mem32[0xd0000000]])
-    core_dis[1][2] = False
-
-    '''
-    # re set up IRQ handler
-    for m in eng.sm:
-        m.irq(handler=irq_handler, hard=True)
-    '''
-
-    #print(".")
-
+    eng.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
 
 #---------------------------------------------
 
@@ -689,8 +636,10 @@ class engine(object):
             # start up new hardware timer
             #print("Set up timer", period, self.period, self.duty, utime.ticks_us())
             self.timer = Timer()
-            self.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
+            self.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
             return
+
+
 
 #-------------------------------------------------------
 

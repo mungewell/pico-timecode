@@ -20,7 +20,7 @@ stop = False
 tx_ticks_us = 0
 rx_ticks_us = 0
 
-core_dis = [[0, 0], [False, False], [False, False]]
+core_dis = [[0, 0, False], [0, 0, False]]
 
 #---------------------------------------------
 
@@ -196,13 +196,15 @@ def irq_handler(m):
     global tx_ticks_us, rx_ticks_us
     global core_dis
 
-    if not core_dis[2][0] and not core_dis[2][1]:
-        core_dis[1][machine.mem32[0xd0000000]] = True
-        core_dis[0][machine.mem32[0xd0000000]] = machine.disable_irq()
-    else:
-        print(machine.mem32[0xd0000000])
+    if core_dis[1][2]:
+        #print("*")
+        return
+
+    core_dis[0][2] = True
+    core_dis[0][machine.mem32[0xd0000000]] = machine.disable_irq()
 
     ticks = utime.ticks_us()
+
     if m==eng.sm[1]:
         tx_ticks_us = ticks
 
@@ -214,9 +216,8 @@ def irq_handler(m):
         stop = 1
         eng.mode = -1
 
-    if core_dis[1][machine.mem32[0xd0000000]]:
-        machine.enable_irq(core_dis[0][machine.mem32[0xd0000000]])
-        core_dis[1][machine.mem32[0xd0000000]] = False
+    machine.enable_irq(core_dis[0][machine.mem32[0xd0000000]])
+    core_dis[0][2] = False
 
 
 def timer_handler(timer):
@@ -229,6 +230,9 @@ def timer_handler(timer):
         return
     #print("=")
 
+    ticks = utime.ticks_ms()
+
+    period = 0
     lock = eng.dlock.acquire(0)
     #print(lock)
 
@@ -260,55 +264,58 @@ def timer_handler(timer):
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
 
-        #machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
         eng.dlock.release()
 
-        if not core_dis[1][machine.mem32[0xd0000000]]:
-            core_dis[2][machine.mem32[0xd0000000]] = True
-
-        print(core_dis)
-
         if eng.off_stage:
-            print("+")
+            #print("+")
             # Starting 'on' stage
             eng.off_stage = False
             period = int(eng.period * (abs(eng.duty) % 1))
-            if period < 50:
-                period = 50
-
-            '''
-            if eng.duty > 0:
-                eng.dec_divider()
-            else:
-                eng.inc_divider()
-            '''
-
-            timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
         else:
-            print("-")
+            #print("-")
             # Starting 'off' stage
             eng.off_stage = True
             period = int(eng.period * (1-(abs(eng.duty) % 1)))
-            if period < 50:
-                period = 50
 
-            '''
-            if eng.duty > 0:
-                eng.inc_divider()
-            else:
-                eng.dec_divider()
-            '''
+    '''
+    # disable PIO's IRQ handlers
+    for m in eng.sm:
+        m.irq(handler=None)
+    '''
 
-            timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
+    while True:
+        if not core_dis[0][2]:
+            core_dis[1][2] = True
+            break
+        '''
+        else:
+            print("C", machine.mem32[0xd0000000])
+        '''
 
-        if core_dis[2][machine.mem32[0xd0000000]]:
-            core_dis[2][machine.mem32[0xd0000000]] = False
+    # and again, in-case IRQ 'missed' [1][2] being set...
+    utime.sleep(0.001)
+    while core_dis[0][2]:
+        #print("C", machine.mem32[0xd0000000])
+        utime.sleep(0.001)
 
-        print(".")
-    else:
-        print("/")
-        # Unable to aquire(), so set timer with short period and try again later
-        timer.init(period=50, mode=Timer.ONE_SHOT, callback=timer_handler)
+    core_dis[1][machine.mem32[0xd0000000]] = machine.disable_irq()
+
+    period -= utime.ticks_diff(ticks, utime.ticks_ms())
+    if period < 50:
+        period = 50
+
+    timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_handler)
+
+    machine.enable_irq(core_dis[1][machine.mem32[0xd0000000]])
+    core_dis[1][2] = False
+
+    '''
+    # re set up IRQ handler
+    for m in eng.sm:
+        m.irq(handler=irq_handler, hard=True)
+    '''
+
+    #print(".")
 
 
 #---------------------------------------------
@@ -660,7 +667,6 @@ class engine(object):
     def micro_adjust(self, duty, period=60000): # period in ms
         if self.stopped:
             return
-        print("X")
 
         self.duty = duty
         self.period = period

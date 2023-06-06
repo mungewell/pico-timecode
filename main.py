@@ -369,7 +369,7 @@ def OLED_display_thread(mode = 0):
                                     if pid.auto_mode == False:
                                         pid.set_auto_mode(True, last_output=pt.eng.duty)
 
-                                    #pt.eng.micro_adjust(pid(dave/len(dcache)), pt.eng.period)
+                                    pt.eng.micro_adjust(pid(dave/len(dcache)), pt.eng.period)
                                     print(gc.to_ascii(), dave/len(dcache), pt.eng.duty, pid.components)
                                 else:
                                     print(gc.to_ascii(), dave/len(dcache), pt.eng.duty)

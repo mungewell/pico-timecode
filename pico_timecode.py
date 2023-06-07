@@ -21,7 +21,10 @@ stop = False
 tx_ticks_us = 0
 rx_ticks_us = 0
 
-core_dis = [0, 0]
+core_dis = [[0, 0], [0, 0]]
+core_lock = [None, None]
+core_lock[0] = _thread.allocate_lock()
+core_lock[1] = _thread.allocate_lock()
 
 #---------------------------------------------
 
@@ -112,10 +115,12 @@ def buffer_out():
     out(pins, 1) [30]
     
     jmp(not_osre, "start")
-                                    # UNDERFLOW - when Python fails to fill FIFOs
-    irq(rel(0))                     # set IRQ to warn other StateMachines
-    wrap_target()
-    set(pins, 0)
+
+    wrap_target()           # UNDERFLOW - when Python fails to fill FIFOs
+    irq(rel(0)) [31]        # set IRQ to warn other StateMachines
+    set(pins, 0) [31]
+    nop() [31]
+    nop() [31]
     wrap()
 
 
@@ -195,28 +200,39 @@ def sync_and_read():
 def irq_handler(m):
     global eng, stop
     global tx_ticks_us, rx_ticks_us
-    global core_dis
+    global core_dis, core_lock
 
-    core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
-    ticks = utime.ticks_us()
+    core = machine.mem32[0xd0000000]
+    if (core_lock[core]).acquire(0):        # Waitflag=0, can fail to get lock
+        core_dis[0][core] = machine.disable_irq()
 
-    if m==eng.sm[1]:
-        tx_ticks_us = ticks
+        ticks = utime.ticks_us()
+        if m==eng.sm[0]:
+            tx_ticks_us = ticks
 
-    if m==eng.sm[5]:
-        rx_ticks_us = ticks
+        if m==eng.sm[1]:
+            rx_ticks_us = ticks
 
-    if m==eng.sm[2]:
-        # Buffer Underflow
-        stop = 1
-        eng.mode = -1
+        if m==eng.sm[2]:
+            # Buffer Underflow
+            stop = 1
+            eng.mode = -1
 
-    machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+        machine.enable_irq(core_dis[0][core])
+        (core_lock[core]).release()
 
 def timer_sched(timer):
-    schedule(timer_re_init, timer)
+    global core_dis, core_lock
+
+    core = machine.mem32[0xd0000000]
+    if core_lock[core].acquire():
+        #core_dis[1][core] = machine.disable_irq()
+        schedule(timer_re_init, timer)
+        #machine.enable_irq(core_dis[1][core])
+        core_lock[core].release()
 
 def timer_re_init(timer):
+    global core_dis, core_lock
     global eng
 
     period = 0
@@ -263,7 +279,13 @@ def timer_re_init(timer):
     if period < 50:
         period = 50
 
-    eng.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
+    core = machine.mem32[0xd0000000]
+    lock = core_lock[core].acquire()
+    if lock:
+        core_dis[1][core] = machine.disable_irq()
+        eng.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
+        machine.enable_irq(core_dis[1][core])
+        core_lock[core].release()
 
 #---------------------------------------------
 

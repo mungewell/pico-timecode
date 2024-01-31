@@ -337,7 +337,8 @@ def OLED_display_thread(mode = 0):
 
                     gc.next_frame()			# TC is ahead due to buffers...
 
-                    # Draw an error bar to represent timing betwen TX and RX
+                    # Draw an error bar to represent timing delta between TX and RX
+                    # Roughly scaled to be similar to Evertz 5300 display
                     if pt.eng.mode == 1:
                         d = utime.ticks_diff(t1, r1)
 
@@ -386,7 +387,6 @@ def OLED_display_thread(mode = 0):
                             OLED.hline(63+length, 33, -length, OLED.white)
                             OLED.hline(63+length, 34, -length, OLED.white)
 
-                    OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
                     if pt.eng.mode > 1:
                         OLED.text("Jamming to:",0,12,OLED.white)
 
@@ -397,6 +397,12 @@ def OLED_display_thread(mode = 0):
 
                         sync_after_jam = True
                         #pid.set_auto_mode(True, last_output=eng.duty)
+
+                    if pt.eng.mode == 1 and sync_after_jam:
+                        # SX = Sync'ed to RX
+                        OLED.text("SX  " + gc.to_ascii(),0,22,OLED.white)
+                    else:
+                        OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
 
                 OLED.text(format,0,40,OLED.white)
             else:

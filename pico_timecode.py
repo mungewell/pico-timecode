@@ -21,10 +21,7 @@ stop = False
 tx_ticks_us = 0
 rx_ticks_us = 0
 
-core_dis = [[0, 0], [0, 0]]
-core_lock = [None, None]
-core_lock[0] = _thread.allocate_lock()
-core_lock[1] = _thread.allocate_lock()
+core_dis = [0, 0]
 
 #---------------------------------------------
 
@@ -115,12 +112,10 @@ def buffer_out():
     out(pins, 1) [30]
     
     jmp(not_osre, "start")
-
-    wrap_target()           # UNDERFLOW - when Python fails to fill FIFOs
-    irq(rel(0)) [31]        # set IRQ to warn other StateMachines
-    set(pins, 0) [31]
-    nop() [31]
-    nop() [31]
+                                    # UNDERFLOW - when Python fails to fill FIFOs
+    irq(rel(0))                     # set IRQ to warn other StateMachines
+    wrap_target()
+    set(pins, 0)
     wrap()
 
 
@@ -200,39 +195,28 @@ def sync_and_read():
 def irq_handler(m):
     global eng, stop
     global tx_ticks_us, rx_ticks_us
-    global core_dis, core_lock
+    global core_dis
 
-    core = machine.mem32[0xd0000000]
-    if (core_lock[core]).acquire(0):        # Waitflag=0, can fail to get lock
-        core_dis[0][core] = machine.disable_irq()
+    core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
+    ticks = utime.ticks_us()
 
-        ticks = utime.ticks_us()
-        if m==eng.sm[0]:
-            tx_ticks_us = ticks
+    if m==eng.sm[1]:
+        tx_ticks_us = ticks
 
-        if m==eng.sm[1]:
-            rx_ticks_us = ticks
+    if m==eng.sm[5]:
+        rx_ticks_us = ticks
 
-        if m==eng.sm[2]:
-            # Buffer Underflow
-            stop = 1
-            eng.mode = -1
+    if m==eng.sm[2]:
+        # Buffer Underflow
+        stop = 1
+        eng.mode = -1
 
-        machine.enable_irq(core_dis[0][core])
-        (core_lock[core]).release()
+    machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
 
 def timer_sched(timer):
-    global core_dis, core_lock
-
-    core = machine.mem32[0xd0000000]
-    if core_lock[core].acquire():
-        #core_dis[1][core] = machine.disable_irq()
-        schedule(timer_re_init, timer)
-        #machine.enable_irq(core_dis[1][core])
-        core_lock[core].release()
+    schedule(timer_re_init, timer)
 
 def timer_re_init(timer):
-    global core_dis, core_lock
     global eng
 
     period = 0
@@ -245,7 +229,6 @@ def timer_re_init(timer):
 
         if (eng.duty > 0 and not eng.off_stage) or (eng.duty < 0 and eng.off_stage):
             # Inc divider
-            print("+")
             if fraction == 0xFF:
                 fraction = 0
                 integer += 1
@@ -253,7 +236,6 @@ def timer_re_init(timer):
                 fraction += 1
         else:
             # Dec divider
-            print("-")
             if fraction == 0:
                 fraction = 0xFF
                 integer -= 1
@@ -279,13 +261,7 @@ def timer_re_init(timer):
     if period < 50:
         period = 50
 
-    core = machine.mem32[0xd0000000]
-    lock = core_lock[core].acquire()
-    if lock:
-        core_dis[1][core] = machine.disable_irq()
-        eng.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
-        machine.enable_irq(core_dis[1][core])
-        core_lock[core].release()
+    eng.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
 
 #---------------------------------------------
 
@@ -581,7 +557,6 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = new_div
-        #print("0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def inc_divider(self):
         # increasing divider -> slower clock
@@ -598,7 +573,6 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-        #print("Inc to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def dec_divider(self):
         # decreasing divider -> faster clock
@@ -615,7 +589,6 @@ class engine(object):
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-        #print("Dec to 0x%x : 0x%x" % (base + offset, machine.mem32[base + offset]))
 
     def crude_adjust(self, duty):
         dif = int(duty) - int(self.prev_duty)
@@ -623,7 +596,6 @@ class engine(object):
 
         if dif==0:
             return
-        print(":")
 
         self.dlock.acquire()
         for i in range(abs(dif)):
@@ -656,7 +628,6 @@ class engine(object):
             self.dlock.release()
 
             # start up new hardware timer
-            #print("Set up timer", period, self.period, self.duty, utime.ticks_us())
             self.timer = Timer()
             self.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
             return
@@ -707,11 +678,6 @@ def pico_timecode_thread(eng, stop):
             p.append(eng.sm[5].get())
             if len(p) == 2:
                 eng.rc.from_ltc_packet(p)
-            '''
-                print("%d 0x%x 0x%x" % (utime.ticks_us(), p[0], p[1]))
-            else:
-                print("Error: failed get()", len(p))
-            '''
 
             if eng.mode > 1:
                 # should perform some basic validation:
@@ -721,13 +687,11 @@ def pico_timecode_thread(eng, stop):
 
                 # check DF flags match
                 if (r >> 31) != df:
-                    #print("DF flags not matching")
                     fail = True
 
                 # check packets are counting correctly
                 if g!=0:
                     if g!=r:
-                        #print("Frame count fail", rc.to_ascii(), gc.to_ascii())
                         fail = True
 
                 if r!=0:

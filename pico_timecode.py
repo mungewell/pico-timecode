@@ -786,8 +786,8 @@ def ascii_display_thread(mode = 0):
                            set_base=machine.Pin(19)))   # Decoded LTC Input
     else:
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=machine.Pin(13),     # Test - read from self/tx
-                           in_base=machine.Pin(13),     # Test - read from self/tx
+                           jmp_pin=machine.Pin(13),     # DEMO MODE - read from self/tx
+                           in_base=machine.Pin(13),     # DEMO MODE - read from self/tx
                            set_base=machine.Pin(19)))   # Decoded LTC Input
 
     eng.sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
@@ -825,4 +825,8 @@ def ascii_display_thread(mode = 0):
 #---------------------------------------------
 
 if __name__ == "__main__":
+    # Delay to let user 'stop' in Thonny before PIOs are configured
+    print("Starting demo in 10s....")
+    utime.sleep(10)
+
     ascii_display_thread(1)

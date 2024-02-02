@@ -19,16 +19,20 @@ The script(s) now has a menu which can be used to control the device, and to nav
 The incoming LTC is now validated before Jam is performed, and the RX monitor has indicator bar to 
 show the relative timing between RX and TX.
 
-This code is in five files; upload all five if you have the same hardware.
+This code is in five files; upload all seven if you have the same hardware.
 
 `Pico_LED.py` is library of screen functions, `umenu.py` is menuing library, `neotimer.py` is timer
-library, `pico_timecode.py` and `main.py` combine to make the GUI app.
+library, `pid.py` is a PID controller and `config.py` holds the settings for the unit.
 
-The first 3 are from other projects, which I use permissively under their own licenses:
+`pico_timecode.py` and `main.py` combine to make the GUI app.
+
+The first 5 are from other projects, which I use permissively under their own licenses:
 
 - https://www.waveshare.com/wiki/Pico-OLED-1.3
 - https://github.com/plugowski/umenu
 - https://github.com/jrullan/micropython_neotimer
+- https://github.com/m-lundberg/simple-pid
+- https://github.com/aleppax/upyftsconf
 
 ![Save to Pico](save_to_pico.PNG)
 

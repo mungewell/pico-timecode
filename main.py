@@ -38,14 +38,21 @@
 # We will also use the I2C bus to 'talk' to other devices...
 #
 
+# We need to install the following modules
+# ---
+# https://github.com/aleppax/upyftsconf
+# https://github.com/m-lundberg/simple-pid
+# https://github.com/plugowski/umenu
+# https://github.com/jrullan/micropython_neotimer
+# https://www.waveshare.com/wiki/Pico-OLED-1.3
+
+from libs import config
+from libs.pid import *
+from libs.umenu import *
+from libs.neotimer import *
+from libs.Pico_OLED import *
+
 import pico_timecode as pt
-
-from pid import *
-from umenu import *
-from neotimer import *
-from Pico_OLED import *
-
-#from pico_timecode import *
 
 import machine
 import _thread
@@ -53,6 +60,8 @@ import utime
 import rp2
 
 # Set up (extra) globals
+zoom = False
+calibrate = False
 menu_hidden = True
 menu_hidden2 = False
 
@@ -199,8 +208,6 @@ def callback_jam():
 
 
 def callback_fps_df(set):
-    #global eng, stop
-
     pt.eng.tc.acquire()
     fps = pt.eng.tc.fps
     df = pt.eng.tc.df
@@ -216,22 +223,59 @@ def callback_fps_df(set):
     pt.eng.tc.set_fps_df(fps, df)
 
 
+def callback_zoom(set):
+    global zoom
+
+    if set=="Yes":
+        zoom = True
+    else:
+        zoom = False
+
+
+def callback_calibrate(set):
+    global calibrate
+
+    if set=="Yes":
+        calibrate = True
+    else:
+        calibrate = False
+
+
+def callback_save_config():
+    global zoom, calibrate
+
+    pt.eng.tc.acquire()
+    fps = pt.eng.tc.fps
+    df = pt.eng.tc.df
+    pt.eng.tc.release()
+
+    config.set('setting', 'fps', fps)
+    config.set('setting', 'df', df)
+    config.set('setting', 'zoom', zoom)
+    config.set('setting', 'calibrate', calibrate)
+
+
 def callback_exit():
     global menu_hidden
 
     menu_hidden = True
-
 
 #---------------------------------------------
 
 def OLED_display_thread(mode = 0):
     #global eng, stop
     global menu_hidden, menu_hidden2
+    global zoom, calibrate
     #global tx_ticks_us, rx_ticks_us
 
     pt.eng = pt.engine()
     pt.eng.mode = mode
     pt.eng.set_stopped(True)
+
+    # apply saved settings
+    pt.eng.tc.set_fps_df(config.setting['fps'], config.setting['df'])
+    zoom = config.setting['zoom']
+    calibrate = config.setting['calibrate']
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
@@ -257,9 +301,16 @@ def OLED_display_thread(mode = 0):
     menu.set_screen(MenuScreen('Main Menu')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
         .add(CallbackItem("Monitor RX", callback_monitor, visible=pt.eng.is_running))
-        .add(SubMenuItem('TX/FPS Setting', visible=pt.eng.is_stopped)
-             .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df))
-             .add(EnumItem("Drop Frame", ["No", "Yes"], callback_fps_df)))
+        .add(SubMenuItem('Settings', visible=pt.eng.is_stopped)
+            .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df, \
+                selected=[30, 29.97, 25, 24, 23.976].index(config.setting['fps'])))
+            .add(EnumItem("Drop Frame", ["No", "Yes"], callback_fps_df, \
+                selected=[False, True].index(config.setting['df'])))
+            .add(EnumItem("Zoom Display", ["No", "Yes"], callback_zoom, \
+                selected=[False, True].index(config.setting['zoom'])))
+            .add(EnumItem("Jam+Calibrate", ["No", "Yes"], callback_calibrate, \
+                selected=[False, True].index(config.setting['calibrate'])))
+            .add(ConfirmItem("Save as Default", callback_save_config, "Confirm?", ('Yes', 'No'))))
         .add(CallbackItem("Jam/Sync RX", callback_jam))
         .add(ConfirmItem("Stop/Start TX", callback_stop_start, "Confirm?", ('Yes', 'No')))
     )
@@ -378,14 +429,20 @@ def OLED_display_thread(mode = 0):
                             l = g & 0xFFFF0000
 
                         OLED.vline(64, 32, 4, OLED.white)
-
-                        length = int(1280 * d/cycle_us)
-                        if d > 0:
-                            OLED.hline(65, 33, length, OLED.white)
-                            OLED.hline(65, 34, length, OLED.white)
+                        if zoom == True:
+                            length = int(1280 * d/cycle_us)
                         else:
-                            OLED.hline(63+length, 33, -length, OLED.white)
-                            OLED.hline(63+length, 34, -length, OLED.white)
+                            # markers at side to indicate full view
+                            OLED.vline(0, 32, 4, OLED.white)
+                            OLED.vline(127, 32, 4, OLED.white)
+                            length = int(128 * d/cycle_us)
+
+                        if d > 0:
+                            OLED.hline(64, 33, length, OLED.white)
+                            OLED.hline(64, 34, length, OLED.white)
+                        else:
+                            OLED.hline(64+length, 33, -length, OLED.white)
+                            OLED.hline(64+length, 34, -length, OLED.white)
 
                     if pt.eng.mode > 1:
                         OLED.text("Jamming to:",0,12,OLED.white)
@@ -395,12 +452,12 @@ def OLED_display_thread(mode = 0):
                         OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
                         OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
 
-                        sync_after_jam = True
+                        sync_after_jam = calibrate
                         #pid.set_auto_mode(True, last_output=eng.duty)
 
                     if pt.eng.mode == 1 and sync_after_jam:
-                        # SX = Sync'ed to RX
-                        OLED.text("SX  " + gc.to_ascii(),0,22,OLED.white)
+                        # CX = Sync'ed to RX and calibrating
+                        OLED.text("CX  " + gc.to_ascii(),0,22,OLED.white)
                     else:
                         OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
 
@@ -438,4 +495,22 @@ def OLED_display_thread(mode = 0):
 #---------------------------------------------
 
 if __name__ == "__main__":
+    # Build default config, if not already set
+    try:
+        test = config.setting['fps']
+    except:
+        config.set('setting', 'fps', 30)
+    try:
+        test = config.setting['df']
+    except:
+        config.set('setting', 'df', False)
+    try:
+        test = config.setting['zoom']
+    except:
+        config.set('setting', 'zoom', False)
+    try:
+        test = config.setting['calibrate']
+    except:
+        config.set('setting', 'calibrate', False)
+
     OLED_display_thread()

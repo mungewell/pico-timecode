@@ -219,49 +219,24 @@ def timer_sched(timer):
 def timer_re_init(timer):
     global eng
 
-    period = 0
-    lock = eng.dlock.acquire(0)
-
-    if lock:
-        # Got lock, change dividers
-        integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
-        fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
-
-        if (eng.duty > 0 and not eng.off_stage) or (eng.duty < 0 and eng.off_stage):
-            # Inc divider
-            if fraction == 0xFF:
-                fraction = 0
-                integer += 1
+    if timer == eng.timer1:
+        lock = eng.dlock.acquire(0)
+        if lock:
+            if eng.prev_duty < 0:
+                eng.dec_divider()
             else:
-                fraction += 1
+                eng.inc_divider()
+            eng.dlock.release()
+
+        eng.timer1 = None
+
+    elif timer == eng.timer2:
+        if eng.timer1:
+            # ensure timer1 has completed
+            schedule(timer_re_init, timer)
         else:
-            # Dec divider
-            if fraction == 0:
-                fraction = 0xFF
-                integer -= 1
-            else:
-                fraction -= 1
-
-        # Set dividers for all PIO machines
-        for base in [0x50200000, 0x50300000]:
-            for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
-                machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-
-        eng.dlock.release()
-
-        if eng.off_stage:
-            # Starting 'on' stage
-            eng.off_stage = False
-            period = int(eng.period * (abs(eng.duty) % 1))
-        else:
-            # Starting 'off' stage
-            eng.off_stage = True
-            period = int(eng.period * (1-(abs(eng.duty) % 1)))
-
-    if period < 50:
-        period = 50
-
-    eng.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
+            eng.timer2 = None
+            eng.micro_adjust(eng.duty)
 
 #---------------------------------------------
 
@@ -511,17 +486,18 @@ class timecode(object):
 
 class engine(object):
     mode = 0        # -1=Halted, 0=FreeRun, 1=Monitor RX, 2>=Jam to RX
+    dlock = _thread.allocate_lock()
 
     tc = timecode()
     rc = timecode()
     sm = None
 
-    duty = 0.5
+    duty = 0
     prev_duty = 0
-    dlock = _thread.allocate_lock()
 
-    timer = None
-    off_stage = False
+    period = 10000 # 10s, can be update by client
+    timer1 = None
+    timer2 = None
 
     # state of running (ie whether being used for output)
     stopped = True
@@ -605,34 +581,33 @@ class engine(object):
                 self.inc_divider()
         self.dlock.release()
 
-    def micro_adjust(self, duty, period=60000): # period in ms
+    def micro_adjust(self, duty, period=0):
         if self.stopped:
             return
 
         self.duty = duty
-        self.period = period
-        self.crude_adjust(duty)
+        if period > 0:
+            # in ms, only change if specified
+            self.period = period
 
-        if self.timer == None:
-            self.off_stage = False
-            period = int(self.period * (abs(duty) % 1))
-            if period == 0:
-                return
+        if self.timer1 == None and self.timer2 == None:
+            # re-init timers
+            self.crude_adjust(duty)
 
-            # For 'on_stage'
-            self.dlock.acquire()
-            if duty > 0:
-                self.dec_divider()
-            else:
-                self.inc_divider()
-            self.dlock.release()
+            part = int(self.period * (abs(duty) % 1))
+            if part > 0:
+                self.dlock.acquire()
+                if duty > 0:
+                    self.dec_divider()
+                else:
+                    self.inc_divider()
+                self.dlock.release()
 
-            # start up new hardware timer
-            self.timer = Timer()
-            self.timer.init(period=period, mode=Timer.ONE_SHOT, callback=timer_sched)
-            return
+                self.timer1 = Timer()
+                self.timer1.init(period=part, mode=Timer.ONE_SHOT, callback=timer_sched)
 
-
+            self.timer2 = Timer()
+            self.timer2.init(period=self.period, mode=Timer.ONE_SHOT, callback=timer_sched)
 
 #-------------------------------------------------------
 
@@ -665,7 +640,7 @@ def pico_timecode_thread(eng, stop):
 
     # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
     # -1 -> +1 : +ve = faster clock, -ve = slower clock
-    eng.micro_adjust(eng.duty, 10000)
+    eng.micro_adjust(eng.duty)
     #eng.crude_adjust(eng.duty)
 
     # Loop, increasing frame count each time
@@ -826,7 +801,7 @@ def ascii_display_thread(mode = 0):
 
 if __name__ == "__main__":
     # Delay to let user 'stop' in Thonny before PIOs are configured
-    print("Starting demo in 10s....")
-    utime.sleep(10)
+    print("Starting demo in 5s....")
+    utime.sleep(5)
 
     ascii_display_thread(1)

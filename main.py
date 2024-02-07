@@ -65,37 +65,6 @@ calibrate = False
 menu_hidden = True
 menu_hidden2 = False
 
-'''
-def irq_handler(m):
-    #global eng, stop
-    #global tx_ticks_us, rx_ticks_us
-    global core_dis
-
-    core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
-
-    ticks = utime.ticks_us()
-    if m==pt.eng.sm[1]:
-        pt.tx_ticks_us = ticks
-        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
-        return
-
-    if m==pt.eng.sm[5]:
-        pt.rx_ticks_us = ticks
-        machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
-        return
-
-    if m==pt.eng.sm[2]:
-        # Buffer Underflow
-        pt.eng.stopped = True
-        pt.eng.mode = -1
-
-        menu_hidden = True
-        menu_hidden2 = False
-
-    machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
-'''
-
-
 class NoShowScreen(OLED_1inch3):
     def show(self, start=0):
         # This allows us to superimpose a running 'TC' on the menu

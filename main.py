@@ -327,28 +327,30 @@ def OLED_display_thread(mode = 0):
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
     while True:
-        pt.eng.tc.acquire()
         fps = pt.eng.tc.fps
+        df = pt.eng.tc.df
         format = "FPS "+ str(pt.eng.tc.fps)
         if pt.eng.tc.fps != 25 and pt.eng.tc.fps != 24:
-            if pt.eng.tc.df:
-                format += " DF"
-            else:
-                format += " NDF"
-        pt.eng.tc.release()
+            format += (" DF" if df == True else " NDF")
 
         cycle_us = (1000000 / fps)
         gc = pt.timecode()
-        l = 0
 
-        dave = 0
-        dcache = []
-
-        pid = PID(-0.001, -0.00001, -0.002, setpoint=0)
-        pid.auto_mode = False
-        pid.sample_time = 60
-        pid.output_limits = (-20.0, 20.0)
+        cache = []
         sync_after_jam = False
+        last_mon = 0
+
+        pid = PID(0.015, 0.00025, 0.0, setpoint=0)
+        pid.auto_mode = False
+        pid.sample_time = 1
+        pid.output_limits = (-50.0, 50.0)
+
+        # apply calibration value
+        try:
+            pt.eng.micro_adjust(config.calibration[str(fps) + \
+                    ("DF" if df == True else "")])
+        except:
+            pass
 
         while True:
             if menu_hidden == False:
@@ -389,44 +391,40 @@ def OLED_display_thread(mode = 0):
                     gc.next_frame()			# TC is ahead due to buffers...
 
                     # Draw an error bar to represent timing delta between TX and RX
-                    # Roughly scaled to be similar to Evertz 5300 display
+                    # Positive Delta = TX is ahead of RX, bar is shown to the right
+                    # and should increase 'duty' to slow down it's bit-clock
                     if pt.eng.mode == 1:
-                        d = utime.ticks_diff(t1, r1)
+                        d = utime.ticks_diff(r1, t1)
 
                         # RX is offset by ~2/3 bit
-                        d += cycle_us * 2/ (3 * 80)
+                        d -= cycle_us * 2/ (3 * 80)
 
-                        # correct delta, if adjacent frame
+                        # correct delta, if not adjacent frame
                         if d > (-2 * cycle_us) and d <= 0:
                             while d < -(cycle_us/2):
                                 d += cycle_us
                         elif d < (2 * cycle_us) and d >= 0:
                             while d > (cycle_us/2):
                                 d -= cycle_us
-                        elif l:
-                                sync_after_jam = False
-                                pid.auto_mode = False
 
-                        # Average recent delta's to minimise glitches
-                        dave += d
-                        dcache.append(d)
-                        if len(dcache) > 10:
-                            dave -= dcache[0]
-                            dcache = dcache[1:]
-
-                        # Update PID every 60s or so
-                        if (g & 0xFFFF0000) != l:
-                            if l:
+                        # Update PID every 1s (or so)
+                        if (g & 0xFFFFFF00) != last_mon:
+                            if last_mon:
                                 if sync_after_jam == True:
                                     if pid.auto_mode == False:
                                         pid.set_auto_mode(True, last_output=pt.eng.duty)
 
-                                    pt.eng.micro_adjust(pid(dave/len(dcache)), pt.eng.period)
-                                    print(gc.to_ascii(), dave/len(dcache), pt.eng.duty, pid.components)
-                                else:
-                                    print(gc.to_ascii(), dave/len(dcache), pt.eng.duty)
+                                    adjust = pid(d)
+                                    cache.append(adjust)
+                                    if len(cache) > 60:
+                                        cache = cache[1:]
 
-                            l = g & 0xFFFF0000
+                                    pt.eng.micro_adjust(adjust)
+                                    print(gc.to_ascii(), d, pt.eng.duty, pid.components)
+                                else:
+                                    print(gc.to_ascii(), d, pt.eng.duty)
+
+                            last_mon = g & 0xFFFFFF00
 
                         OLED.vline(64, 32, 4, OLED.white)
                         if zoom == True:
@@ -463,10 +461,18 @@ def OLED_display_thread(mode = 0):
 
                 OLED.text(format,0,40,OLED.white)
             else:
+                if pt.eng.mode == 0 and sync_after_jam == True:
+                    # save calculated value
+                    calfps = str(fps)
+                    if pt.eng.tc.fps != 25 and pt.eng.tc.fps != 24:
+                        calfps += ("DF" if df == True else "")
+                    pt.eng.micro_adjust(sum(cache)/len(cache))
+                    config.set('calibration', calfps, sum(cache)/len(cache))
+                    sync_after_jam = False
+                    pid.auto_mode = False
+
                 # clear the lower lines of the screen
                 OLED.rect(0,52,128,10,OLED.balck,True)
-                sync_after_jam = False
-                pid.auto_mode = False
 
             if pt.eng.mode < 0:
                 OLED.text("Underflow Error",0,54,OLED.white)
@@ -495,22 +501,4 @@ def OLED_display_thread(mode = 0):
 #---------------------------------------------
 
 if __name__ == "__main__":
-    # Build default config, if not already set
-    try:
-        test = config.setting['fps']
-    except:
-        config.set('setting', 'fps', 30)
-    try:
-        test = config.setting['df']
-    except:
-        config.set('setting', 'df', False)
-    try:
-        test = config.setting['zoom']
-    except:
-        config.set('setting', 'zoom', False)
-    try:
-        test = config.setting['calibrate']
-    except:
-        config.set('setting', 'calibrate', False)
-
     OLED_display_thread()

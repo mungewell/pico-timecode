@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="210mm"
+   height="297mm"
+   viewBox="0 0 210 297"
+   version="1.1"
+   id="svg5"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   sodipodi:docname="font.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview7"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="false"
+     inkscape:zoom="1.0278962"
+     inkscape:cx="260.72672"
+     inkscape:cy="285.53468"
+     inkscape:window-width="1366"
+     inkscape:window-height="720"
+     inkscape:window-x="0"
+     inkscape:window-y="25"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="g801" />
+  <defs
+     id="defs2" />
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g801"
+       transform="translate(-39,68.5)">
+      <rect
+         style="fill:#999999;stroke-width:0.0836685"
+         id="rect187-1"
+         width="16"
+         height="16"
+         x="136"
+         y="0"
+         inkscape:export-filename="rect187.png"
+         inkscape:export-xdpi="25.400013"
+         inkscape:export-ydpi="25.400013" />
+      <g
+         id="g703"
+         inkscape:export-filename="font_left.png"
+         inkscape:export-xdpi="25.400013"
+         inkscape:export-ydpi="25.400013">
+        <rect
+           style="fill:#000000;stroke-width:0.264583"
+           id="rect187"
+           width="16"
+           height="160"
+           x="152"
+           y="0"
+           inkscape:export-filename="rect187.png"
+           inkscape:export-xdpi="25.400013"
+           inkscape:export-ydpi="25.400013" />
+        <text
+           xml:space="preserve"
+           style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.9909px;font-family:MathJax_SansSerif;-inkscape-font-specification:'MathJax_SansSerif, Italic';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;letter-spacing:5.23361px;fill:#ffffff;stroke-width:0.27691"
+           x="14.985122"
+           y="-159.70549"
+           id="text113-9"
+           transform="matrix(0,1.0465899,-0.9554841,0,0,0)"><tspan
+             sodipodi:role="line"
+             id="tspan528"
+             x="14.985122"
+             y="-159.70549"
+             rotate="270 270 270 270 270 270 270 270 270 270 0"
+             style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.9909px;font-family:MathJax_SansSerif;-inkscape-font-specification:'MathJax_SansSerif, Italic';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#ffffff;stroke-width:0.27691">0123456789</tspan></text>
+      </g>
+      <g
+         id="g703-8"
+         transform="translate(-32)"
+         inkscape:export-filename="font_right.png"
+         inkscape:export-xdpi="25.400013"
+         inkscape:export-ydpi="25.400013">
+        <rect
+           style="fill:#000000;stroke-width:0.264583"
+           id="rect187-2"
+           width="16"
+           height="160"
+           x="152"
+           y="0"
+           inkscape:export-filename="rect187.png"
+           inkscape:export-xdpi="25.400013"
+           inkscape:export-ydpi="25.400013" />
+        <text
+           xml:space="preserve"
+           style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.9909px;font-family:MathJax_SansSerif;-inkscape-font-specification:'MathJax_SansSerif, Italic';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;letter-spacing:5.23361px;fill:#ffffff;stroke-width:0.27691"
+           x="14.985122"
+           y="-161.92076"
+           id="text113-9-5"
+           transform="matrix(0,1.0465899,-0.9554841,0,0,0)"><tspan
+             sodipodi:role="line"
+             id="tspan528-3"
+             x="14.985122"
+             y="-161.92076"
+             rotate="270 270 270 270 270 270 270 270 270 270 0"
+             style="font-style:italic;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:19.9909px;font-family:MathJax_SansSerif;-inkscape-font-specification:'MathJax_SansSerif, Italic';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#ffffff;stroke-width:0.27691">0123456789</tspan></text>
+      </g>
+    </g>
+  </g>
+</svg>

@@ -319,12 +319,18 @@ class timecode(object):
         if self.df:
             self.validate_for_drop_frame()
     
-    def to_ascii(self):
+    def to_ascii(self, sep=True):
         self.acquire()
-        time = [int(self.hh/10), (self.hh % 10), 10,
-                int(self.mm/10), (self.mm % 10), 10,
-                int(self.ss/10), (self.ss % 10), 10 + self.df,
-                int(self.ff/10), (self.ff % 10)]
+        if sep == True:
+            time = [int(self.hh/10), (self.hh % 10), 10,
+                    int(self.mm/10), (self.mm % 10), 10,
+                    int(self.ss/10), (self.ss % 10), 10 + self.df,
+                    int(self.ff/10), (self.ff % 10)]
+        else:
+            time = [int(self.hh/10), (self.hh % 10),
+                    int(self.mm/10), (self.mm % 10),
+                    int(self.ss/10), (self.ss % 10),
+                    int(self.ff/10), (self.ff % 10)]
         self.release()
 
         new = ""
@@ -800,8 +806,8 @@ def ascii_display_thread(mode = 0):
 #---------------------------------------------
 
 if __name__ == "__main__":
-    # Delay to let user 'stop' in Thonny before PIOs are configured
-    print("Starting demo in 5s....")
-    utime.sleep(5)
+    print("Pico-Timecode")
+    print("www.github.com/mungewell/pico-timecode")
+    utime.sleep(2)
 
     ascii_display_thread(1)

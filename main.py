@@ -44,13 +44,16 @@
 # https://github.com/m-lundberg/simple-pid
 # https://github.com/plugowski/umenu
 # https://github.com/jrullan/micropython_neotimer
-# https://www.waveshare.com/wiki/Pico-OLED-1.3
+# https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
 
 from libs import config
 from libs.pid import *
 from libs.umenu import *
 from libs.neotimer import *
-from libs.Pico_OLED import *
+from libs.PicoOled13 import *
+
+# Special font, for display the TX'ed timecode in a particular way
+from timecode_font import *
 
 import pico_timecode as pt
 
@@ -65,23 +68,27 @@ calibrate = False
 menu_hidden = True
 menu_hidden2 = False
 
-class NoShowScreen(OLED_1inch3):
-    def show(self, start=0):
-        # This allows us to superimpose a running 'TC' on the menu
-        line = 0
-        if start==0:
-            return
-        elif start > 1:
-            line = start
+'''
+#class FastShow(OLED_1inch3):
+class FastShow(OLED_1inch3_SPI):
+    def show(self, start=0, end=-1, col=0):
+        if end < 0:
+            end = self.height
+
+        if end < start:
+            temp = end
+            end = start
+            start = temp
 
         self.write_cmd(0xb0)
-        for page in range(line,64):
+        for page in range(start,end):
             self.column = 63 - page
             self.write_cmd(0x00 + (self.column & 0x0f))
             self.write_cmd(0x10 + (self.column >> 4))
-            for num in range(0,16):
+            for num in range(col,16):
+                self.write_cmd(0xB0 + num)
                 self.write_data(self.buffer[page*16+num])
-
+'''
 
 def add_more_state_machines():
     sm_freq = int(pt.eng.tc.fps * 80 * 32)
@@ -232,10 +239,8 @@ def callback_exit():
 #---------------------------------------------
 
 def OLED_display_thread(mode = 0):
-    #global eng, stop
     global menu_hidden, menu_hidden2
     global zoom, calibrate
-    #global tx_ticks_us, rx_ticks_us
 
     pt.eng = pt.engine()
     pt.eng.mode = mode
@@ -248,27 +253,27 @@ def OLED_display_thread(mode = 0):
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
-    timerA = Neotimer(250)
-    timerB = Neotimer(250)
+    timerA = Neotimer(50)
+    timerB = Neotimer(50)
 
     # automatically Jam if booted with 'B' pressed
     if keyB.value() == 0:
         pt.eng.mode=64
 
-    #OLED = OLED_1inch3()
-    OLED = NoShowScreen()
+    OLED = OLED_1inch3_SPI()
+    #OLED = FastShow()
     
     OLED.fill(0x0000)
-    OLED.text("Pico-Timecode",10,0,OLED.white)
-    OLED.text("www.github.com/",0,24,OLED.white)
-    OLED.text("mungewell/",10,36,OLED.white)
-    OLED.text("pico-timecode",20,48,OLED.white)
-    OLED.show(1)
+    OLED.text("Pico-Timecode",64,0,OLED.white,0,2)
+    OLED.text("www.github.com/",0,24,OLED.white,0,0)
+    OLED.text("mungewell/",64,36,OLED.white,0,2)
+    OLED.text("pico-timecode",128,48,OLED.white,0,1)
+    OLED.show()
     utime.sleep(2)
 
-    menu = Menu(OLED, 4, 10)
+    menu = Menu(OLED, 5, 10)
     menu.set_screen(MenuScreen('Main Menu')
-        .add(CallbackItem("Exit", callback_exit, return_parent=True))
+        .add(CallbackItem("<Exit", callback_exit, return_parent=True))
         .add(CallbackItem("Monitor RX", callback_monitor, visible=pt.eng.is_running))
         .add(SubMenuItem('Settings', visible=pt.eng.is_stopped)
             .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df, \
@@ -298,12 +303,18 @@ def OLED_display_thread(mode = 0):
     while True:
         fps = pt.eng.tc.fps
         df = pt.eng.tc.df
-        format = "FPS "+ str(pt.eng.tc.fps)
+        format = str(pt.eng.tc.fps)
         if pt.eng.tc.fps != 25 and pt.eng.tc.fps != 24:
-            format += (" DF" if df == True else " NDF")
+            format += ("-DF" if df == True else "-NDF")
 
         cycle_us = (1000000 / fps)
         gc = pt.timecode()
+
+        OLED.fill(0x0000)
+        OLED.text("<Menu" ,0,2,OLED.white)
+        OLED.text(format,128,2,OLED.white,1,1)
+        OLED.show()
+        pasc = "--------"
 
         cache = []
         sync_after_jam = False
@@ -316,8 +327,7 @@ def OLED_display_thread(mode = 0):
 
         # apply calibration value
         try:
-            pt.eng.micro_adjust(config.calibration[str(fps) + \
-                    ("DF" if df == True else "")])
+            pt.eng.micro_adjust(config.calibration[format])
         except:
             pass
 
@@ -325,14 +335,17 @@ def OLED_display_thread(mode = 0):
             if menu_hidden == False:
                 if timerA.debounce_signal(keyA.value()==0):
                     menu.move(2)        # Requires patched umenu to work
-                if timerB.debounce_signal(keyB.value()==0):
+                if timerA.debounce_signal(keyB.value()==0):
                     menu.click()
                 menu.draw()
 
                 # Clear screen after Menu Exits
                 if menu_hidden == True:
                     OLED.fill(0x0000)
-                    OLED.show(1)
+                    OLED.text("<Menu" ,0,2,OLED.white)
+                    OLED.text(format,128,2,OLED.white,1,1)
+                    OLED.show()
+                    pasc="--------"
             else:
                 if timerA.debounce_signal(keyA.value()==0):
                     menu.reset()
@@ -341,8 +354,6 @@ def OLED_display_thread(mode = 0):
 
             if (menu_hidden and pt.eng.mode>0) or (menu_hidden and not menu_hidden2):
                 # Only show the following when menu is not active
-                OLED.fill(0x0000)
-                OLED.text("<- Menu" ,0,2,OLED.white)
 
                 if pt.eng.mode:
                     # Figure out what RX frame to display
@@ -395,14 +406,16 @@ def OLED_display_thread(mode = 0):
 
                             last_mon = g & 0xFFFFFF00
 
-                        OLED.vline(64, 32, 4, OLED.white)
+                        OLED.vline(64, 33, 2, OLED.white)
                         if zoom == True:
                             length = int(1280 * d/cycle_us)
                         else:
+                            length = int(128 * d/cycle_us)
+
                             # markers at side to indicate full view
+                            # -1/2 to +1/2 a frame is displayed
                             OLED.vline(0, 32, 4, OLED.white)
                             OLED.vline(127, 32, 4, OLED.white)
-                            length = int(128 * d/cycle_us)
 
                         if d > 0:
                             OLED.hline(64, 33, length, OLED.white)
@@ -412,7 +425,7 @@ def OLED_display_thread(mode = 0):
                             OLED.hline(64+length, 34, -length, OLED.white)
 
                     if pt.eng.mode > 1:
-                        OLED.text("Jamming to:",0,12,OLED.white)
+                        OLED.text("Jam ",0,22,OLED.white)
 
                         # Draw a line representing time until Jam complete
                         OLED.vline(0, 32, 4, OLED.white)
@@ -420,49 +433,51 @@ def OLED_display_thread(mode = 0):
                         OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
 
                         sync_after_jam = calibrate
-                        #pid.set_auto_mode(True, last_output=eng.duty)
 
                     if pt.eng.mode == 1 and sync_after_jam:
                         # CX = Sync'ed to RX and calibrating
-                        OLED.text("CX  " + gc.to_ascii(),0,22,OLED.white)
+                        OLED.text("CX  ",0,22,OLED.white)
                     else:
-                        OLED.text("RX  " + gc.to_ascii(),0,22,OLED.white)
+                        OLED.text("RX  ",0,22,OLED.white)
 
-                OLED.text(format,0,40,OLED.white)
+                    OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)
+                    OLED.show(22,36)
+                    OLED.fill_rect(0,32,128,36,OLED.black)
+
             else:
                 if pt.eng.mode == 0 and sync_after_jam == True:
                     # save calculated value
-                    calfps = str(fps)
-                    if pt.eng.tc.fps != 25 and pt.eng.tc.fps != 24:
-                        calfps += ("DF" if df == True else "")
                     pt.eng.micro_adjust(sum(cache)/len(cache))
-                    config.set('calibration', calfps, sum(cache)/len(cache))
+                    config.set('calibration', format, sum(cache)/len(cache))
                     sync_after_jam = False
                     pid.auto_mode = False
 
-                # clear the lower lines of the screen
-                OLED.rect(0,52,128,10,OLED.balck,True)
-
             if pt.eng.mode < 0:
+                OLED.rect(0,52,128,10,OLED.balck,True)
                 OLED.text("Underflow Error",0,54,OLED.white)
+
+            if menu_hidden and pt.eng.mode>=0:
+                asc = pt.eng.tc.to_ascii(False)
+
+                # check which characters of the TC have changed
+                for c in range(len(asc)):
+                    if asc[c]!=pasc[c]:
+                        break
+                for i in range(c,8):
+                    # blit with 'double' char set, slightly offset
+                    if i & 1 == 1:
+                        # offset left
+                        OLED.blit(timecode_fb[int(asc[i])+10], 16*i, 48)
+                    else:
+                        # offset right
+                        OLED.blit(timecode_fb[int(asc[i])], 16*i, 48)
+                pasc=asc
+                OLED.show(49 ,64, c*2)
             else:
-                # Always show the TX timecode, 'cos that's important!
-                # since FIFO is in use, our current 'tc' is always ahead
-                g = pt.eng.tc.to_raw()
-                gc.from_raw(g)
-                gc.prev_frame()
-                gc.prev_frame()
-                gc.prev_frame()
+                # show whole screen
+                OLED.show()
 
-                OLED.text("TX  " + gc.to_ascii(),0,54,OLED.white)
-
-            if menu_hidden and menu_hidden2 and pt.eng.mode==0:
-                # Only draw the bottom lines of the screen
-                OLED.show(52)
-            else:
-                OLED.show(1)
-
-            menu_hidden2=menu_hidden
+            menu_hidden2 = menu_hidden2
 
             if pt.eng.is_stopped():
                 break

@@ -275,13 +275,13 @@ def OLED_display_thread(mode = 0):
     OLED.show()
 
     menu = Menu(OLED, 5, 10)
-    menu.set_screen(MenuScreen('A=Next/Down, B=Select')
+    menu.set_screen(MenuScreen('A=Skip, B=Select')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
         .add(ConfirmItem("Stop TX", callback_stop_start, "Confirm?", ('Yes', 'No'), \
                           visible=pt.eng.is_running))
         .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
         .add(CallbackItem("Jam/Sync RX", callback_jam))
-        .add(CallbackItem("Monitor RX", callback_monitor, visible=pt.eng.is_running))
+        .add(CallbackItem("Start/Stop Monitor", callback_monitor, visible=pt.eng.is_running))
         .add(SubMenuItem("TC Settings", visible=pt.eng.is_stopped)
             .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df, \
                 selected=[30, 29.97, 25, 24, 23.976].index(config.setting['fps'])))
@@ -449,6 +449,7 @@ def OLED_display_thread(mode = 0):
                             OLED.hline(64+length, 33, -length, OLED.white)
                             OLED.hline(64+length, 34, -length, OLED.white)
 
+                    if pt.eng.mode > 0:
                         OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)
                         OLED.show(22,36)
                         OLED.fill_rect(0,32,128,36,OLED.black)

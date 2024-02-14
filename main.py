@@ -269,7 +269,10 @@ def OLED_display_thread(mode = 0):
     OLED.text("mungewell/",64,36,OLED.white,0,2)
     OLED.text("pico-timecode",128,48,OLED.white,0,1)
     OLED.show()
+
     utime.sleep(2)
+    OLED.fill(0x0000)
+    OLED.show()
 
     menu = Menu(OLED, 5, 10)
     menu.set_screen(MenuScreen('Main Menu')
@@ -310,10 +313,11 @@ def OLED_display_thread(mode = 0):
         cycle_us = (1000000 / fps)
         gc = pt.timecode()
 
-        OLED.fill(0x0000)
-        OLED.text("<Menu" ,0,2,OLED.white)
-        OLED.text(format,128,2,OLED.white,1,1)
-        OLED.show()
+        if menu_hidden == True:
+            OLED.fill(0x0000)
+            OLED.text("<Menu" ,0,2,OLED.white)
+            OLED.text(format,128,2,OLED.white,1,1)
+            OLED.show(0,10)
         pasc = "--------"
 
         cache = []
@@ -348,14 +352,15 @@ def OLED_display_thread(mode = 0):
                     pasc="--------"
             else:
                 if timerA.debounce_signal(keyA.value()==0):
+                    # enter the Menu...
                     menu.reset()
                     menu_hidden = False
 
 
-            if (menu_hidden and pt.eng.mode>0) or (menu_hidden and not menu_hidden2):
+            if menu_hidden == True:
                 # Only show the following when menu is not active
 
-                if pt.eng.mode:
+                if pt.eng.mode > 0:
                     # Figure out what RX frame to display
                     while True:
                         r1 = pt.rx_ticks_us
@@ -406,6 +411,22 @@ def OLED_display_thread(mode = 0):
 
                             last_mon = g & 0xFFFFFF00
 
+                    if pt.eng.mode > 1:
+                        OLED.text("Jam ",0,22,OLED.white)
+
+                        # Draw a line representing time until Jam complete
+                        OLED.vline(0, 32, 4, OLED.white)
+                        OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
+                        OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
+
+                        sync_after_jam = calibrate
+                    else:
+                        if pt.eng.mode == 1 and sync_after_jam:
+                            # CX = Sync'ed to RX and calibrating
+                            OLED.text("CX  ",0,22,OLED.white)
+                        else:
+                            OLED.text("RX  ",0,22,OLED.white)
+
                         OLED.vline(64, 33, 2, OLED.white)
                         if zoom == True:
                             length = int(1280 * d/cycle_us)
@@ -424,40 +445,16 @@ def OLED_display_thread(mode = 0):
                             OLED.hline(64+length, 33, -length, OLED.white)
                             OLED.hline(64+length, 34, -length, OLED.white)
 
-                    if pt.eng.mode > 1:
-                        OLED.text("Jam ",0,22,OLED.white)
+                        OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)
+                        OLED.show(22,36)
+                        OLED.fill_rect(0,32,128,36,OLED.black)
 
-                        # Draw a line representing time until Jam complete
-                        OLED.vline(0, 32, 4, OLED.white)
-                        OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
-                        OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
 
-                        sync_after_jam = calibrate
-
-                    if pt.eng.mode == 1 and sync_after_jam:
-                        # CX = Sync'ed to RX and calibrating
-                        OLED.text("CX  ",0,22,OLED.white)
-                    else:
-                        OLED.text("RX  ",0,22,OLED.white)
-
-                    OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)
-                    OLED.show(22,36)
-                    OLED.fill_rect(0,32,128,36,OLED.black)
-
-            else:
-                if pt.eng.mode == 0 and sync_after_jam == True:
-                    # save calculated value
-                    pt.eng.micro_adjust(sum(cache)/len(cache))
-                    config.set('calibration', format, sum(cache)/len(cache))
-                    sync_after_jam = False
-                    pid.auto_mode = False
-
-            if pt.eng.mode < 0:
-                OLED.rect(0,52,128,10,OLED.balck,True)
-                OLED.text("Underflow Error",0,54,OLED.white)
-
-            if menu_hidden and pt.eng.mode>=0:
-                asc = pt.eng.tc.to_ascii(False)
+                # Draw the main TC counter, buffering means 2 frames ahead
+                gc.from_raw(pt.eng.tc.to_raw())
+                gc.prev_frame()
+                gc.prev_frame()
+                asc = gc.to_ascii(False)
 
                 # check which characters of the TC have changed
                 for c in range(len(asc)):
@@ -474,10 +471,17 @@ def OLED_display_thread(mode = 0):
                 pasc=asc
                 OLED.show(49 ,64, c*2)
             else:
-                # show whole screen
-                OLED.show()
+                # save calculated value, but only once after CX is cancelled
+                if pt.eng.mode == 0 and sync_after_jam == True:
+                    pt.eng.micro_adjust(sum(cache)/len(cache))
+                    config.set('calibration', format, sum(cache)/len(cache))
+                    sync_after_jam = False
+                    pid.auto_mode = False
 
-            menu_hidden2 = menu_hidden2
+            if pt.eng.mode < 0:
+                OLED.rect(0,52,128,10,OLED.balck,True)
+                OLED.text("Underflow Error",64,54,OLED.white,1,2)
+                OLED.show(49 ,64)
 
             if pt.eng.is_stopped():
                 break

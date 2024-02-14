@@ -275,21 +275,25 @@ def OLED_display_thread(mode = 0):
     OLED.show()
 
     menu = Menu(OLED, 5, 10)
-    menu.set_screen(MenuScreen('Main Menu')
-        .add(CallbackItem("<Exit", callback_exit, return_parent=True))
+    menu.set_screen(MenuScreen('A=Next/Down, B=Select')
+        .add(CallbackItem("Exit", callback_exit, return_parent=True))
+        .add(ConfirmItem("Stop TX", callback_stop_start, "Confirm?", ('Yes', 'No'), \
+                          visible=pt.eng.is_running))
+        .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
+        .add(CallbackItem("Jam/Sync RX", callback_jam))
         .add(CallbackItem("Monitor RX", callback_monitor, visible=pt.eng.is_running))
-        .add(SubMenuItem('Settings', visible=pt.eng.is_stopped)
+        .add(SubMenuItem("TC Settings", visible=pt.eng.is_stopped)
             .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df, \
                 selected=[30, 29.97, 25, 24, 23.976].index(config.setting['fps'])))
             .add(EnumItem("Drop Frame", ["No", "Yes"], callback_fps_df, \
                 selected=[False, True].index(config.setting['df'])))
+            .add(ConfirmItem("Save as Default", callback_save_config, "Confirm?", ('Yes', 'No'))))
+        .add(SubMenuItem("Unit Settings")
             .add(EnumItem("Zoom Display", ["No", "Yes"], callback_zoom, \
                 selected=[False, True].index(config.setting['zoom'])))
             .add(EnumItem("Jam+Calibrate", ["No", "Yes"], callback_calibrate, \
                 selected=[False, True].index(config.setting['calibrate'])))
             .add(ConfirmItem("Save as Default", callback_save_config, "Confirm?", ('Yes', 'No'))))
-        .add(CallbackItem("Jam/Sync RX", callback_jam))
-        .add(ConfirmItem("Stop/Start TX", callback_stop_start, "Confirm?", ('Yes', 'No')))
     )
 
     # Reduce the CPU clock, for better computation of PIO freqs
@@ -473,8 +477,9 @@ def OLED_display_thread(mode = 0):
             else:
                 # save calculated value, but only once after CX is cancelled
                 if pt.eng.mode == 0 and sync_after_jam == True:
-                    pt.eng.micro_adjust(sum(cache)/len(cache))
-                    config.set('calibration', format, sum(cache)/len(cache))
+                    if len(cache):
+                        pt.eng.micro_adjust(sum(cache)/len(cache))
+                        config.set('calibration', format, sum(cache)/len(cache))
                     sync_after_jam = False
                     pid.auto_mode = False
 

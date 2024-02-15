@@ -10,10 +10,17 @@ Mk-1 of the audio inteface is built, and I was able to Jam with the LTC from my 
 the regenerated LTC to an Evertz 5300 LTC Analyzer. After Jam the LTC is spot on, but (as expected)
 'drifted off' as time went by.
 
-My next task is attempt to add compensation for the stock (inaccurate) XTAL on the Pico, or to 
-replace it with a better one.
+The project stalled in the summer, there was a scheduler bug in MicroPython which was causing
+occassional lock-ups, and I couldn't figure it out.... anyhow they're smarter than me and the 
+`RPI_PICO-20240105-v1.22.1.uf2` release works fine.
+
+I've added some compensation for XTAL frequencies, the device can 'Sync after Jam' to learn the
+correction factor required to match RX/incoming LTC. It then remembers this as part of it's config.
+
+Not yet looked at using a more precise/temp compensated XTAL...
 
 [Demo Video](https://youtu.be/miWlGS6fJNI)
+
 
 The script(s) now has a menu which can be used to control the device, and to navigate the settings. 
 The incoming LTC is now validated before Jam is performed, and the RX monitor has indicator bar to 
@@ -28,11 +35,15 @@ library, `pid.py` is a PID controller and `config.py` holds the settings for the
 
 The first 5 are from other projects, which I use permissively under their own licenses:
 
-- https://www.waveshare.com/wiki/Pico-OLED-1.3
+- https://github.com/samveen/pico-oled-1.3-driver (*)
 - https://github.com/plugowski/umenu
 - https://github.com/jrullan/micropython_neotimer
 - https://github.com/m-lundberg/simple-pid
 - https://github.com/aleppax/upyftsconf
+
+* actually using my port, as some changes are not yet accepted upstream
+
+I created a sub-directory for the 'libs' to clarify that they are not really part of this project.
 
 ![Save to Pico](save_to_pico.PNG)
 
@@ -180,6 +191,10 @@ in the clocks (due to fractional dividing) this should not be a problem.
 
 The Pico is normally clocked from a 'cheap' 12.0MHz crystal. Whilst this may not be the 'worlds best' 
 crystal, it can also be replaced with a better one if need be.
+
+The newer code (with calibration) uses a correction factor for each FPS output, this determines how
+many 'integer' clicks of the 'fraction divider' to offset by and then uses the 'float' part to
+modulate between adjacent values (%duty in 10s period).
 
 See: [https://github.com/dorsic/PicoPET](https://github.com/dorsic/PicoPET)
 

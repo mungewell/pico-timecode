@@ -6,6 +6,8 @@ and the PIO blocks on the Pico make it very possible...
 
 We've moved past the Proof-of-concept stage! Well past....
 
+![Prototype Hardware](prototype_hardware.jpg)
+
 Mk-1 of the audio inteface is built, and I was able to Jam with the LTC from my Sync-IO, and feed
 the regenerated LTC to an Evertz 5300 LTC Analyzer. After Jam the LTC is spot on, but (as expected)
 'drifted off' as time went by.
@@ -28,7 +30,7 @@ show the relative timing between RX and TX.
 
 This code is in five files; upload all seven if you have the same hardware.
 
-`Pico_LED.py` is library of screen functions, `umenu.py` is menuing library, `neotimer.py` is timer
+`PicoOled13.py` is library of screen functions, `umenu.py` is menuing library, `neotimer.py` is timer
 library, `pid.py` is a PID controller and `config.py` holds the settings for the unit.
 
 `pico_timecode.py` and `main.py` combine to make the GUI app.
@@ -41,7 +43,7 @@ The first 5 are from other projects, which I use permissively under their own li
 - https://github.com/m-lundberg/simple-pid
 - https://github.com/aleppax/upyftsconf
 
-* actually using my port, as some changes are not yet accepted upstream
+(*) actually using my port, as some changes are not yet accepted upstream
 
 I created a sub-directory for the 'libs' to clarify that they are not really part of this project.
 

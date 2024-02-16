@@ -22,6 +22,7 @@ correction factor required to match RX/incoming LTC. It then remembers this as p
 Not yet looked at using a more precise/temp compensated XTAL...
 
 [Demo Video](https://youtu.be/miWlGS6fJNI)
+[Demo2 Video](https://www.youtube.com/watch?v=WEdSII-7nx4)
 
 
 The script(s) now has a menu which can be used to control the device, and to navigate the settings. 

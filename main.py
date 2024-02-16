@@ -323,6 +323,7 @@ def OLED_display_thread(mode = 0):
             OLED.text(format,128,2,OLED.white,1,1)
             OLED.show(0,10)
         pasc = "--------"
+        ptus = 0
 
         cache = []
         sync_after_jam = False
@@ -354,21 +355,46 @@ def OLED_display_thread(mode = 0):
                     OLED.text(format,128,2,OLED.white,1,1)
                     OLED.show()
                     pasc="--------"
+                    ptx = 0
             else:
                 if timerA.debounce_signal(keyA.value()==0):
                     # enter the Menu...
                     menu.reset()
                     menu_hidden = False
 
+                # Attempt to align display with the TX timing
+                t1 = pt.tx_ticks_us
+                if pt.eng.mode == 0:
+                    if ptus == t1:
+                        continue
 
-            if menu_hidden == True:
-                # Only show the following when menu is not active
+                # Draw the main TC counter, buffering means value is 2 frames ahead
+                gc.from_raw(pt.eng.tc.to_raw())
+                gc.prev_frame()
+                gc.prev_frame()
+                asc = gc.to_ascii(False)
 
+                # check which characters of the TC have changed
+                if pasc != asc:
+                    for c in range(len(asc)):
+                        if asc[c]!=pasc[c]:
+                            break
+                    for i in range(c,8):
+                        # blit with 'double' char set, slightly offset
+                        if i & 1 == 1:
+                            # offset left
+                            OLED.blit(timecode_fb[int(asc[i])+10], 16*i, 48)
+                        else:
+                            # offset right
+                            OLED.blit(timecode_fb[int(asc[i])], 16*i, 48)
+                    pasc=asc
+                    ptus = t1
+                    OLED.show(49 ,64, c*2)
+
+                # Figure out what RX frame to display
                 if pt.eng.mode > 0:
-                    # Figure out what RX frame to display
                     while True:
                         r1 = pt.rx_ticks_us
-                        t1 = pt.tx_ticks_us
                         f = pt.eng.sm[5].rx_fifo()
                         g = pt.eng.rc.to_raw()
                         r2 = pt.rx_ticks_us
@@ -377,7 +403,7 @@ def OLED_display_thread(mode = 0):
                             gc.from_raw(g)
                             break
 
-                    gc.next_frame()			# TC is ahead due to buffers...
+                    gc.next_frame()			# RX value is behind due to buffers...
 
                     # Draw an error bar to represent timing delta between TX and RX
                     # Positive Delta = TX is ahead of RX, bar is shown to the right
@@ -426,7 +452,7 @@ def OLED_display_thread(mode = 0):
                         sync_after_jam = calibrate
                     else:
                         if pt.eng.mode == 1 and sync_after_jam:
-                            # CX = Sync'ed to RX and calibrating
+                            # CX = Sync'ed to RX and calibrating XTAL
                             OLED.text("CX  ",0,22,OLED.white)
                         else:
                             OLED.text("RX  ",0,22,OLED.white)
@@ -454,35 +480,14 @@ def OLED_display_thread(mode = 0):
                         OLED.show(22,36)
                         OLED.fill_rect(0,32,128,36,OLED.black)
 
-
-                # Draw the main TC counter, buffering means 2 frames ahead
-                gc.from_raw(pt.eng.tc.to_raw())
-                gc.prev_frame()
-                gc.prev_frame()
-                asc = gc.to_ascii(False)
-
-                # check which characters of the TC have changed
-                for c in range(len(asc)):
-                    if asc[c]!=pasc[c]:
-                        break
-                for i in range(c,8):
-                    # blit with 'double' char set, slightly offset
-                    if i & 1 == 1:
-                        # offset left
-                        OLED.blit(timecode_fb[int(asc[i])+10], 16*i, 48)
-                    else:
-                        # offset right
-                        OLED.blit(timecode_fb[int(asc[i])], 16*i, 48)
-                pasc=asc
-                OLED.show(49 ,64, c*2)
-            else:
-                # save calculated value, but only once after CX is cancelled
-                if pt.eng.mode == 0 and sync_after_jam == True:
-                    if len(cache):
-                        pt.eng.micro_adjust(sum(cache)/len(cache))
-                        config.set('calibration', format, sum(cache)/len(cache))
-                    sync_after_jam = False
-                    pid.auto_mode = False
+                else:
+                    # save calculated value, but only once after CX is cancelled
+                    if pt.eng.mode == 0 and sync_after_jam == True:
+                        if len(cache):
+                            pt.eng.micro_adjust(sum(cache)/len(cache))
+                            config.set('calibration', format, sum(cache)/len(cache))
+                        sync_after_jam = False
+                        pid.auto_mode = False
 
             if pt.eng.mode < 0:
                 OLED.rect(0,52,128,10,OLED.balck,True)

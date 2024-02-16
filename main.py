@@ -397,13 +397,12 @@ def OLED_display_thread(mode = 0):
                         r1 = pt.rx_ticks_us
                         f = pt.eng.sm[5].rx_fifo()
                         g = pt.eng.rc.to_raw()
+                        t1 = pt.tx_ticks_us
                         r2 = pt.rx_ticks_us
                         n = utime.ticks_us()
                         if r1==r2:
                             gc.from_raw(g)
                             break
-
-                    gc.next_frame()			# RX value is behind due to buffers...
 
                     # Draw an error bar to represent timing delta between TX and RX
                     # Positive Delta = TX is ahead of RX, bar is shown to the right
@@ -421,6 +420,10 @@ def OLED_display_thread(mode = 0):
                         elif d < (2 * cycle_us) and d >= 0:
                             while d > (cycle_us/2):
                                 d -= cycle_us
+
+                        # RX value is behind due to buffers...
+                        for i in range(4-int(utime.ticks_diff(t1, ptus)/cycle_us)):
+                            gc.next_frame()
 
                         # Update PID every 1s (or so)
                         if (g & 0xFFFFFF00) != last_mon:
@@ -441,16 +444,6 @@ def OLED_display_thread(mode = 0):
 
                             last_mon = g & 0xFFFFFF00
 
-                    if pt.eng.mode > 1:
-                        OLED.text("Jam ",0,22,OLED.white)
-
-                        # Draw a line representing time until Jam complete
-                        OLED.vline(0, 32, 4, OLED.white)
-                        OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
-                        OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
-
-                        sync_after_jam = calibrate
-                    else:
                         if pt.eng.mode == 1 and sync_after_jam:
                             # CX = Sync'ed to RX and calibrating XTAL
                             OLED.text("CX  ",0,22,OLED.white)
@@ -474,6 +467,16 @@ def OLED_display_thread(mode = 0):
                         else:
                             OLED.hline(64+length, 33, -length, OLED.white)
                             OLED.hline(64+length, 34, -length, OLED.white)
+
+                    if pt.eng.mode > 1:
+                        OLED.text("Jam ",0,22,OLED.white)
+
+                        # Draw a line representing time until Jam complete
+                        OLED.vline(0, 32, 4, OLED.white)
+                        OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
+                        OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
+
+                        sync_after_jam = calibrate
 
                     if pt.eng.mode > 0:
                         OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)

@@ -538,7 +538,15 @@ class timecode(object):
             return("Page/Line NA")
 
         self.acquire()
-        if self.bgf0==False and self.bgf2==True:
+        if self.bgf0==False and self.bgf2==False:
+            # Userbits are BCD/Hex
+            dehex = [0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37, \
+                    0x38,0x39,0x41,0x42,0x43,0x44,0x45,0x46]
+            user = [dehex[self.uf8], dehex[self.uf7], \
+                    dehex[self.uf6], dehex[self.uf5], \
+                    dehex[self.uf4], dehex[self.uf3], \
+                    dehex[self.uf2], dehex[self.uf1]]
+        elif self.bgf0==False and self.bgf2==True:
             # Userbits are Date/Timezone
             user = [0x59, 0x30+self.uf6, 0x30+self.uf5, 0x2D, \
                     0x4D, 0x30+self.uf4, 0x30+self.uf3, 0x2D, \
@@ -559,8 +567,8 @@ class timecode(object):
         self.release()
         return(new)
 
-    def user_from_ascii(self, asc):
-        user = [x for x in bytes((asc+"    ")[:4], "utf-8")]
+    def user_from_ascii(self, asc="PICO"):
+        user = [x for x in bytes(asc+"    ", "utf-8")]
 
         self.acquire()
         self.bgf0 = True
@@ -573,6 +581,31 @@ class timecode(object):
         self.uf6 = (user[2] >> 4) & 0x0F
         self.uf7 = (user[3] >> 0) & 0x0F
         self.uf8 = (user[3] >> 4) & 0x0F
+        self.release()
+
+        return True
+
+    def user_from_bcd_hex(self, bcd="00000000"):
+        user = []
+        for x in bytes(bcd + "00000000", "utf-8"):
+            if (x >= 0x30) and (x < 0x3A):
+                user.append(x - 0x30)
+            if (x >= 0x41) and (x < 0x47):
+                user.append(x - 0x37)
+            if (x >= 0x61) and (x < 0x67):
+                user.append(x - 0x57)
+
+        self.acquire()
+        self.bgf0 = False
+        self.bgf2 = False
+        self.uf1 = (user[7] & 0x0F)
+        self.uf2 = (user[6] & 0x0F)
+        self.uf3 = (user[5] & 0x0F)
+        self.uf4 = (user[4] & 0x0F)
+        self.uf5 = (user[3] & 0x0F)
+        self.uf6 = (user[2] & 0x0F)
+        self.uf7 = (user[1] & 0x0F)
+        self.uf8 = (user[0] & 0x0F)
         self.release()
 
         return True

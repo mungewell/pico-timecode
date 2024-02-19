@@ -505,10 +505,12 @@ class timecode(object):
 
         if self.fps == 25:
             self.bgf0 = (p[0] >> 27) & 0x01 # f27
-            self.bgf2 = (p[1] >> 26) & 0x01 # f43
+            self.bgf2 = (p[1] >> 11) & 0x01 # f43
         else:
-            self.bgf0 = (p[1] >> 26) & 0x01 # f43
+            self.bgf0 = (p[1] >> 11) & 0x01 # f43
             self.bgf2 = (p[1] >> 27) & 0x01 # f59
+
+        self.bgf1 = (p[1] >> 26) & 0x01
 
         self.uf1 = ((p[0] >>  4) & 0x0F)
         self.uf2 = ((p[0] >> 12) & 0x0F)
@@ -527,6 +529,11 @@ class timecode(object):
         return True
 
     def user_to_ascii(self):
+        new = ""
+        if self.bgf1==True:
+            # TC is referenced to real time
+            new += "*"
+
         if self.bgf0==True and self.bgf2==True:
             return("Page/Line NA")
 
@@ -543,12 +550,11 @@ class timecode(object):
                     (self.uf6 << 4) + self.uf5,
                     (self.uf8 << 4) + self.uf7]
 
-        new = ""
         for x in user:
             new += chr(x)
 
         if self.bgf0==False and self.bgf2==True:
-            new += " " + tzs[(self.uf8 << 4) + self.uf7]
+            new += tzs[(self.uf8 << 4) + self.uf7]
 
         self.release()
         return(new)
@@ -571,11 +577,11 @@ class timecode(object):
 
         return True
 
-    def user_from_date(self, date="Y74-M01-D01 +0000"):
-        # Example "Y00-M00-D00 +0000"
-        #          Yyy Mmm Ddd zzzzz
-        #          01234567890123456
-        user = [x-0x30 for x in bytes(date[:12], "utf-8")]
+    def user_from_date(self, date="Y74-M01-D01+0000"):
+        # Example "Y00-M00-D00+0000"
+        #          Yyy Mmm Dddzzzzz
+        #          0123456789012345
+        user = [x-0x30 for x in bytes(date, "utf-8")]
 
         self.acquire()
         self.bgf0 = False
@@ -590,7 +596,7 @@ class timecode(object):
         self.uf7 = 0
         self.uf8 = 0
         for i in range(len(tzs)):
-            if date[12:] == tzs[i]:
+            if date[11:] == tzs[i]:
                 self.uf7 = i & 0x0F
                 self.uf8 = (i>>4) & 0xFF
                 break
@@ -628,6 +634,8 @@ class engine(object):
 
         self.stopped = s
         if s:
+            self.tc.bgf1 = False
+
             stop = False
             self.timer = None
             self.asserted = False
@@ -803,6 +811,9 @@ def pico_timecode_thread(eng, stop):
                         eng.tc.from_raw(g)
                         eng.tc.next_frame()
                         eng.tc.next_frame()
+
+                        # clone Userbit Clock flag
+                        eng.tc.bgf1 = eng.rc.bgf1
 
         # Wait for TX FIFO to be empty enough to accept more
         if eng.mode < 2 and eng.sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:

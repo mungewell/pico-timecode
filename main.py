@@ -279,11 +279,11 @@ def OLED_display_thread(mode = 0):
     menu = Menu(OLED, 5, 10)
     menu.set_screen(MenuScreen('A=Skip, B=Select')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
+        .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
+        .add(CallbackItem("Start/Stop Monitor", callback_monitor, visible=pt.eng.is_running))
+        .add(CallbackItem("Jam/Sync RX", callback_jam))
         .add(ConfirmItem("Stop TX", callback_stop_start, "Confirm?", ('Yes', 'No'), \
                           visible=pt.eng.is_running))
-        .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
-        .add(CallbackItem("Jam/Sync RX", callback_jam))
-        .add(CallbackItem("Start/Stop Monitor", callback_monitor, visible=pt.eng.is_running))
         .add(SubMenuItem("TC Settings", visible=pt.eng.is_stopped)
             .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df, \
                 selected=[30, 29.97, 25, 24, 23.976].index(config.setting['fps'])))

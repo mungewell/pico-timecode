@@ -1,6 +1,7 @@
 setting = {
     'fps' : 30.0,
     'df' : False,
+    'userbits' : "PICO",
     'zoom' : False,
     'calibrate' : False,
 }

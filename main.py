@@ -248,6 +248,8 @@ def OLED_display_thread(mode = 0):
 
     # apply saved settings
     pt.eng.tc.set_fps_df(config.setting['fps'], config.setting['df'])
+    pt.eng.tc.user_from_ascii(config.setting['userbits'])
+
     zoom = config.setting['zoom']
     calibrate = config.setting['calibrate']
 
@@ -321,7 +323,9 @@ def OLED_display_thread(mode = 0):
             OLED.fill(0x0000)
             OLED.text("<Menu" ,0,2,OLED.white)
             OLED.text(format,128,2,OLED.white,1,1)
-            OLED.show(0,10)
+            OLED.text(pt.eng.tc.user_to_ascii(), \
+                      64,39,OLED.white,1,2)
+            OLED.show(0,49)
         pasc = "--------"
         ptus = 0
 
@@ -353,7 +357,9 @@ def OLED_display_thread(mode = 0):
                     OLED.fill(0x0000)
                     OLED.text("<Menu" ,0,2,OLED.white)
                     OLED.text(format,128,2,OLED.white,1,1)
-                    OLED.show()
+                    OLED.text(pt.eng.tc.user_to_ascii(), \
+                              64,39,OLED.white,1,2)
+                    OLED.show(0,49)
                     pasc="--------"
                     ptx = 0
             else:
@@ -505,9 +511,11 @@ def OLED_display_thread(mode = 0):
                         sync_after_jam = calibrate
 
                     if pt.eng.mode > 0:
+                        OLED.text(pt.eng.rc.user_to_ascii(), \
+                                64,12,OLED.white,1,2)
                         OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)
-                        OLED.show(22,36)
-                        OLED.fill_rect(0,32,128,36,OLED.black)
+                        OLED.show(12,36)
+                        OLED.fill_rect(0,12,128,36,OLED.black)
 
                         '''
                         # debug - place marker when RX updates, cleared when TX updates

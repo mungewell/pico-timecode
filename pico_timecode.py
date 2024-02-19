@@ -489,10 +489,49 @@ class timecode(object):
         self.mm = (((p[1] >>  8) & 0x7) * 10) + (p[1] & 0xF)
         self.hh = (((p[1] >> 24) & 0x3) * 10) + ((p[1] >> 16) & 0xF)
 
+        self.uf1 = ((p[0] >>  4) & 0x0F)
+        self.uf2 = ((p[0] >> 12) & 0x0F)
+        self.uf3 = ((p[0] >> 20) & 0x0F)
+        self.uf4 = ((p[0] >> 28) & 0x0F)
+
+        self.uf5 = ((p[1] >>  4) & 0x0F)
+        self.uf6 = ((p[1] >> 12) & 0x0F)
+        self.uf7 = ((p[1] >> 20) & 0x0F)
+        self.uf8 = ((p[1] >> 28) & 0x0F)
+
         if self.ff > self.fps:
             self.fps = self.ff
         self.release()
         
+        return True
+
+    def user_to_ascii(self):
+        self.acquire()
+        user = [(self.uf2 << 4) + self.uf1,
+                (self.uf4 << 4) + self.uf3,
+                (self.uf6 << 4) + self.uf5,
+                (self.uf8 << 4) + self.uf7]
+        self.release()
+
+        new = ""
+        for x in user:
+            new += chr(x)
+        return(new)
+
+    def user_from_ascii(self, asc):
+        user = [x for x in bytes((asc+"    ")[:4], "utf-8")]
+
+        self.acquire()
+        self.uf1 = (user[0] >> 0) & 0x0F
+        self.uf2 = (user[0] >> 4) & 0x0F
+        self.uf3 = (user[1] >> 0) & 0x0F
+        self.uf4 = (user[1] >> 4) & 0x0F
+        self.uf5 = (user[2] >> 0) & 0x0F
+        self.uf6 = (user[2] >> 4) & 0x0F
+        self.uf7 = (user[3] >> 0) & 0x0F
+        self.uf8 = (user[3] >> 4) & 0x0F
+        self.release()
+
         return True
 
 

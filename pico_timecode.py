@@ -413,7 +413,7 @@ class timecode(object):
 
         return(c)
 
-    def to_ltc_packet(self, send_sync=False):
+    def to_ltc_packet(self, send_sync=False, release=True):
         f27 = False
         f43 = False
         f59 = False
@@ -451,7 +451,9 @@ class timecode(object):
                 p[1] += (True << 27)    # f59
             else:
                 p[0] += (True << 27)    # f27
-        self.release()
+
+        if release:
+            self.release()
 
         if send_sync:
             # We want to send 'whole' 32bit words to FIFO, so add 2x Sync
@@ -464,8 +466,11 @@ class timecode(object):
         else:
             return p
 
-    def from_ltc_packet(self, p):
+    def from_ltc_packet(self, p, acquire=True):
         if len(p) != 2:
+            if not acquire:
+                # assume previously aquired
+                self.release()
             return False
 
         # reject if parity is not 1, note we are not including Sync word
@@ -476,7 +481,8 @@ class timecode(object):
             return False
         '''
 
-        self.acquire()
+        if acquire:
+            self.acquire()
         self.df = ((p[0] >> 10) & 0x01)
         self.ff = (((p[0] >>  8) & 0x3) * 10) + (p[0] & 0xF)
         self.ss = (((p[0] >> 24) & 0x7) * 10) + ((p[0] >> 16) & 0xF)
@@ -655,10 +661,11 @@ def pico_timecode_thread(eng, stop):
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
             p = []
+            eng.rc.acquire()
             p.append(eng.sm[5].get())
             p.append(eng.sm[5].get())
             if len(p) == 2:
-                eng.rc.from_ltc_packet(p)
+                eng.rc.from_ltc_packet(p, False)
 
             if eng.mode > 1:
                 # should perform some basic validation:
@@ -696,8 +703,9 @@ def pico_timecode_thread(eng, stop):
 
         # Wait for TX FIFO to be empty enough to accept more
         if eng.mode < 2 and eng.sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:
-            for w in eng.tc.to_ltc_packet(send_sync):
+            for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[2].put(w)
+            eng.tc.release()
             send_sync = (send_sync + 1) & 1
 
             # Calculate next frame value

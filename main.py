@@ -344,7 +344,7 @@ def OLED_display_thread(mode = 0):
             if menu_hidden == False:
                 if timerA.debounce_signal(keyA.value()==0):
                     menu.move(2)        # Requires patched umenu to work
-                if timerA.debounce_signal(keyB.value()==0):
+                if timerB.debounce_signal(keyB.value()==0):
                     menu.click()
                 menu.draw()
 
@@ -362,6 +362,10 @@ def OLED_display_thread(mode = 0):
                     menu.reset()
                     menu_hidden = False
 
+                # Debug - freeze screen
+                while pt.eng.mode == 1 and timerB.debounce_signal(keyB.value()==0):
+                    utime.sleep(1)
+
                 # Attempt to align display with the TX timing
                 t1 = pt.tx_ticks_us
                 if pt.eng.mode == 0:
@@ -369,9 +373,29 @@ def OLED_display_thread(mode = 0):
                         continue
 
                 # Draw the main TC counter, buffering means value is 2 frames ahead
-                gc.from_raw(pt.eng.tc.to_raw())
+                while True:
+                    t1 = pt.tx_ticks_us
+                    tf1 = pt.eng.sm[2].tx_fifo()
+                    g = pt.eng.tc.to_raw()
+                    tf2 = pt.eng.sm[2].tx_fifo()
+                    t2 = pt.tx_ticks_us
+
+                    if t1==t2 and tf1==tf2:
+                        gc.from_raw(g)
+                        break
+
+                # When filling TX FIFO, we do so if < 5 word pre-loaded
+                # then we add add either 2 or 3 32-bit words (depending on sync)
+                # So TX FIFO may be:
+                # <- 3, 2, 3
+                # <- 2, 3, 2
+
+                # correct read TC, for frames queued in FIFO
                 gc.prev_frame()
-                gc.prev_frame()
+                if tf1 > 3:
+                    gc.prev_frame()
+                if tf1 > 5:
+                    gc.prev_frame()
                 asc = gc.to_ascii(False)
 
                 # check which characters of the TC have changed
@@ -395,20 +419,26 @@ def OLED_display_thread(mode = 0):
                 if pt.eng.mode > 0:
                     while True:
                         r1 = pt.rx_ticks_us
-                        f = pt.eng.sm[5].rx_fifo()
+                        rf1 = pt.eng.sm[5].rx_fifo()
                         g = pt.eng.rc.to_raw()
-                        t1 = pt.tx_ticks_us
+                        rf2 = pt.eng.sm[5].rx_fifo()
                         r2 = pt.rx_ticks_us
-                        n = utime.ticks_us()
-                        if r1==r2:
+
+                        t2 = pt.tx_ticks_us
+                        if r1==r2 and rf1==rf2:
                             gc.from_raw(g)
                             break
+
+                    # every code left in FIFO, means that we have outdated TC
+                    gc.next_frame()
+                    for i in range(int(rf1/2)):
+                        gc.next_frame()
 
                     # Draw an error bar to represent timing delta between TX and RX
                     # Positive Delta = TX is ahead of RX, bar is shown to the right
                     # and should increase 'duty' to slow down it's bit-clock
                     if pt.eng.mode == 1:
-                        d = utime.ticks_diff(r1, t1)
+                        d = utime.ticks_diff(r1, t2)
 
                         # RX is offset by ~2/3 bit
                         d -= cycle_us * 2/ (3 * 80)
@@ -420,10 +450,6 @@ def OLED_display_thread(mode = 0):
                         elif d < (2 * cycle_us) and d >= 0:
                             while d > (cycle_us/2):
                                 d -= cycle_us
-
-                        # RX value is behind due to buffers...
-                        for i in range(4-int(utime.ticks_diff(t1, ptus)/cycle_us)):
-                            gc.next_frame()
 
                         # Update PID every 1s (or so)
                         if (g & 0xFFFFFF00) != last_mon:
@@ -482,6 +508,12 @@ def OLED_display_thread(mode = 0):
                         OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)
                         OLED.show(22,36)
                         OLED.fill_rect(0,32,128,36,OLED.black)
+
+                        '''
+                        # debug - place marker when RX updates, cleared when TX updates
+                        OLED.pixel(126 ,62, OLED.white)
+                        OLED.show(62, 63, 15)
+                        '''
 
                 else:
                     # save calculated value, but only once after CX is cancelled

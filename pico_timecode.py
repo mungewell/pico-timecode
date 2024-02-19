@@ -240,6 +240,20 @@ def timer_re_init(timer):
 
 #---------------------------------------------
 
+# https://web.archive.org/web/20240000000000*/http://www.barney-wol.net/time/timecode.html
+# lookup this text in array, index is value used in TC
+
+tzs = [ \
+    "+0000","-0100","-0200","-0300","-0400","-0500","-0600","-0700","-0800","-0900", \
+    "-0030","-0130","-0230","-0330","-0430","-0530", \
+    "-1000","-1100","-1200","+1300","+1200","+1100","+1000","+0900","+0800","+0700", \
+    "-0630","-0730","-0830","-0930","-1030","-1130", \
+    "+0600","+0500","+0400","+0300","+0200","+0100","Undef","Undef","TP-03","TP-02", \
+    "+1130","+1030","+0930","+0830","+0730","+0630", \
+    "TP-01","TP-00","+1245","Undef","Undef","Undef","Undef","Undef","+XXXX","Undef", \
+    "+0530","+0430","+0330","+0230","+0130","+0030"]
+
+
 class timecode(object):
 
     fps = 30
@@ -489,6 +503,13 @@ class timecode(object):
         self.mm = (((p[1] >>  8) & 0x7) * 10) + (p[1] & 0xF)
         self.hh = (((p[1] >> 24) & 0x3) * 10) + ((p[1] >> 16) & 0xF)
 
+        if self.fps == 25:
+            self.bgf0 = (p[0] >> 27) & 0x01 # f27
+            self.bgf2 = (p[1] >> 26) & 0x01 # f43
+        else:
+            self.bgf0 = (p[1] >> 26) & 0x01 # f43
+            self.bgf2 = (p[1] >> 27) & 0x01 # f59
+
         self.uf1 = ((p[0] >>  4) & 0x0F)
         self.uf2 = ((p[0] >> 12) & 0x0F)
         self.uf3 = ((p[0] >> 20) & 0x0F)
@@ -506,22 +527,38 @@ class timecode(object):
         return True
 
     def user_to_ascii(self):
+        if self.bgf0==True and self.bgf2==True:
+            return("Page/Line NA")
+
         self.acquire()
-        user = [(self.uf2 << 4) + self.uf1,
-                (self.uf4 << 4) + self.uf3,
-                (self.uf6 << 4) + self.uf5,
-                (self.uf8 << 4) + self.uf7]
-        self.release()
+        if self.bgf0==False and self.bgf2==True:
+            # Userbits are Date/Timezone
+            user = [0x59, 0x30+self.uf6, 0x30+self.uf5, 0x2D, \
+                    0x4D, 0x30+self.uf4, 0x30+self.uf3, 0x2D, \
+                    0x44, 0x30+self.uf2, 0x30+self.uf1]
+        else:
+            # Userbits are ASCII
+            user = [(self.uf2 << 4) + self.uf1,
+                    (self.uf4 << 4) + self.uf3,
+                    (self.uf6 << 4) + self.uf5,
+                    (self.uf8 << 4) + self.uf7]
 
         new = ""
         for x in user:
             new += chr(x)
+
+        if self.bgf0==False and self.bgf2==True:
+            new += " " + tzs[(self.uf8 << 4) + self.uf7]
+
+        self.release()
         return(new)
 
     def user_from_ascii(self, asc):
         user = [x for x in bytes((asc+"    ")[:4], "utf-8")]
 
         self.acquire()
+        self.bgf0 = True
+        self.bgf2 = False
         self.uf1 = (user[0] >> 0) & 0x0F
         self.uf2 = (user[0] >> 4) & 0x0F
         self.uf3 = (user[1] >> 0) & 0x0F
@@ -530,6 +567,33 @@ class timecode(object):
         self.uf6 = (user[2] >> 4) & 0x0F
         self.uf7 = (user[3] >> 0) & 0x0F
         self.uf8 = (user[3] >> 4) & 0x0F
+        self.release()
+
+        return True
+
+    def user_from_date(self, date="Y74-M01-D01 +0000"):
+        # Example "Y00-M00-D00 +0000"
+        #          Yyy Mmm Ddd zzzzz
+        #          01234567890123456
+        user = [x-0x30 for x in bytes(date[:12], "utf-8")]
+
+        self.acquire()
+        self.bgf0 = False
+        self.bgf2 = True
+        self.uf1 = user[10] # DD
+        self.uf2 = user[9]
+        self.uf3 = user[6]  # MM
+        self.uf4 = user[5]
+        self.uf5 = user[2]  # YY
+        self.uf6 = user[1]
+
+        self.uf7 = 0
+        self.uf8 = 0
+        for i in range(len(tzs)):
+            if date[12:] == tzs[i]:
+                self.uf7 = i & 0x0F
+                self.uf8 = (i>>4) & 0xFF
+                break
         self.release()
 
         return True

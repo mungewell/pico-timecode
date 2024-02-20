@@ -51,7 +51,7 @@ def start_from_pin():
     jmp("halt") [31]
 
 
-@rp2.asm_pio(set_init=rp2.PIO.OUT_LOW, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+@rp2.asm_pio(set_init=(rp2.PIO.OUT_LOW,)*4, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def blink_led():
     out(x, 16)                      # first cycle lenght may be slightly
@@ -64,7 +64,7 @@ def blink_led():
     out(y, 16)                      # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
-    set(pins, 1)
+    set(pins, 0b1111)
     jmp("cont")
     label("led_off")
     nop() [1]                       # this section 3 cycles
@@ -906,7 +906,7 @@ def ascii_display_thread(mode = 0):
 
     # TX State Machines
     eng.sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
-                           set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
+                           set_base=machine.Pin(25)))       # LED on Pico board + GPIO26/27/28
     eng.sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
                            out_base=machine.Pin(22)))       # Output of 'raw' bitstream
     eng.sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,

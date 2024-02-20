@@ -66,36 +66,13 @@ import rp2
 zoom = False
 calibrate = False
 menu_hidden = True
-menu_hidden2 = False
-
-'''
-#class FastShow(OLED_1inch3):
-class FastShow(OLED_1inch3_SPI):
-    def show(self, start=0, end=-1, col=0):
-        if end < 0:
-            end = self.height
-
-        if end < start:
-            temp = end
-            end = start
-            start = temp
-
-        self.write_cmd(0xb0)
-        for page in range(start,end):
-            self.column = 63 - page
-            self.write_cmd(0x00 + (self.column & 0x0f))
-            self.write_cmd(0x10 + (self.column >> 4))
-            for num in range(col,16):
-                self.write_cmd(0xB0 + num)
-                self.write_data(self.buffer[page*16+num])
-'''
 
 def add_more_state_machines():
     sm_freq = int(pt.eng.tc.fps * 80 * 32)
 
     # TX State Machines
     pt.eng.sm.append(rp2.StateMachine(1, pt.blink_led, freq=sm_freq,
-                               set_base=machine.Pin(25)))       # LED on Pico board + GPIO26
+                               set_base=machine.Pin(25)))       # LED on Pico board + GPIO26/27/28
     pt.eng.sm.append(rp2.StateMachine(2, pt.buffer_out, freq=sm_freq,
                                out_base=machine.Pin(22)))       # Output of 'raw' bitstream
     pt.eng.sm.append(rp2.StateMachine(3, pt.encode_dmc, freq=sm_freq,

@@ -640,6 +640,7 @@ class timecode(object):
 
 class engine(object):
     mode = 0        # -1=Halted, 0=FreeRun, 1=Monitor RX, 2>=Jam to RX
+    flashframe = 0
     dlock = _thread.allocate_lock()
 
     tc = timecode()
@@ -860,7 +861,7 @@ def pico_timecode_thread(eng, stop):
 
             # Does the LED flash for this frame?
             eng.tc.acquire()
-            if eng.tc.ff == 0:
+            if eng.tc.ff == eng.flashframe:
                 eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
             else:
                 eng.sm[1].put(509)              # '509' is complete cycle length

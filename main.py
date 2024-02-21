@@ -98,6 +98,53 @@ def add_more_state_machines():
     for m in pt.eng.sm:
         m.irq(handler=pt.irq_handler, hard=True)
 
+#---------------------------------------------
+# Class for performing rolling averages
+
+class Rolling:
+    count = 5
+    data = []
+    dsum = 0
+
+    def store(self, data):
+        self.data.append(data)
+        self.dsum += data
+
+        while len(self.data) > self.count:
+            self.dsum -= self.data[0]
+            self.data = self.data[1:]
+
+    def read(self, count=0):
+        if count > 0:
+            self.count = count
+
+        while len(self.data) > self.count:
+            self.dsum -= self.data[0]
+            self.data = self.data[1:]
+
+        if len(self.data):
+            return(self.dsum/len(self.data))
+
+    def store_read(self, data):
+        self.store(data)
+        return(self.read())
+
+#---------------------------------------------
+# Class for using the internal temp sensor
+# 3v3 to be connected to vREF (pin 35)
+
+class Temperature:
+    def __init__(self, ref=3.3):
+        self.ref = ref
+        self.sensor = machine.ADC(4)
+
+    def read(self):
+        adc_value = self.sensor.read_u16()
+        volt = (self.ref/65536) * adc_value
+
+        return(27-(volt-0.706)/0.001721)
+
+#---------------------------------------------
 
 def callback_stop_start():
     #global eng, stop
@@ -234,6 +281,10 @@ def OLED_display_thread(mode = 0):
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
     timerA = Neotimer(50)
     timerB = Neotimer(50)
+
+    # Internal temp sensor
+    sensor = Temperature()
+    temp_avg = Rolling()
 
     # automatically Jam if booted with 'B' pressed
     if keyB.value() == 0:
@@ -447,9 +498,12 @@ def OLED_display_thread(mode = 0):
                                         cache = cache[1:]
 
                                     pt.eng.micro_adjust(adjust)
-                                    print(gc.to_ascii(), d, pt.eng.duty, pid.components)
+                                    print(gc.to_ascii(), d, pt.eng.duty, \
+                                          temp_avg.store_read(sensor.read()), \
+                                          pid.components)
                                 else:
-                                    print(gc.to_ascii(), d, pt.eng.duty)
+                                    print(gc.to_ascii(), d, pt.eng.duty, \
+                                          temp_avg.store_read(sensor.read()))
 
                             last_mon = g & 0xFFFFFF00
 

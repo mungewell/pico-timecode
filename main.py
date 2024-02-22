@@ -102,9 +102,12 @@ def add_more_state_machines():
 # Class for performing rolling averages
 
 class Rolling:
-    count = 5
-    data = []
-    dsum = 0
+    def __init__(self, count=5):
+        self.data = []
+        self.dsum = 0
+
+        if count > 0:
+            self.count = count
 
     def store(self, data):
         self.data.append(data)
@@ -344,7 +347,10 @@ def OLED_display_thread(mode = 0):
         if pt.eng.tc.fps != 25 and pt.eng.tc.fps != 24:
             format += ("-DF" if df == True else "-NDF")
 
-        cycle_us = (1000000 / fps)
+        cycle_us = (1000000.0 / fps)
+        phase = Rolling(fps)
+        adj_avg = Rolling(60)
+
         gc = pt.timecode()
 
         if menu_hidden == True:
@@ -361,7 +367,7 @@ def OLED_display_thread(mode = 0):
         sync_after_jam = False
         last_mon = 0
 
-        pid = PID(0.015, 0.00025, 0.0, setpoint=0)
+        pid = PID(500, 12.5, 0.0, setpoint=0)
         pid.auto_mode = False
         pid.sample_time = 1
         pid.output_limits = (-50.0, 50.0)
@@ -369,6 +375,7 @@ def OLED_display_thread(mode = 0):
         # apply calibration value
         try:
             pt.eng.micro_adjust(config.calibration[format])
+            print("Calibration:", config.calibration[format])
         except:
             pass
 
@@ -468,22 +475,26 @@ def OLED_display_thread(mode = 0):
                     for i in range(int(rf1/2)):
                         gc.next_frame()
 
-                    # Draw an error bar to represent timing delta between TX and RX
+                    # Draw an error bar to represent timing phase between TX and RX
                     # Positive Delta = TX is ahead of RX, bar is shown to the right
                     # and should increase 'duty' to slow down it's bit-clock
                     if pt.eng.mode == 1:
-                        d = utime.ticks_diff(r1, t2)
+                        d = utime.ticks_diff(r1, t2) / cycle_us
 
                         # RX is offset by ~2/3 bit
-                        d -= cycle_us * 2/ (3 * 80)
+                        d -= 2.0/ (3 * 80)
 
                         # correct delta, if not adjacent frame
-                        if d > (-2 * cycle_us) and d <= 0:
-                            while d < -(cycle_us/2):
-                                d += cycle_us
-                        elif d < (2 * cycle_us) and d >= 0:
-                            while d > (cycle_us/2):
-                                d -= cycle_us
+                        if d > -2 and d <= 0:
+                            while d < -0.5:
+                                d += 1.0
+                        elif d < 2 and d >= 0:
+                            while d > 0.5:
+                                d -= 1.0
+
+                        # Rolling average
+                        if d >= -0.5 and d <= 0.5:
+                            phase.store(d)
 
                         # Update PID every 1s (or so)
                         if (g & 0xFFFFFF00) != last_mon:
@@ -492,17 +503,17 @@ def OLED_display_thread(mode = 0):
                                     if pid.auto_mode == False:
                                         pid.set_auto_mode(True, last_output=pt.eng.duty)
 
-                                    adjust = pid(d)
-                                    cache.append(adjust)
-                                    if len(cache) > 60:
-                                        cache = cache[1:]
-
+                                    adjust = pid(phase.read())
                                     pt.eng.micro_adjust(adjust)
-                                    print(gc.to_ascii(), d, pt.eng.duty, \
+                                    adj_avg.store(adjust)
+
+                                    print(gc.to_ascii(), d, phase.read(), \
+                                          pt.eng.duty, \
                                           temp_avg.store_read(sensor.read()), \
                                           pid.components)
                                 else:
-                                    print(gc.to_ascii(), d, pt.eng.duty, \
+                                    print(gc.to_ascii(), d, phase.read(), \
+                                          pt.eng.duty, \
                                           temp_avg.store_read(sensor.read()))
 
                             last_mon = g & 0xFFFFFF00
@@ -515,9 +526,9 @@ def OLED_display_thread(mode = 0):
 
                         OLED.vline(64, 33, 2, OLED.white)
                         if zoom == True:
-                            length = int(1280 * d/cycle_us)
+                            length = int(1280 * d)
                         else:
-                            length = int(128 * d/cycle_us)
+                            length = int(128 * d)
 
                             # markers at side to indicate full view
                             # -1/2 to +1/2 a frame is displayed
@@ -557,9 +568,9 @@ def OLED_display_thread(mode = 0):
                 else:
                     # save calculated value, but only once after CX is cancelled
                     if pt.eng.mode == 0 and sync_after_jam == True:
-                        if len(cache):
-                            pt.eng.micro_adjust(sum(cache)/len(cache))
-                            config.set('calibration', format, sum(cache)/len(cache))
+                        if len(adj_avg.data):
+                            pt.eng.micro_adjust(adj_avg.read())
+                            config.set('calibration', format, adj_avg.read())
                         sync_after_jam = False
                         pid.auto_mode = False
 

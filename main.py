@@ -102,31 +102,30 @@ def add_more_state_machines():
 # Class for performing rolling averages
 
 class Rolling:
-    def __init__(self, count=5):
-        self.data = []
-        self.dsum = 0
+    def __init__(self, size=5):
+        self.size = size
+        self.data = [0.0] * size
+        self.dsum = 0.0
+        self.pos = 0
 
-        if count > 0:
-            self.count = count
+        self.full = False
 
     def store(self, data):
-        self.data.append(data)
+        if self.full == True:
+            self.dsum -= self.data[self.pos]
+
+        self.data[self.pos] = data
         self.dsum += data
 
-        while len(self.data) > self.count:
-            self.dsum -= self.data[0]
-            self.data = self.data[1:]
+        self.pos = (self.pos + 1) % self.size
+        if self.pos == 0:
+            self.full = True
 
-    def read(self, count=0):
-        if count > 0:
-            self.count = count
-
-        while len(self.data) > self.count:
-            self.dsum -= self.data[0]
-            self.data = self.data[1:]
-
-        if len(self.data):
-            return(self.dsum/len(self.data))
+    def read(self):
+        if self.full == True:
+            return(self.dsum/self.size)
+        elif self.pos:
+            return(self.dsum/self.pos)
 
     def store_read(self, data):
         self.store(data)
@@ -361,7 +360,7 @@ def OLED_display_thread(mode = 0):
             format += ("-DF" if df == True else "-NDF")
 
         cycle_us = (1000000.0 / fps)
-        phase = Rolling(fps)
+        phase = Rolling(30)
         adj_avg = Rolling(60)
 
         gc = pt.timecode()

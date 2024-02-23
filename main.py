@@ -63,6 +63,7 @@ import utime
 import rp2
 
 # Set up (extra) globals
+menu = None
 zoom = False
 calibrate = False
 menu_hidden = True
@@ -175,7 +176,6 @@ def callback_stop_start():
 
 
 def callback_monitor():
-    #global eng, stop
     global menu_hidden, menu_hidden2
 
     menu_hidden = True
@@ -188,7 +188,6 @@ def callback_monitor():
 
 
 def callback_jam():
-    #global eng, stop
     global menu_hidden, menu_hidden2
 
     menu_hidden = True
@@ -242,6 +241,7 @@ def callback_setting_calibrate(set):
     else:
         calibrate = False
 
+
 def callback_setting_flashframe(set):
     if set=="Off":
         pt.eng.flashframe = -1
@@ -249,22 +249,23 @@ def callback_setting_flashframe(set):
         pt.eng.flashframe = int(set)
 
 
+def callback_setting_userbits(set):
+    if set=="Ascii":
+        pt.eng.tc.user_from_ascii(config.setting['ub_ascii'])
+    elif set=="BCD":
+        pt.eng.tc.user_from_bcd_hex(config.setting['ub_bcd'])
+    else:
+        pt.eng.tc.user_from_date(config.setting['ub_date'])
+
+
 def callback_setting_save():
-    global zoom, calibrate
+    global menu
 
-    pt.eng.tc.acquire()
-    fps = pt.eng.tc.fps
-    df = pt.eng.tc.df
-    pt.eng.tc.release()
-
-    config.set('setting', 'fps', fps)
-    config.set('setting', 'df', df)
-
-    config.set('setting', 'zoom', [("Yes" if zoom == True else "No"), config.setting['zoom'][1]])
-    config.set('setting', 'calibrate', [("Yes" if calibrate == True else "No"), \
-                                        config.setting['calibrate'][1]])
-    config.set('setting', 'flashframe', [("Off" if pt.eng.flashframe == -1 else str(pt.eng.flashframe)), \
-                                        config.setting['flashframe'][1]])
+    for j in menu.current_screen._visible_items[0].parent._visible_items:
+        try:
+            config.set('setting', j.name, [j.items[j.selected], j.items])
+        except AttributeError:
+            pass
 
 
 def callback_exit():
@@ -283,12 +284,13 @@ def OLED_display_thread(mode = 0):
     pt.eng.set_stopped(True)
 
     # apply saved settings
-    pt.eng.tc.set_fps_df(config.setting['fps'], config.setting['df'])
-    pt.eng.tc.user_from_ascii(config.setting['ub_ascii'])
+    callback_fps_df(config.setting['framerate'][0])
+    callback_fps_df(config.setting['dropframe'][0])
 
     callback_setting_zoom(config.setting['zoom'][0])
     callback_setting_calibrate(config.setting['calibrate'][0])
     callback_setting_flashframe(config.setting['flashframe'][0])
+    callback_setting_userbits(config.setting['userbits'][0])
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
@@ -304,8 +306,6 @@ def OLED_display_thread(mode = 0):
         pt.eng.mode=64
 
     OLED = OLED_1inch3_SPI()
-    #OLED = FastShow()
-    
     OLED.fill(0x0000)
     OLED.text("Pico-Timecode",64,0,OLED.white,0,2)
     OLED.text("www.github.com/",0,24,OLED.white,0,0)
@@ -325,19 +325,23 @@ def OLED_display_thread(mode = 0):
         .add(CallbackItem("Jam/Sync RX", callback_jam))
         .add(ConfirmItem("Stop TX", callback_stop_start, "Confirm?", ('Yes', 'No'), \
                           visible=pt.eng.is_running))
+
         .add(SubMenuItem("TC Settings", visible=pt.eng.is_stopped)
-            .add(EnumItem("Framerate", ["30", "29.97", "25", "24", "23.976"], callback_fps_df, \
-                selected=[30, 29.97, 25, 24, 23.976].index(config.setting['fps'])))
-            .add(EnumItem("Drop Frame", ["No", "Yes"], callback_fps_df, \
-                selected=[False, True].index(config.setting['df'])))
+            .add(EnumItem("framerate", config.setting['framerate'][1], callback_fps_df, \
+                selected=config.setting['framerate'][1].index(config.setting['framerate'][0])))
+            .add(EnumItem("dropframe", config.setting['dropframe'][1], callback_fps_df, \
+                selected=config.setting['dropframe'][1].index(config.setting['dropframe'][0])))
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
+
         .add(SubMenuItem("Unit Settings")
-            .add(EnumItem("Zoom Display", config.setting['zoom'][1], callback_setting_zoom, \
+            .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
                 selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
-            .add(EnumItem("Jam+Calibrate", config.setting['calibrate'][1], callback_setting_zoom, \
+            .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_zoom, \
                 selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
-            .add(EnumItem("Flash Frame", config.setting['flashframe'][1], callback_setting_flashframe, \
+            .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
                 selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
+            .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
+                selected=config.setting['userbits'][1].index(config.setting['userbits'][0])))
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
     )
 

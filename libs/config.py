@@ -1,9 +1,11 @@
 setting = {
     'fps' : 30.0,
-    'df' : False,
-    'userbits' : "PICO",
-    'zoom' : False,
-    'calibrate' : False,
+    'df' : 0,
+    'userbits' : ["Ascii", ["BCD", "Ascii", "Date"]],
+    'ub_ascii' : "PICO",
+    'zoom' : ['No', ['Yes', 'No']],
+    'calibrate' : ['Yes', ['Yes', 'No']],
+    'flashframe' : ['10', ['Off', '0', '10']],
 }
 
 #################################################

@@ -1,0 +1,7 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "SJ-43514-SMT-TR")(type "Legacy")(uri "${KIPRJMOD}/libs/SJ-43514-SMT-TR/SJ-43514-SMT-TR.lib")(options "")(descr ""))
+  (lib (name "MCP6S91_E_SN")(type "KiCad")(uri "${KIPRJMOD}/libs/MCP6S91_E_SN/KiCADv6/2024-02-24_03-11-49.kicad_sym")(options "")(descr ""))
+  (lib (name "KiCad-RP-Pico-main")(type "KiCad")(uri "${KIPRJMOD}/libs/KiCad-RP-Pico-main/KiCad-RP-Pico-main/RP-Pico Libraries/MCU_RaspberryPi_and_Boards.kicad_sym")(options "")(descr ""))
+  (lib (name "LTST_S220GKT")(type "KiCad")(uri "${KIPRJMOD}/libs/LTST_S220GKT/KiCADv6/2024-02-24_16-38-46.kicad_sym")(options "")(descr ""))
+)

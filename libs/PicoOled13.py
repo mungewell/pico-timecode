@@ -1,7 +1,7 @@
 from machine import Pin,SPI
 import framebuf
 import time
-import BasicFont
+from libs.fonts import BasicFontCondensed
 
 # Pin Definitions
 DC = 8
@@ -24,7 +24,7 @@ class OLED_1inch3_SPI(framebuf.FrameBuffer):
         self.white =   0xffff
         self.black =   0x0000
 
-        self.font=BasicFont.BasicFontCondensed
+        self.font=BasicFontCondensed
 
         # framebuf init
         self.buffer = bytearray(self.height * self.width // 8)

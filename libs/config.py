@@ -1,13 +1,13 @@
 setting = {
     'framerate' : ['30', ['30', '29.97', '25', '24', '23.976']],
-    'dropframe' : ['No', ['Yes', 'No']],
-    'zoom' : ['Yes', ['Yes', 'No']],
-    'calibrate' : ['Yes', ['Yes', 'No']],
-    'flashframe' : ['10', ['Off', '0', '10']],
-    'userbits' : ['Ascii', ['BCD', 'Ascii', 'Date']],
-    'ub_ascii' : "PICO",
-    'ub_bcd' : "00000000",
-    'ub_date' : "Y74-M01-D01+0000",
+    'dropframe' : ['No', ['No', 'Yes']],
+    'zoom'      : ['No', ['No', 'Yes']],
+    'calibrate' : ['No', ['No', 'Once', 'Always']],
+    'flashframe': ['10', ['Off', '0', '10']],
+    'userbits'  : ['Text', ['Text', 'Digits', 'Date']],
+    'ub_ascii'  : "PICO",
+    'ub_bcd'    : "00000000",
+    'ub_date'   : "Y74-M01-D01+0000",
 }
 
 #################################################

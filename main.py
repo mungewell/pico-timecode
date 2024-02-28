@@ -247,10 +247,12 @@ def callback_setting_zoom(set):
 def callback_setting_calibrate(set):
     global calibrate
 
-    if set=="Yes":
-        calibrate = True
+    if set=="Always":
+        calibrate = 2
+    elif set=="Once":
+        calibrate = 1
     else:
-        calibrate = False
+        calibrate = 0
 
 
 def callback_setting_flashframe(set):
@@ -261,9 +263,9 @@ def callback_setting_flashframe(set):
 
 
 def callback_setting_userbits(set):
-    if set=="Ascii":
+    if set=="Text":
         pt.eng.tc.user_from_ascii(config.setting['ub_ascii'])
-    elif set=="BCD":
+    elif set=="Digits":
         pt.eng.tc.user_from_bcd_hex(config.setting['ub_bcd'])
     else:
         pt.eng.tc.user_from_date(config.setting['ub_date'])
@@ -352,7 +354,7 @@ def OLED_display_thread(mode = 0):
         .add(SubMenuItem("Unit Settings")
             .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
                 selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
-            .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_zoom, \
+            .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
                 selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
             .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
                 selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
@@ -393,7 +395,7 @@ def OLED_display_thread(mode = 0):
         pasc = "--------"
         ptus = 0
 
-        sync_after_jam = False
+        sync_after_jam = 0
         jam_started = False
         last_mon = 0
 
@@ -539,7 +541,7 @@ def OLED_display_thread(mode = 0):
                         # Update PID every 1s (or so)
                         if (g & 0xFFFFFF00) != last_mon:
                             if last_mon:
-                                if sync_after_jam == True:
+                                if sync_after_jam > 0:
                                     if pid.auto_mode == False:
                                         pid.set_auto_mode(True, last_output=pt.eng.duty)
 
@@ -561,7 +563,10 @@ def OLED_display_thread(mode = 0):
                                         config.set('calibration', format, adj_avg.read())
                                         config.set('calibration', 'period', period)
 
-                                        sync_after_jam = False
+                                        if calibrate == 1:
+                                            callback_setting_calibrate("No")
+
+                                        sync_after_jam = 0
                                         jam_started = False
                                         pid.auto_mode = False
                                 else:
@@ -571,7 +576,7 @@ def OLED_display_thread(mode = 0):
                             last_mon = g & 0xFFFFFF00
 
 
-                        if pt.eng.mode == 1 and sync_after_jam:
+                        if pt.eng.mode == 1 and sync_after_jam > 0:
                             # CX = Sync'ed to RX and calibrating XTAL
                             OLED.text("CX  ",0,22,OLED.white)
                         else:
@@ -614,7 +619,7 @@ def OLED_display_thread(mode = 0):
                         OLED.fill_rect(0,12,128,36,OLED.black)
                     else:
                         # catch if user has cancelled jam/calibrate
-                        sync_after_jam = False
+                        sync_after_jam = 0
                         jam_started = False
 
 

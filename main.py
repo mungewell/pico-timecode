@@ -53,7 +53,8 @@ from libs.neotimer import *
 from libs.PicoOled13 import *
 
 # Special font, for display the TX'ed timecode in a particular way
-from timecode_font import *
+from libs.fonts import TimecodeFont
+from framebuf import FrameBuffer, MONO_HMSB
 
 import pico_timecode as pt
 
@@ -315,6 +316,11 @@ def OLED_display_thread(mode = 0):
     if keyB.value() == 0:
         pt.eng.mode=64
 
+    # load font into FB
+    timecode_fb = []
+    for i in range(len(TimecodeFont)):
+        timecode_fb.append(FrameBuffer(TimecodeFont[i], 16, 16, MONO_HMSB))
+
     OLED = OLED_1inch3_SPI()
     OLED.fill(0x0000)
     OLED.text("Pico-Timecode",64,0,OLED.white,0,2)
@@ -476,17 +482,18 @@ def OLED_display_thread(mode = 0):
                     for c in range(len(asc)):
                         if asc[c]!=pasc[c]:
                             break
-                    for i in range(c,8):
-                        # blit with 'double' char set, slightly offset
-                        if i & 1 == 1:
-                            # offset left
-                            OLED.blit(timecode_fb[int(asc[i])+10], 16*i, 48)
-                        else:
-                            # offset right
-                            OLED.blit(timecode_fb[int(asc[i])], 16*i, 48)
+                    for i in range(7,(c&6)-1,-1):
+                        # blit in reverse order, offsetting to hide ':'
+                        OLED.blit(timecode_fb[int(asc[i])],
+                            (16*i)-(4 if i&1 else 0), 48)
+
+                    # blank left most ':'
+                    if c < 2:
+                        OLED.rect(0,48,4,16,OLED.black,True)
+
                     pasc=asc
                     ptus = t1
-                    OLED.show(49 ,64, c*2)
+                    OLED.show(49 ,64, (c&6)*2)
 
                 # Figure out what RX frame to display
                 if pt.eng.mode > 0:

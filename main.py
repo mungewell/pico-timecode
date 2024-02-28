@@ -104,33 +104,43 @@ def add_more_state_machines():
 
 class Rolling:
     def __init__(self, size=5):
-        self.size = size
-        self.data = [0.0] * size
+        self.max = size
+        self.data = []
+        for i in range(size):
+            self.data.append([0.0, 0.0])
+
         self.dsum = 0.0
-        self.pos = 0
 
-        self.full = False
+        self.enter = 0
+        self.exit = 0
+        self.size = 0
 
-    def store(self, data):
-        if self.full == True:
-            self.dsum -= self.data[self.pos]
+    def store(self, data, mark=0.0):
+        if self.size == self.max:
+            self.dsum -= self.data[self.exit][0]
+            self.exit = (self.exit + 1) % self.max
 
-        self.data[self.pos] = data
+        self.data[self.enter][0] = data
+        self.data[self.enter][1] = mark
         self.dsum += data
 
-        self.pos = (self.pos + 1) % self.size
-        if self.pos == 0:
-            self.full = True
+        self.enter = (self.enter + 1) % self.max
+        if self.size < self.max:
+            self.size += 1
 
     def read(self):
-        if self.full == True:
+        if self.size > 0:
             return(self.dsum/self.size)
-        elif self.pos:
-            return(self.dsum/self.pos)
 
-    def store_read(self, data):
-        self.store(data)
+    def store_read(self, data, mark=0.0):
+        self.store(data, mark)
         return(self.read())
+
+    def purge(self, mark):
+        while self.size and self.data[self.exit][1] < mark:
+            self.dsum -= self.data[self.exit][0]
+            self.exit = (self.exit + 1) % self.max
+            self.size -= 1
 
 #---------------------------------------------
 # Class for using the internal temp sensor
@@ -364,8 +374,6 @@ def OLED_display_thread(mode = 0):
             format += ("-DF" if df == True else "-NDF")
 
         cycle_us = (1000000.0 / fps)
-        phase = Rolling(30)
-        adj_avg = Rolling(60)
 
         gc = pt.timecode()
 
@@ -379,8 +387,8 @@ def OLED_display_thread(mode = 0):
         pasc = "--------"
         ptus = 0
 
-        cache = []
         sync_after_jam = False
+        jam_started = False
         last_mon = 0
 
         pid = PID(500, 12.5, 0.0, setpoint=0)
@@ -388,12 +396,20 @@ def OLED_display_thread(mode = 0):
         pid.sample_time = 1
         pid.output_limits = (-50.0, 50.0)
 
-        # apply calibration value
+        # apply previously saved calibration value
+        period = 10
         try:
-            pt.eng.micro_adjust(config.calibration[format])
-            print("Calibration:", config.calibration[format])
+            period = config.calibration['period']
         except:
             pass
+        try:
+            pt.eng.micro_adjust(config.calibration[format], period)
+            print("Calibration:", config.calibration[format], period)
+        except:
+            pass
+        phase = Rolling(int(fps+1) * period)  	# sized for real fps, but really
+                                                # we only get ~4fps with RX/CX mode
+        adj_avg = Rolling(240)               	# average over 4 minutes
 
         while True:
             if menu_hidden == False:
@@ -509,8 +525,9 @@ def OLED_display_thread(mode = 0):
                                 d -= 1.0
 
                         # Rolling average
+                        now = utime.time()
                         if d >= -0.5 and d <= 0.5:
-                            phase.store(d)
+                            phase.store(d, now)
 
                         # Update PID every 1s (or so)
                         if (g & 0xFFFFFF00) != last_mon:
@@ -519,20 +536,33 @@ def OLED_display_thread(mode = 0):
                                     if pid.auto_mode == False:
                                         pid.set_auto_mode(True, last_output=pt.eng.duty)
 
+                                    phase.purge(now - period)
                                     adjust = pid(phase.read())
-                                    pt.eng.micro_adjust(adjust)
-                                    adj_avg.store(adjust)
 
-                                    print(gc.to_ascii(), d, phase.read(), \
-                                          pt.eng.duty, \
+                                    pt.eng.micro_adjust(adjust, period * 1000)
+
+                                    print(gc.to_ascii(), d, phase.read(), pt.eng.duty, \
                                           temp_avg.store_read(sensor.read()), \
+                                          adj_avg.store_read(adjust), \
+                                          pt.eng.tc.user_to_ascii(), \
                                           pid.components)
+
+                                    # stop calibration after 15mins and save calculated value
+                                    if jam_started and (now - 900) > jam_started:
+                                        pt.eng.micro_adjust(adj_avg.read(), period * 1000)
+
+                                        config.set('calibration', format, adj_avg.read())
+                                        config.set('calibration', 'period', period)
+
+                                        sync_after_jam = False
+                                        jam_started = False
+                                        pid.auto_mode = False
                                 else:
-                                    print(gc.to_ascii(), d, phase.read(), \
-                                          pt.eng.duty, \
+                                    print(gc.to_ascii(), d, phase.read(), pt.eng.duty, \
                                           temp_avg.store_read(sensor.read()))
 
                             last_mon = g & 0xFFFFFF00
+
 
                         if pt.eng.mode == 1 and sync_after_jam:
                             # CX = Sync'ed to RX and calibrating XTAL
@@ -567,6 +597,7 @@ def OLED_display_thread(mode = 0):
                         OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
 
                         sync_after_jam = calibrate
+                        jam_started = utime.time()
 
                     if pt.eng.mode > 0:
                         OLED.text(pt.eng.rc.user_to_ascii(), \
@@ -574,6 +605,11 @@ def OLED_display_thread(mode = 0):
                         OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)
                         OLED.show(12,36)
                         OLED.fill_rect(0,12,128,36,OLED.black)
+                    else:
+                        # catch if user has cancelled jam/calibrate
+                        sync_after_jam = False
+                        jam_started = False
+
 
                         '''
                         # debug - place marker when RX updates, cleared when TX updates
@@ -581,19 +617,11 @@ def OLED_display_thread(mode = 0):
                         OLED.show(62, 63, 15)
                         '''
 
-                else:
-                    # save calculated value, but only once after CX is cancelled
-                    if pt.eng.mode == 0 and sync_after_jam == True:
-                        if len(adj_avg.data):
-                            pt.eng.micro_adjust(adj_avg.read())
-                            config.set('calibration', format, adj_avg.read())
-                        sync_after_jam = False
-                        pid.auto_mode = False
-
             if pt.eng.mode < 0:
-                OLED.rect(0,52,128,10,OLED.balck,True)
+                OLED.rect(0,52,128,10,OLED.black,True)
                 OLED.text("Underflow Error",64,54,OLED.white,1,2)
                 OLED.show(49 ,64)
+                pt.stop = True
 
             if pt.eng.is_stopped():
                 break

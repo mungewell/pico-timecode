@@ -62,6 +62,7 @@ import machine
 import _thread
 import utime
 import rp2
+import gc
 
 # Set up (extra) globals
 menu = None
@@ -208,6 +209,9 @@ def callback_jam():
         pt.stop = True
         while pt.eng.is_running():
             utime.sleep(0.1)
+
+    # Force Garbage collection
+    gc.collect()
 
     # Turn off Jam if already enabled
     pt.eng.sm = []
@@ -383,7 +387,7 @@ def OLED_display_thread(mode = 0):
 
         cycle_us = (1000000.0 / fps)
 
-        gc = pt.timecode()
+        dc = pt.timecode()
 
         if menu_hidden == True:
             OLED.fill(0x0000)
@@ -462,7 +466,7 @@ def OLED_display_thread(mode = 0):
                     t2 = pt.tx_ticks_us
 
                     if t1==t2 and tf1==tf2:
-                        gc.from_raw(g)
+                        dc.from_raw(g)
                         break
 
                 # When filling TX FIFO, we do so if < 5 word pre-loaded
@@ -472,12 +476,12 @@ def OLED_display_thread(mode = 0):
                 # <- 2, 3, 2
 
                 # correct read TC, for frames queued in FIFO
-                gc.prev_frame()
+                dc.prev_frame()
                 if tf1 > 3:
-                    gc.prev_frame()
+                    dc.prev_frame()
                 if tf1 > 5:
-                    gc.prev_frame()
-                asc = gc.to_ascii(False)
+                    dc.prev_frame()
+                asc = dc.to_ascii(False)
 
                 # check which characters of the TC have changed
                 if pasc != asc:
@@ -495,7 +499,7 @@ def OLED_display_thread(mode = 0):
 
                     pasc=asc
                     ptus = t1
-                    OLED.show(49 ,64, (c&6)*2)
+                    OLED.show(49 ,64, c*2)
 
                 # Figure out what RX frame to display
                 if pt.eng.mode > 0:
@@ -508,13 +512,13 @@ def OLED_display_thread(mode = 0):
 
                         t2 = pt.tx_ticks_us
                         if r1==r2 and rf1==rf2:
-                            gc.from_raw(g)
+                            dc.from_raw(g)
                             break
 
                     # every code left in FIFO, means that we have outdated TC
-                    gc.next_frame()
+                    dc.next_frame()
                     for i in range(int(rf1/2)):
-                        gc.next_frame()
+                        dc.next_frame()
 
                     # Draw an error bar to represent timing phase between TX and RX
                     # Positive Delta = TX is ahead of RX, bar is shown to the right
@@ -550,7 +554,7 @@ def OLED_display_thread(mode = 0):
 
                                     pt.eng.micro_adjust(adjust, period * 1000)
 
-                                    print(gc.to_ascii(), d, phase.read(), pt.eng.duty, \
+                                    print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
                                           temp_avg.store_read(sensor.read()), \
                                           adj_avg.store_read(adjust), \
                                           pt.eng.tc.user_to_ascii(), \
@@ -570,7 +574,7 @@ def OLED_display_thread(mode = 0):
                                         jam_started = False
                                         pid.auto_mode = False
                                 else:
-                                    print(gc.to_ascii(), d, phase.read(), pt.eng.duty, \
+                                    print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
                                           temp_avg.store_read(sensor.read()))
 
                             last_mon = g & 0xFFFFFF00
@@ -614,7 +618,7 @@ def OLED_display_thread(mode = 0):
                     if pt.eng.mode > 0:
                         OLED.text(pt.eng.rc.user_to_ascii(), \
                                 64,12,OLED.white,1,2)
-                        OLED.text(gc.to_ascii(),64,22,OLED.white,1,2)
+                        OLED.text(dc.to_ascii(),64,22,OLED.white,1,2)
                         OLED.show(12,36)
                         OLED.fill_rect(0,12,128,36,OLED.black)
                     else:

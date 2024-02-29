@@ -1,6 +1,7 @@
 
 # Create target directories
-for d in "ACM0" "ACM1"
+#for d in "ACM0" "ACM1"
+for d in `cd /dev;ls ttyACM* | xargs`
 do
 	mkdir $d
 done
@@ -10,10 +11,12 @@ export TIME='1200'
 
 echo "Test Starting..."
 
-# Start recording each unit
-for d in "ACM0" "ACM1"
+# Start recording from each unit
+#for d in "ttyACM0"
+for d in `cd /dev;ls ttyACM* | xargs`
 do
-	bash -c "cd $d; python3 $GRAB -d /dev/tty$d -e $TIME -t -o %" &
+	echo Capturing from $d
+	bash -c "cd $d; python3 $GRAB -d /dev/$d -e $TIME -t -o %" &
 done
 
 # Wait for units finish

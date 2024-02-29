@@ -145,10 +145,10 @@ while c < 1000:
             # offset right
             display.blit(fb[int(data[i])], 16*i, 48)
 
-    display.show()#49)#, 64)#, j*2)
+    #display.show()#49)#, 64)#, j*2)
+    display.show(49, 64, j*2)
     '''
     for i in range(7,(j&6)-1,-1):
-        print(j,i, data[i])
         # blit with combined char set, slightly offset
         display.blit(fb[int(data[i])],
             (16*i)-(4 if i&1 else 0), 48)
@@ -158,7 +158,7 @@ while c < 1000:
         display.rect(0,48,4,16,display.black,True)
         
     #display.show(49)#, 64, (j&6)*2)
-    display.show(48, 64, (j&6)*2)
+    display.show(48, 64, j*2)
 
 display.text("time: "+str(ticks_diff(ticks_ms(), start))+"ms",0,16,0xffff)
 display.show()

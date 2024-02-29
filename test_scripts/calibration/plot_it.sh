@@ -1,6 +1,6 @@
 
 
-for d in "ACM0" "ACM1"
+for d in `ls -d ttyACM* | xargs`
 do
 	# plot the Calibration
 	echo > gnu.plt

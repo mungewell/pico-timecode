@@ -50,6 +50,10 @@ from libs import config
 from libs.pid import *
 from libs.umenu import *
 from libs.neotimer import *
+
+# Requires modified lib
+# https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
+
 from libs.PicoOled13 import *
 
 # Special font, for display the TX'ed timecode in a particular way
@@ -381,9 +385,9 @@ def OLED_display_thread(mode = 0):
     while True:
         fps = pt.eng.tc.fps
         df = pt.eng.tc.df
-        format = str(pt.eng.tc.fps)
+        format = "{:.2f}".format(pt.eng.tc.fps)
         if pt.eng.tc.fps != 25 and pt.eng.tc.fps != 24:
-            format += ("-DF" if df == True else "-NDF")
+            format += ("-DF" if df == True else "")
 
         cycle_us = (1000000.0 / fps)
 
@@ -391,13 +395,14 @@ def OLED_display_thread(mode = 0):
 
         if menu_hidden == True:
             OLED.fill(0x0000)
-            OLED.text("<Menu" ,0,2,OLED.white)
+            OLED.text("A=Menu" ,0,2,OLED.white)
             OLED.text(format,128,2,OLED.white,1,1)
-            OLED.text(pt.eng.tc.user_to_ascii(), \
-                      64,39,OLED.white,1,2)
-            OLED.show(0,49)
-        pasc = "--------"
-        ptus = 0
+            OLED.show()
+
+        tx_asc="--------"
+        tx_ticks = 0
+        tx_ub = ""
+        rx_ub = ""
 
         sync_after_jam = 0
         jam_started = False
@@ -434,13 +439,14 @@ def OLED_display_thread(mode = 0):
                 # Clear screen after Menu Exits
                 if menu_hidden == True:
                     OLED.fill(0x0000)
-                    OLED.text("<Menu" ,0,2,OLED.white)
+                    OLED.text("A=Menu" ,0,2,OLED.white)
                     OLED.text(format,128,2,OLED.white,1,1)
-                    OLED.text(pt.eng.tc.user_to_ascii(), \
-                              64,39,OLED.white,1,2)
-                    OLED.show(0,49)
-                    pasc="--------"
-                    ptx = 0
+                    OLED.show()
+
+                    tx_asc="--------"
+                    tx_ticks = 0
+                    tx_ub = ""
+                    rx_ub = ""
             else:
                 if timerA.debounce_signal(keyA.value()==0):
                     # enter the Menu...
@@ -454,7 +460,7 @@ def OLED_display_thread(mode = 0):
                 # Attempt to align display with the TX timing
                 t1 = pt.tx_ticks_us
                 if pt.eng.mode == 0:
-                    if ptus == t1:
+                    if tx_ticks == t1:
                         continue
 
                 # Draw the main TC counter, buffering means value is 2 frames ahead
@@ -484,9 +490,9 @@ def OLED_display_thread(mode = 0):
                 asc = dc.to_ascii(False)
 
                 # check which characters of the TC have changed
-                if pasc != asc:
+                if tx_asc != asc:
                     for c in range(len(asc)):
-                        if asc[c]!=pasc[c]:
+                        if asc[c]!=tx_asc[c]:
                             break
                     for i in range(7,(c&6)-1,-1):
                         # blit in reverse order, offsetting to hide ':'
@@ -497,9 +503,18 @@ def OLED_display_thread(mode = 0):
                     if c < 2:
                         OLED.rect(0,48,4,16,OLED.black,True)
 
-                    pasc=asc
-                    ptus = t1
-                    OLED.show(49 ,64, c*2)
+                    tx_asc = asc
+                    tx_ticks = t1
+                    OLED.show(49 ,64, c*16)
+
+                    # update Userbit display
+                    ub = pt.eng.tc.user_to_ascii()
+                    if tx_ub != ub:
+                        OLED.fill_rect(0,38,128,8,OLED.black)
+                        OLED.text(ub,64,38,OLED.white,1,2)
+                        OLED.show(38,46)
+                        tx_ub = ub
+
 
                 # Figure out what RX frame to display
                 if pt.eng.mode > 0:
@@ -616,11 +631,20 @@ def OLED_display_thread(mode = 0):
                         jam_started = utime.time()
 
                     if pt.eng.mode > 0:
-                        OLED.text(pt.eng.rc.user_to_ascii(), \
-                                64,12,OLED.white,1,2)
+                        # Show RX Userbits
+                        ub = pt.eng.rc.user_to_ascii()
+                        if rx_ub != ub:
+                            OLED.fill_rect(0,12,128,8,OLED.black)
+                            OLED.text(ub,64,12,OLED.white,1,2)
+                            OLED.show(12,20)
+                            rx_ub = ub
+
+                        # Show RX Timecode
                         OLED.text(dc.to_ascii(),64,22,OLED.white,1,2)
-                        OLED.show(12,36)
-                        OLED.fill_rect(0,12,128,36,OLED.black)
+                        OLED.show(22,36)
+
+                        # clear for next frame
+                        OLED.fill_rect(0,22,128,17,OLED.black)
                     else:
                         # catch if user has cancelled jam/calibrate
                         sync_after_jam = 0
@@ -634,8 +658,8 @@ def OLED_display_thread(mode = 0):
                         '''
 
             if pt.eng.mode < 0:
-                OLED.rect(0,52,128,10,OLED.black,True)
-                OLED.text("Underflow Error",64,54,OLED.white,1,2)
+                OLED.rect(0,51,128,10,OLED.black,True)
+                OLED.text("Underflow Error",64,53,OLED.white,1,2)
                 OLED.show(49 ,64)
                 pt.stop = True
 

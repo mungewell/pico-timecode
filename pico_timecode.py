@@ -219,6 +219,10 @@ def timer_sched(timer):
 def timer_re_init(timer):
     global eng
 
+    # do not re-init if we are stopping/stopped
+    if eng.is_running() == False:
+        return
+
     if timer == eng.timer1:
         lock = eng.dlock.acquire(0)
         if lock:
@@ -670,8 +674,14 @@ class engine(object):
         if s:
             self.tc.bgf1 = False
 
+            if self.timer1:
+                self.timer1.deinit()
+                self.timer1 = None
+            if self.timer2:
+                self.timer2.deinit()
+                self.timer2 = None
+
             stop = False
-            self.timer = None
             self.asserted = False
 
             rduty = 0

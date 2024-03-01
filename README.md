@@ -19,7 +19,7 @@ the regenerated LTC to an Evertz 5300 LTC Analyzer. After Jam the LTC is spot on
 I have designed the first revision of hardware, it's being fabricated and hopefully will be in
 my hands soon. The [schematic](hardware/output/schematic.pdf) will show you how simple it is.
 
-![Render of Rev1](hardware/output/render.png)
+![Render of Rev1](hardware/output/rev1-render.png)
 
 The code now contains a 'calibrate' mode, where the incoming RX LTC is monitored and the XTAL
 frequencies are adjusted to match, these seems to work pretty well... but I am still working

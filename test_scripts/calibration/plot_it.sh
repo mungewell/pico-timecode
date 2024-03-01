@@ -25,8 +25,10 @@ do
 		echo -n "," >> yrange.py
 	done
      	echo "" >> gnu.plt
+
 	echo "]" >> yrange.py
 	echo "print('set yrange['+str(min(a)-0.2)+':'+str(max(a)+0.2)+']')" >> yrange.py
+	echo "print('set title \\\"Average Calibration', sum(a)/len(a), '\\\"')" >> yrange.py
 
 	echo "set xrange[400:1000]" >> gnu.plt
 	python3 yrange.py >> gnu.plt

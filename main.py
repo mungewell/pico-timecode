@@ -376,7 +376,11 @@ def OLED_display_thread(mode = 0):
 
     # Allocate appropriate StateMachines, and their pins
     pt.eng.sm = []
-    pt.eng.sm.append(rp2.StateMachine(0, pt.auto_start, freq=int(pt.eng.tc.fps * 80 * 32)))
+    if pt.eng.mode > 1:
+        pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
+                                   jmp_pin=machine.Pin(21)))        # Sync from RX LTC
+    else:
+        pt.eng.sm.append(rp2.StateMachine(0, pt.auto_start, freq=int(pt.eng.tc.fps * 80 * 32)))
     add_more_state_machines()
 
     # Start up threads

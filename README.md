@@ -27,8 +27,7 @@ with the passive/stock XTALs on the PICO.
 
 Not yet looked at using a more precise/temp compensated XTAL...
 
-[Demo Video](https://youtu.be/miWlGS6fJNI)
-[Demo2 Video](https://www.youtube.com/watch?v=WEdSII-7nx4)
+[Demo Video - Rev 1](https://www.youtube.com/watch?v=2LLGX8mJC4A)
 
 The `main.py` has a menu which can be used to control the device, and to navigate the settings. 
 The incoming LTC is now validated before Jam is performed, and the RX monitor has indicator bar to 

@@ -9,6 +9,9 @@
    id="svg5"
    inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
    sodipodi:docname="FIFO.svg"
+   inkscape:export-filename="FIFO.png"
+   inkscape:export-xdpi="74.111389"
+   inkscape:export-ydpi="74.111389"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -24,9 +27,9 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="false"
-     inkscape:zoom="0.34016122"
-     inkscape:cx="868.70574"
-     inkscape:cy="401.28031"
+     inkscape:zoom="0.48106061"
+     inkscape:cx="509.29134"
+     inkscape:cy="410.55118"
      inkscape:window-width="1366"
      inkscape:window-height="720"
      inkscape:window-x="0"
@@ -35,6 +38,24 @@
      inkscape:current-layer="layer1" />
   <defs
      id="defs2">
+    <rect
+       x="454.52016"
+       y="117.25005"
+       width="286.67816"
+       height="133.42197"
+       id="rect3977" />
+    <rect
+       x="351.91149"
+       y="50.443337"
+       width="71.296567"
+       height="57.90025"
+       id="rect3838" />
+    <rect
+       x="432.39955"
+       y="136.16263"
+       width="221.50158"
+       height="366.63717"
+       id="rect3814" />
     <marker
        style="overflow:visible"
        id="Arrow1L"
@@ -52,25 +73,6 @@
          style="fill:context-stroke;fill-rule:evenodd;stroke:none"
          d="M 0,0 5,-5 -12.5,0 5,5 Z"
          id="arrow1L"
-         transform="scale(-0.5)" />
-    </marker>
-    <marker
-       style="overflow:visible"
-       id="Arrow1L-7"
-       refX="0"
-       refY="0"
-       orient="auto-start-reverse"
-       inkscape:stockid="Arrow1L"
-       markerWidth="8.75"
-       markerHeight="5"
-       viewBox="0 0 8.75 5"
-       inkscape:isstock="true"
-       inkscape:collect="always"
-       preserveAspectRatio="xMidYMid">
-      <path
-         style="fill:context-stroke;fill-rule:evenodd;stroke:none"
-         d="M 0,0 5,-5 -12.5,0 5,5 Z"
-         id="arrow1L-3"
          transform="scale(-0.5)" />
     </marker>
     <marker
@@ -116,250 +118,287 @@
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
      id="layer1">
-    <g
-       id="g2258">
-      <rect
-         style="fill:#ffffff;stroke:#000000;stroke-width:2.71531;stroke-dasharray:none;stroke-opacity:1"
-         id="rect173"
-         width="201.09892"
-         height="23.515217"
-         x="67.223923"
-         y="172.80972"
-         ry="1.5642974" />
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:2.71531;stroke-dasharray:none;stroke-opacity:1"
+       id="rect173"
+       width="201.09892"
+       height="23.515217"
+       x="67.223923"
+       y="172.80972"
+       ry="1.5642974" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="122.30128"
+       y="188.59628"
+       id="text117"><tspan
+         sodipodi:role="line"
+         id="tspan315"
          x="122.30128"
-         y="188.59628"
-         id="text117"><tspan
-           sodipodi:role="line"
-           id="tspan315"
-           x="122.30128"
-           y="188.59628">HH:MM</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+         y="188.59628">HH:MM</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="179.45676"
+       y="188.59628"
+       id="text117-9"><tspan
+         sodipodi:role="line"
+         id="tspan317"
          x="179.45676"
-         y="188.59628"
-         id="text117-9"><tspan
-           sodipodi:role="line"
-           id="tspan317"
-           x="179.45676"
-           y="188.59628">SS:FF</tspan></text>
-      <text
-         xml:space="preserve"
+         y="188.59628">SS:FF</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="74.468864"
+       y="188.64494"
+       id="text113"><tspan
+         sodipodi:role="line"
+         id="tspan111"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
          x="74.468864"
-         y="188.64494"
-         id="text113"><tspan
-           sodipodi:role="line"
-           id="tspan111"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-           x="74.468864"
-           y="188.64494">SYNC</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+         y="188.64494">SYNC</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#999999;stroke-width:0.264583"
+       x="229.99461"
+       y="188.64494"
+       id="text1076"><tspan
+         sodipodi:role="line"
+         id="tspan1074"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#999999;stroke-width:0.264583"
          x="229.99461"
-         y="188.64494"
-         id="text1076"><tspan
-           sodipodi:role="line"
-           id="tspan1074"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-           x="229.99461"
-           y="188.64494">SYNC</tspan></text>
-      <circle
-         id="path1184"
-         style="fill:#ffffff;stroke:#000000;stroke-width:0.264583"
-         cx="65.949463"
-         cy="184.82669"
-         r="0.55377233" />
+         y="188.64494">SYNC</tspan></text>
+    <circle
+       id="path1184"
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.264583"
+       cx="65.949463"
+       cy="184.82669"
+       r="0.55377233" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1L)"
+       d="M 67.247731,184.80815 H 28.630238"
+       id="path1249" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:1.71158;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1L-1)"
+       d="m 205.65894,150.25974 c 13.57395,0.51399 36.89675,-2.0852 37.1406,13.83263"
+       id="path1249-9"
+       sodipodi:nodetypes="cc" />
+    <circle
+       id="path1616"
+       style="fill:#ffffff;stroke:#000000;stroke-width:0.264583"
+       cx="171.8036"
+       cy="173.72272"
+       r="0.27688619" />
+    <path
+       style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:4, 2;stroke-dashoffset:0;stroke-opacity:1"
+       d="m 218.04453,173.68573 v 21.7632"
+       id="path1618" />
+    <rect
+       style="fill:#ffffff;stroke:#000000;stroke-width:2.71531;stroke-dasharray:none;stroke-opacity:1"
+       id="rect173-9"
+       width="68.067245"
+       height="142.29486"
+       x="137.10924"
+       y="16.128021"
+       ry="7.1812363" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="155.40675"
+       y="112.59399"
+       id="text1794"><tspan
+         sodipodi:role="line"
+         id="tspan1792"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+         x="155.40675"
+         y="112.59399">SYNC</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="154.05403"
+       y="126.46056"
+       id="text1802"><tspan
+         sodipodi:role="line"
+         id="tspan1800"
+         x="154.05403"
+         y="126.46056">SS:FF</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="150.74522"
+       y="98.630119"
+       id="text1810"><tspan
+         sodipodi:role="line"
+         id="tspan1808"
+         x="150.74522"
+         y="98.630119">HH:MM</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="150.74522"
+       y="140.42442"
+       id="text1786"><tspan
+         sodipodi:role="line"
+         id="tspan1784"
+         x="150.74522"
+         y="140.42442">HH:MM</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="154.05403"
+       y="42.871937"
+       id="text1814"><tspan
+         sodipodi:role="line"
+         id="tspan1812"
+         x="154.05403"
+         y="42.871937">SS:FF</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="155.40675"
+       y="70.79969"
+       id="text1818"><tspan
+         sodipodi:role="line"
+         id="tspan1816"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+         x="155.40675"
+         y="70.79969">SYNC</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="150.74522"
+       y="56.835815"
+       id="text1822"><tspan
+         sodipodi:role="line"
+         id="tspan1820"
+         x="150.74522"
+         y="56.835815">HH:MM</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="154.05403"
+       y="84.666245"
+       id="text1826"><tspan
+         sodipodi:role="line"
+         id="tspan1824"
+         x="154.05403"
+         y="84.666245">SS:FF</tspan></text>
+    <rect
+       style="fill:none;stroke:#ff0000;stroke-width:1.12377;stroke-dasharray:2.24756, 1.12377;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect1828"
+       width="55.786278"
+       height="52.909706"
+       x="143.05519"
+       y="102.8898"
+       ry="6.4449573" />
+    <rect
+       style="fill:none;stroke:#ff0000;stroke-width:0.796093;stroke-dasharray:1.59218, 0.796093;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect1828-3"
+       width="56.114136"
+       height="26.397329"
+       x="142.89108"
+       y="74.563698"
+       ry="5.8005919" />
+    <rect
+       style="fill:none;stroke:#ff0000;stroke-width:1.12465;stroke-dasharray:2.24931, 1.12465;stroke-dashoffset:0;stroke-opacity:1"
+       id="rect1828-1"
+       width="55.785374"
+       height="52.993206"
+       x="143.05563"
+       y="19.33877"
+       ry="6.6961317" />
+    <g
+       id="g2108"
+       transform="translate(1.5875,-1.3028421)">
       <path
-         style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1L)"
-         d="M 67.247731,184.80815 H 28.630238"
-         id="path1249" />
-      <path
-         style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1L-7)"
-         d="m 134.5519,141.91426 c 0.679,0.0357 -14.43095,-6.13095 -13.49914,19.41082"
-         id="path1249-6"
-         sodipodi:nodetypes="cc" />
-      <path
-         style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1L-1)"
-         d="m 207.44177,141.57388 c -1.4872,1.79964 13.08559,-4.81251 13.30307,19.55652"
-         id="path1249-9"
-         sodipodi:nodetypes="cc" />
-      <circle
-         id="path1616"
-         style="fill:#ffffff;stroke:#000000;stroke-width:0.264583"
-         cx="171.8036"
-         cy="173.72272"
-         r="0.27688619" />
-      <path
-         style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:4, 2;stroke-dashoffset:0;stroke-opacity:1"
-         d="m 170.9484,173.68573 v 21.7632"
-         id="path1618" />
+         style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1L-4)"
+         d="m 253.02692,30.172598 h -38.6175"
+         id="path1249-8" />
       <rect
          style="fill:#ffffff;stroke:#000000;stroke-width:2.71531;stroke-dasharray:none;stroke-opacity:1"
-         id="rect173-9"
-         width="68.067245"
-         height="142.29486"
-         x="137.10924"
-         y="16.128021"
+         id="rect173-9-9"
+         width="57.527328"
+         height="26.695618"
+         x="229.83965"
+         y="16.824789"
          ry="7.1812363" />
       <text
          xml:space="preserve"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="155.40675"
-         y="112.59399"
-         id="text1794"><tspan
+         x="247.53827"
+         y="34.250214"
+         id="text1814-4"><tspan
            sodipodi:role="line"
-           id="tspan1792"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-           x="155.40675"
-           y="112.59399">SYNC</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="154.05403"
-         y="126.46056"
-         id="text1802"><tspan
-           sodipodi:role="line"
-           id="tspan1800"
-           x="154.05403"
-           y="126.46056">SS:FF</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="150.74522"
-         y="98.630119"
-         id="text1810"><tspan
-           sodipodi:role="line"
-           id="tspan1808"
-           x="150.74522"
-           y="98.630119">HH:MM</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="150.74522"
-         y="140.42442"
-         id="text1786"><tspan
-           sodipodi:role="line"
-           id="tspan1784"
-           x="150.74522"
-           y="140.42442">HH:MM</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="154.05403"
-         y="42.871937"
-         id="text1814"><tspan
-           sodipodi:role="line"
-           id="tspan1812"
-           x="154.05403"
-           y="42.871937">SS:FF</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="155.40675"
-         y="70.79969"
-         id="text1818"><tspan
-           sodipodi:role="line"
-           id="tspan1816"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-           x="155.40675"
-           y="70.79969">SYNC</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="150.74522"
-         y="56.835815"
-         id="text1822"><tspan
-           sodipodi:role="line"
-           id="tspan1820"
-           x="150.74522"
-           y="56.835815">HH:MM</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="154.05403"
-         y="84.666245"
-         id="text1826"><tspan
-           sodipodi:role="line"
-           id="tspan1824"
-           x="154.05403"
-           y="84.666245">SS:FF</tspan></text>
-      <rect
-         style="fill:none;stroke:#ff0000;stroke-width:1.12377;stroke-dasharray:2.24756, 1.12377;stroke-dashoffset:0;stroke-opacity:1"
-         id="rect1828"
-         width="55.786278"
-         height="52.909706"
-         x="143.05519"
-         y="102.8898"
-         ry="6.4449573" />
-      <rect
-         style="fill:none;stroke:#ff0000;stroke-width:0.796093;stroke-dasharray:1.59218, 0.796093;stroke-dashoffset:0;stroke-opacity:1"
-         id="rect1828-3"
-         width="56.114136"
-         height="26.397329"
-         x="142.89108"
-         y="74.563698"
-         ry="5.8005919" />
-      <rect
-         style="fill:none;stroke:#ff0000;stroke-width:1.12465;stroke-dasharray:2.24931, 1.12465;stroke-dashoffset:0;stroke-opacity:1"
-         id="rect1828-1"
-         width="55.785374"
-         height="52.993206"
-         x="143.05563"
-         y="19.33877"
-         ry="6.6961317" />
-      <g
-         id="g2108"
-         transform="translate(1.5875,-1.3028421)">
-        <path
-           style="fill:#ffffff;stroke:#000000;stroke-width:2;stroke-dasharray:none;stroke-opacity:1;marker-end:url(#Arrow1L-4)"
-           d="m 253.02692,30.172598 h -38.6175"
-           id="path1249-8" />
-        <rect
-           style="fill:#ffffff;stroke:#000000;stroke-width:2.71531;stroke-dasharray:none;stroke-opacity:1"
-           id="rect173-9-9"
-           width="57.527328"
-           height="26.695618"
-           x="229.83965"
-           y="16.824789"
-           ry="7.1812363" />
-        <text
-           xml:space="preserve"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+           id="tspan2102"
            x="247.53827"
-           y="34.250214"
-           id="text1814-4"><tspan
-             sodipodi:role="line"
-             id="tspan2102"
-             x="247.53827"
-             y="34.250214">CPU</tspan></text>
-      </g>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="155.40675"
-         y="154.38831"
-         id="text2136"><tspan
-           sodipodi:role="line"
-           id="tspan2134"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-           x="155.40675"
-           y="154.38831">SYNC</tspan></text>
-      <text
-         xml:space="preserve"
-         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-         x="155.40675"
-         y="29.005381"
-         id="text2140"><tspan
-           sodipodi:role="line"
-           id="tspan2138"
-           style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
-           x="155.40675"
-           y="29.005381">SYNC</tspan></text>
+           y="34.250214">CPU</tspan></text>
     </g>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="155.40675"
+       y="154.38831"
+       id="text2136"><tspan
+         sodipodi:role="line"
+         id="tspan2134"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+         x="155.40675"
+         y="154.38831">SYNC</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+       x="155.40675"
+       y="29.005381"
+       id="text2140"><tspan
+         sodipodi:role="line"
+         id="tspan2138"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:16.9333px;font-family:Dhurjati;-inkscape-font-specification:'Dhurjati, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke-width:0.264583"
+         x="155.40675"
+         y="29.005381">SYNC</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.23333px;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke:#ff0000;stroke-width:1;stroke-dasharray:2, 1;stroke-dashoffset:0;stroke-opacity:1"
+       x="120.81081"
+       y="16.198456"
+       id="text3496"><tspan
+         sodipodi:role="line"
+         id="tspan3498"></tspan></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text3812"
+       style="fill:#000000;-inkscape-font-specification:'Arial, Normal';font-family:Arial;font-size:16px;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke:#000000;stroke-opacity:1;stroke-width:3.77952756;stroke-dasharray:7.55905512, 3.77952756;stroke-dashoffset:0;white-space:pre;shape-inside:url(#rect3814)" />
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text3836"
+       style="fill:#000000;-inkscape-font-specification:'Arial, Normal';font-family:Arial;font-size:16px;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke:#000000;stroke-opacity:1;stroke-width:3.77952756;stroke-dasharray:7.55905512, 3.77952756;stroke-dashoffset:0;white-space:pre;shape-inside:url(#rect3838)" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke:none;stroke-width:1;stroke-dasharray:2, 1;stroke-dashoffset:0;stroke-opacity:1"
+       x="149.25505"
+       y="12.798305"
+       id="text3862"><tspan
+         sodipodi:role="line"
+         id="tspan3860"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke:none;stroke-width:1"
+         x="149.25505"
+         y="12.798305">32-bit FIFO </tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#000000;stroke:none;stroke-width:1;stroke-dasharray:2, 1;stroke-dashoffset:0;stroke-opacity:1"
+       x="112.79256"
+       y="205.92097"
+       id="text3973"><tspan
+         sodipodi:role="line"
+         id="tspan3971"
+         style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:8.46667px;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke-width:1"
+         x="112.79256"
+         y="205.92097">80-bit LTC word</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="scale(0.26458333)"
+       id="text3975"
+       style="fill:#000000;-inkscape-font-specification:'Arial, Normal';font-family:Arial;font-size:16px;font-weight:normal;font-style:normal;font-stretch:normal;font-variant:normal;font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;stroke:none;stroke-opacity:1;stroke-width:3.77952756;stroke-dasharray:7.55905512, 3.77952756;stroke-dashoffset:0;white-space:pre;shape-inside:url(#rect3977)" />
   </g>
 </svg>

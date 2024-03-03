@@ -2,7 +2,7 @@
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
 and the PIO blocks on the Pico make it very possible...
 
-# Now we're JAM'ing in the real world.
+# Now we're JAM'ing...
 
 We've moved past the Proof-of-concept stage! Well past....
 
@@ -12,7 +12,7 @@ The project stalled in the summer, there was a scheduler bug in MicroPython whic
 occassional lock-ups, and I couldn't figure it out.... anyhow they're smarter than me and the 
 `RPI_PICO-20240105-v1.22.1.uf2` release works fine.
 
-Mk-1 of the audio inteface is built, and I was able to Jam with the LTC from my Sync-IO, and feed
+A prototype audio inteface is built, and I was able to Jam with the LTC from my Sync-IO, and feed
 the regenerated LTC to an Evertz 5300 LTC Analyzer. After Jam the LTC is spot on, but (as expected)
 'drifted off' as time went by.
 
@@ -25,7 +25,8 @@ The code now contains a 'calibrate' mode, where the incoming RX LTC is monitored
 frequencies are adjusted to match, these seems to work pretty well... but I am still working
 with the passive/stock XTALs on the PICO.
 
-Not yet looked at using a more precise/temp compensated XTAL...
+Not yet looked at using a more precise/temp compensated XTAL... but once 'calibrated' the
+stock XTAL performs OK on the bench (likely will have difficulties with changing temp).
 
 [Demo Video - Rev 1](https://www.youtube.com/watch?v=2LLGX8mJC4A)
 
@@ -33,7 +34,7 @@ The `main.py` has a menu which can be used to control the device, and to navigat
 The incoming LTC is now validated before Jam is performed, and the RX monitor has indicator bar to 
 show the relative timing between RX and TX.
 
-This code is in five files; upload all seven if you have the same hardware.
+This 'code' is seven files; upload all seven if you have the same hardware.
 
 `PicoOled13.py` is library of screen functions, `umenu.py` is menuing library, `neotimer.py` is timer
 library, `pid.py` is a PID controller and `config.py` holds the settings for the unit.
@@ -62,14 +63,14 @@ its own on a 'bare' Pico board.
 My intent is that the project could be used to build your own devices. The proof-of-concept script(s) can 
 just be dropped onto a 'bare-bones' Pico.
 
-There's some DIY suggestions [here](docs/DIY.md)
+There's some [DIY suggestions](docs/DIY.md)
 
 If you do use my code for a personal project, drop me an email/picture.
 If you make a device to sell, please send me an sample to test.
 
 # How it works
 
-It's fair to say that this task should be far above a $3 MCU.
+It's fair to say that this task should be far above a $1 MCU (chip).
 
 All of the LTC decoding is done in the PIO blocks, each has it's own task. Communincation
 between the PIO is via their in/out pins, and with interrupts. 
@@ -78,7 +79,7 @@ The `pico_timecode.py` script just needs to monitor the FIFOs, to keep them feed
 
 The `main.py` forms the user interface/application, and controls the OLED screen
 
-There's an indepth description on the workings [here](docs/how_it_works.md)
+There's an indepth description on the [workings](docs/how_it_works.md)
 
 ## So how good is it?
 

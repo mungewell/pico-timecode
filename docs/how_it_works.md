@@ -30,7 +30,7 @@ as:
 ![Clock Divider Values](pics/clockdiv_values.png)
 
 Since the divider value is not always integer, we rely on the fractional divider built 
-into the PICO/PIO system. These are a 32-bit integer value, and a 8-bit fractional part.
+into the PICO/PIO system. These are a 16-bit integer value, and a 8-bit fractional part.
 
 ![Clock Divider Register](pics/clockdiv_register.png)
 
@@ -58,12 +58,12 @@ is a bad thing...
 The **whole** purpose of the time-code system it to be time precise, this is not normally something that
 you'd expect from a Python script - let alone one running on a micro-controller.
 
-The Pico is normally clocked from a 'cheap' 12.0MHz crystal. Whilst this may not be the 'worlds best' 
-crystal, it can also be replaced with a better one if need be.
-
 The newer code (with calibration) uses a correction factor for each FPS output, this determines
 how many 'clicks' of the 'fraction divider' to offset by and then uses the 'float' part to
 modulate between adjacent values (%duty in 10s period).
+
+The Pico is normally clocked from a 'cheap' 12.0MHz crystal. Whilst this may not be the 'worlds best' 
+crystal, it can also be replaced with a better one if need be.
 
 See: [https://github.com/dorsic/PicoPET](https://github.com/dorsic/PicoPET)
 

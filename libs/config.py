@@ -1,5 +1,5 @@
 setting = {
-    'framerate' : ['30', ['30', '29.97', '25', '24', '23.976']],
+    'framerate' : ['30', ['30', '29.97', '25', '24.98', '24', '23.98']],
     'dropframe' : ['No', ['No', 'Yes']],
     'zoom'      : ['No', ['No', 'Yes']],
     'calibrate' : ['No', ['No', 'Once', 'Always']],

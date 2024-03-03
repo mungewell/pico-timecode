@@ -691,7 +691,9 @@ class engine(object):
         # divider computed for CPU clock at 120MHz
         if fps == 29.97:
             new_div = 0x061c1000
-        elif fps == 23.976:
+        elif fps == 24.98:
+            new_div = 0x0754e000
+        elif fps == 23.98:
             new_div = 0x07a31400
         else:
             return

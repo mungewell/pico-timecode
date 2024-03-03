@@ -78,7 +78,7 @@ The `pico_timecode.py` script just needs to monitor the FIFOs, to keep them feed
 
 The `main.py` forms the user interface/application, and controls the OLED screen
 
-There's an indepth description on the workings [here](docs/PIO.md)
+There's an indepth description on the workings [here](docs/how_it_works.md)
 
 ## So how good is it?
 

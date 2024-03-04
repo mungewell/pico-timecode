@@ -410,7 +410,8 @@ def OLED_display_thread(mode = 0):
 
         sync_after_jam = 0
         jam_started = False
-        last_mon = 0
+        next_mon = None
+        next_mon_raw = 0
 
         pid = PID(500, 12.5, 0.0, setpoint=0)
         pid.auto_mode = False
@@ -561,42 +562,61 @@ def OLED_display_thread(mode = 0):
                         if d >= -0.5 and d <= 0.5:
                             phase.store(d, now)
 
-                        # Update PID every 1s (or so)
-                        if (g & 0xFFFFFF00) != last_mon:
-                            if last_mon:
-                                if sync_after_jam > 0:
-                                    if pid.auto_mode == False:
-                                        pid.set_auto_mode(True, last_output=pt.eng.duty)
+                        # Check if first received frame
+                        if next_mon==None:
+                            next_mon = pt.timecode()
 
-                                    phase.purge(now - period)
-                                    adjust = pid(phase.read())
+                            if sync_after_jam > 0:
+                                # wait ~1m
+                                next_mon.from_raw(g | 0x0000FFFF)
+                                next_mon.next_frame()
+                                next_mon.from_raw(next_mon.to_raw() + (g & 0x0000FF00))
+                            else:
+                                # wait ~1s
+                                next_mon.from_raw(g | 0x000000FF)
+                                next_mon.next_frame()
 
-                                    pt.eng.micro_adjust(adjust, period * 1000)
+                            next_mon_raw = next_mon.to_raw() & 0xFFFFFF00
+                            #print("First Frame", hex(g), hex(next_mon_raw))
 
-                                    print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
-                                          temp_avg.store_read(sensor.read()), \
-                                          adj_avg.store_read(adjust), \
-                                          pt.eng.tc.user_to_ascii(), \
-                                          pid.components)
+                        elif g & 0xFFFFFF00 == next_mon_raw:
+                            # Then update PID every 1s (or so)
+                            if sync_after_jam > 0:
+                                if pid.auto_mode == False:
+                                    pid.set_auto_mode(True, last_output=pt.eng.duty)
 
-                                    # stop calibration after 15mins and save calculated value
-                                    if jam_started and (now - 900) > jam_started:
-                                        pt.eng.micro_adjust(adj_avg.read(), period * 1000)
+                                phase.purge(now - period)
+                                adjust = pid(phase.read())
 
-                                        config.set('calibration', format, adj_avg.read())
-                                        config.set('calibration', 'period', period)
+                                pt.eng.micro_adjust(adjust, period * 1000)
 
-                                        if calibrate == 1:
-                                            callback_setting_calibrate("No")
+                                print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
+                                      temp_avg.store_read(sensor.read()), \
+                                      adj_avg.store_read(adjust), \
+                                      pt.eng.tc.user_to_ascii(), \
+                                      pid.components)
 
-                                        sync_after_jam = 0
-                                        jam_started = False
-                                        pid.auto_mode = False
-                                else:
-                                    print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
-                                          temp_avg.store_read(sensor.read()))
+                                # stop calibration after 15mins and save calculated value
+                                if jam_started and (now - 900) > jam_started:
+                                    pt.eng.micro_adjust(adj_avg.read(), period * 1000)
 
-                            last_mon = g & 0xFFFFFF00
+                                    config.set('calibration', format, adj_avg.read())
+                                    config.set('calibration', 'period', period)
+
+                                    if calibrate == 1:
+                                        callback_setting_calibrate("No")
+
+                                    sync_after_jam = 0
+                                    jam_started = False
+                                    pid.auto_mode = False
+                            else:
+                                print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
+                                      temp_avg.store_read(sensor.read()))
+
+                            # Current frame + ~1s
+                            next_mon.from_raw(g | 0x000000FF)
+                            next_mon.next_frame()
+                            next_mon_raw = next_mon.to_raw() & 0xFFFFFF00
 
 
                         if pt.eng.mode == 1 and sync_after_jam > 0:

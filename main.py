@@ -180,10 +180,6 @@ def callback_stop_start():
         menu_hidden = True
         menu_hidden2 = False
 
-        pt.eng.tc.acquire()
-        fps = pt.eng.tc.fps
-        pt.eng.tc.release()
-
         pt.eng.sm = []
         pt.eng.sm.append(rp2.StateMachine(0, pt.auto_start, freq=int(pt.eng.tc.fps * 80 * 32)))
         add_more_state_machines()
@@ -228,6 +224,7 @@ def callback_jam():
 
 
 def callback_fps_df(set):
+    # need to read before changing either FPS or DF
     pt.eng.tc.acquire()
     fps = pt.eng.tc.fps
     df = pt.eng.tc.df
@@ -387,15 +384,11 @@ def OLED_display_thread(mode = 0):
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
     while True:
-        fps = pt.eng.tc.fps
-        df = pt.eng.tc.df
-        format = "{:.2f}".format(pt.eng.tc.fps)
-        if pt.eng.tc.fps != 25 and pt.eng.tc.fps != 24:
-            format += ("-DF" if df == True else "")
-
-        cycle_us = (1000000.0 / fps)
-
         dc = pt.timecode()
+        dc.set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
+
+        format = "{:.2f}".format(dc.fps) + ("-DF" if dc.df == True else "")
+        cycle_us = (1000000.0 / dc.fps)
 
         if menu_hidden == True:
             OLED.fill(0x0000)
@@ -426,12 +419,11 @@ def OLED_display_thread(mode = 0):
             pass
         try:
             pt.eng.micro_adjust(config.calibration[format], period)
-            print("Calibration:", config.calibration[format], period)
         except:
             pass
-        phase = Rolling(int(fps+1) * period)  	# sized for real fps, but really
-                                                # we only get ~4fps with RX/CX mode
-        adj_avg = Rolling(240)               	# average over 4 minutes
+        phase = Rolling(30 * period)  	# sized for max fps, but really
+                                        # we only get ~4fps with RX/CX mode
+        adj_avg = Rolling(240)          # average over 4 minutes
 
         while True:
             if menu_hidden == False:
@@ -577,7 +569,6 @@ def OLED_display_thread(mode = 0):
                                 next_mon.next_frame()
 
                             next_mon_raw = next_mon.to_raw() & 0xFFFFFF00
-                            #print("First Frame", hex(g), hex(next_mon_raw))
 
                         elif g & 0xFFFFFF00 == next_mon_raw:
                             # Then update PID every 1s (or so)

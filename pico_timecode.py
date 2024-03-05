@@ -260,7 +260,7 @@ tzs = [ \
 
 class timecode(object):
 
-    fps = 30
+    fps = 30.0
     df = False      # Drop-Frame
 
     # Timecode - starting value
@@ -312,7 +312,7 @@ class timecode(object):
                     self.hh -= 1
                 self.mm = 59                    # only happens on mm==0
                 self.ss = 59
-                self.ff = self.fps - 1
+                self.ff = int(self.fps) - 1
         self.release()
 
     def from_ascii(self, start="00:00:00:00"):
@@ -372,7 +372,7 @@ class timecode(object):
 
         return raw
 
-    def set_fps_df(self, fps=25, df=False):
+    def set_fps_df(self, fps=25.0, df=False):
         # should probably validate FPS/DF combo
 
         self.acquire()
@@ -388,7 +388,7 @@ class timecode(object):
     def next_frame(self):
         self.acquire()
         self.ff += 1
-        if self.ff >= self.fps:
+        if self.ff >= int(self.fps):
             self.ff = 0
             self.ss += 1
             if self.ss >= 60:
@@ -408,7 +408,7 @@ class timecode(object):
         self.acquire()
         self.ff -= 1
         if self.ff < 0:
-            self.ff = self.fps - 1
+            self.ff = int(self.fps) - 1
             self.ss -= 1
             if self.ss < 0:
                 self.ss = 59
@@ -437,7 +437,7 @@ class timecode(object):
         f59 = False
 
         self.acquire()
-        if self.fps == 25:
+        if self.fps == 25.0:
             f27 = self.bgf0
             f43 = self.bgf2
         else:
@@ -465,7 +465,7 @@ class timecode(object):
             count += self.lp(i)
 
         if count & 1:
-            if self.fps == 25:
+            if self.fps == 25.0:
                 p[1] += (True << 27)    # f59
             else:
                 p[0] += (True << 27)    # f27
@@ -507,7 +507,7 @@ class timecode(object):
         self.mm = (((p[1] >>  8) & 0x7) * 10) + (p[1] & 0xF)
         self.hh = (((p[1] >> 24) & 0x3) * 10) + ((p[1] >> 16) & 0xF)
 
-        if self.fps == 25:
+        if self.fps == 25.0:
             self.bgf0 = (p[0] >> 27) & 0x01 # f27
             self.bgf2 = (p[1] >> 11) & 0x01 # f43
         else:
@@ -526,10 +526,13 @@ class timecode(object):
         self.uf7 = ((p[1] >> 20) & 0x0F)
         self.uf8 = ((p[1] >> 28) & 0x0F)
 
-        if self.ff > self.fps:
-            self.fps = self.ff
+        if self.ff >= int(self.fps):
+            #self.fps = self.ff          # Can we infer fps, which might be float??
+            if acquire:
+                self.release()
+            return False
+
         self.release()
-        
         return True
 
     def user_to_ascii(self):

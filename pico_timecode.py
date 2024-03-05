@@ -575,7 +575,11 @@ class timecode(object):
             new += chr(x)
 
         if self.bgf0==False and self.bgf2==True:
-            new += tzs[(self.uf8 << 4) + self.uf7]
+            i = (self.uf8 << 4) + self.uf7
+            if i < len(tzs):
+                new += tzs[i]
+            else:
+                new += tzs[0]
 
         self.release()
         return(new)

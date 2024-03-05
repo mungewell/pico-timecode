@@ -175,7 +175,7 @@ def callback_stop_start():
             utime.sleep(0.1)
 
         # Also stop any Monitor/Jam
-        pt.eng.mode = 0
+        pt.eng.mode = pt.RUN
     else:
         menu_hidden = True
         menu_hidden2 = False
@@ -193,10 +193,10 @@ def callback_monitor():
     menu_hidden = True
     menu_hidden2 = False
 
-    if pt.eng.mode == 0:
-        pt.eng.mode = 1
-    elif pt.eng.mode == 1:
-        pt.eng.mode = 0
+    if pt.eng.mode == pt.RUN:
+        pt.eng.mode = pt.MONITOR
+    elif pt.eng.mode == pt.MONITOR:
+        pt.eng.mode = pt.RUN
 
 
 def callback_jam():
@@ -219,7 +219,7 @@ def callback_jam():
                                jmp_pin=machine.Pin(21)))        # Sync from RX LTC
     add_more_state_machines()
 
-    pt.eng.mode = 64
+    pt.eng.mode = pt.JAM
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
 
@@ -293,7 +293,7 @@ def callback_exit():
 
 #---------------------------------------------
 
-def OLED_display_thread(mode = 0):
+def OLED_display_thread(mode=pt.RUN):
     global menu, menu_hidden
     global zoom, calibrate
 
@@ -321,7 +321,7 @@ def OLED_display_thread(mode = 0):
 
     # automatically Jam if booted with 'B' pressed
     if keyB.value() == 0:
-        pt.eng.mode=64
+        pt.eng.mode=pt.JAM
 
     # load font into FB
     timecode_fb = []
@@ -373,7 +373,7 @@ def OLED_display_thread(mode = 0):
 
     # Allocate appropriate StateMachines, and their pins
     pt.eng.sm = []
-    if pt.eng.mode > 1:
+    if pt.eng.mode > pt.MONITOR:
         pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
                                    jmp_pin=machine.Pin(21)))        # Sync from RX LTC
     else:
@@ -451,12 +451,12 @@ def OLED_display_thread(mode = 0):
                     menu_hidden = False
 
                 # Debug - freeze screen
-                while pt.eng.mode == 1 and timerB.debounce_signal(keyB.value()==0):
+                while pt.eng.mode == pt.MONITOR and timerB.debounce_signal(keyB.value()==0):
                     utime.sleep(1)
 
                 # Attempt to align display with the TX timing
                 t1 = pt.tx_ticks_us
-                if pt.eng.mode == 0:
+                if pt.eng.mode == pt.RUN:
                     if tx_ticks == t1:
                         continue
 
@@ -514,7 +514,7 @@ def OLED_display_thread(mode = 0):
 
 
                 # Figure out what RX frame to display
-                if pt.eng.mode > 0:
+                if pt.eng.mode > pt.RUN:
                     while True:
                         r1 = pt.rx_ticks_us
                         rf1 = pt.eng.sm[5].rx_fifo()
@@ -535,7 +535,7 @@ def OLED_display_thread(mode = 0):
                     # Draw an error bar to represent timing phase between TX and RX
                     # Positive Delta = TX is ahead of RX, bar is shown to the right
                     # and should increase 'duty' to slow down it's bit-clock
-                    if pt.eng.mode == 1:
+                    if pt.eng.mode == pt.MONITOR:
                         d = utime.ticks_diff(r1, t2) / cycle_us
 
                         # RX is offset by ~2/3 bit
@@ -610,7 +610,7 @@ def OLED_display_thread(mode = 0):
                             next_mon_raw = next_mon.to_raw() & 0xFFFFFF00
 
 
-                        if pt.eng.mode == 1 and sync_after_jam > 0:
+                        if pt.eng.mode == pt.MONITOR and sync_after_jam > 0:
                             # CX = Sync'ed to RX and calibrating XTAL
                             OLED.text("CX  ",0,22,OLED.white)
                         else:
@@ -634,7 +634,7 @@ def OLED_display_thread(mode = 0):
                             OLED.hline(64+length, 33, -length, OLED.white)
                             OLED.hline(64+length, 34, -length, OLED.white)
 
-                    if pt.eng.mode > 1:
+                    if pt.eng.mode > pt.MONITOR:
                         OLED.text("Jam ",0,22,OLED.white)
 
                         # Draw a line representing time until Jam complete
@@ -645,7 +645,7 @@ def OLED_display_thread(mode = 0):
                         sync_after_jam = calibrate
                         jam_started = utime.time()
 
-                    if pt.eng.mode > 0:
+                    if pt.eng.mode > pt.RUN:
                         # Show RX Userbits
                         ub = pt.eng.rc.user_to_ascii()
                         if rx_ub != ub:
@@ -672,7 +672,7 @@ def OLED_display_thread(mode = 0):
                         OLED.show(62, 63, 15)
                         '''
 
-            if pt.eng.mode < 0:
+            if pt.eng.mode == pt.HALTED:
                 OLED.rect(0,51,128,10,OLED.black,True)
                 OLED.text("Underflow Error",64,53,OLED.white,1,2)
                 OLED.show(49 ,64)

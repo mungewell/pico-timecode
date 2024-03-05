@@ -23,6 +23,12 @@ rx_ticks_us = 0
 
 core_dis = [0, 0]
 
+# Constants for run mode
+HALTED  = -1
+RUN     = 0
+MONITOR = 1
+JAM     = 64
+
 #---------------------------------------------
 
 @rp2.asm_pio()
@@ -209,7 +215,7 @@ def irq_handler(m):
     if m==eng.sm[2]:
         # Buffer Underflow
         stop = 1
-        eng.mode = -1
+        eng.mode = HALTED
 
     machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
 
@@ -645,8 +651,10 @@ class timecode(object):
         return True
 
 
+#---------------------------------------------
+
 class engine(object):
-    mode = 0        # -1=Halted, 0=FreeRun, 1=Monitor RX, 2>=Jam to RX
+    mode = RUN
     flashframe = 0
     dlock = _thread.allocate_lock()
 
@@ -827,7 +835,7 @@ def pico_timecode_thread(eng, stop):
             if len(p) == 2:
                 eng.rc.from_ltc_packet(p, False)
 
-            if eng.mode > 1:
+            if eng.mode > MONITOR:
                 # should perform some basic validation:
                 g = gc.to_raw()
                 r = eng.rc.to_raw()
@@ -849,23 +857,22 @@ def pico_timecode_thread(eng, stop):
                     fail = True
 
                 if fail:
-                    eng.mode = 64       # Start process again
+                    eng.mode = JAM      # Start process again
                 else:
                     eng.mode -= 1
 
-                if eng.mode == 1:
+                if eng.mode == MONITOR:
                     # Jam to 'next' RX timecode
-                    if eng.mode == 1:
-                        g = eng.rc.to_raw()
-                        eng.tc.from_raw(g)
-                        eng.tc.next_frame()
-                        eng.tc.next_frame()
+                    g = eng.rc.to_raw()
+                    eng.tc.from_raw(g)
+                    eng.tc.next_frame()
+                    eng.tc.next_frame()
 
-                        # clone Userbit Clock flag
-                        eng.tc.bgf1 = eng.rc.bgf1
+                    # clone Userbit Clock flag
+                    eng.tc.bgf1 = eng.rc.bgf1
 
         # Wait for TX FIFO to be empty enough to accept more
-        if eng.mode < 2 and eng.sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:
+        if eng.mode <= MONITOR and eng.sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:
             for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[2].put(w)
             eng.tc.release()
@@ -898,7 +905,7 @@ def pico_timecode_thread(eng, stop):
 
 #-------------------------------------------------------
 
-def ascii_display_thread(mode = 0):
+def ascii_display_thread(mode = RUN):
     global eng, stop
 
     eng = engine()
@@ -913,7 +920,7 @@ def ascii_display_thread(mode = 0):
     sm_freq = int(eng.tc.fps * 80 * 32)
 
     # Note: we always want the 'sync' SM to be first in the list.
-    if eng.mode > 1:
+    if eng.mode > MONITOR:
         # We will only start after a trigger pin goes high
         eng.sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
                            jmp_pin=machine.Pin(21)))        # RX Decoding
@@ -931,7 +938,7 @@ def ascii_display_thread(mode = 0):
                            out_base=machine.Pin(13)))       # Encoded LTC Output
 
     # RX State Machines
-    if eng.mode > 1:
+    if eng.mode > MONITOR:
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                            jmp_pin=machine.Pin(18),
                            in_base=machine.Pin(18),
@@ -960,15 +967,15 @@ def ascii_display_thread(mode = 0):
     _thread.start_new_thread(pico_timecode_thread, (eng, lambda: stop))
 
     while True:
-        if eng.mode:
-            if eng.mode>1:
+        if eng.mode > RUN:
+            if eng.mode > MONITOR:
                 print("Jamming:", eng.mode)
             print("RX:", eng.rc.to_ascii())
 
-        if eng.mode == 0:
+        if eng.mode == RUN:
             print("TX:", eng.tc.to_ascii())
 
-        if eng.mode < 0:
+        if eng.mode == HALTED:
             print("Underflow Error")
             break
 

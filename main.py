@@ -167,7 +167,7 @@ class Temperature:
 
 def callback_stop_start():
     #global eng, stop
-    global menu_hidden, menu_hidden2
+    global menu_hidden
 
     if pt.eng.is_running():
         pt.stop = True
@@ -178,7 +178,6 @@ def callback_stop_start():
         pt.eng.mode = pt.RUN
     else:
         menu_hidden = True
-        menu_hidden2 = False
 
         pt.eng.sm = []
         pt.eng.sm.append(rp2.StateMachine(0, pt.auto_start, freq=int(pt.eng.tc.fps * 80 * 32)))
@@ -188,10 +187,9 @@ def callback_stop_start():
 
 
 def callback_monitor():
-    global menu_hidden, menu_hidden2
+    global menu_hidden
 
     menu_hidden = True
-    menu_hidden2 = False
 
     if pt.eng.mode == pt.RUN:
         pt.eng.mode = pt.MONITOR
@@ -200,10 +198,9 @@ def callback_monitor():
 
 
 def callback_jam():
-    global menu_hidden, menu_hidden2
+    global menu_hidden
 
     menu_hidden = True
-    menu_hidden2 = False
 
     if pt.eng.is_running():
         pt.stop = True
@@ -460,7 +457,7 @@ def OLED_display_thread(mode=pt.RUN):
                     if tx_ticks == t1:
                         continue
 
-                # Draw the main TC counter, buffering means value is 2 frames ahead
+                # Draw the main TC counter
                 while True:
                     t1 = pt.tx_ticks_us
                     tf1 = pt.eng.sm[2].tx_fifo()
@@ -472,13 +469,7 @@ def OLED_display_thread(mode=pt.RUN):
                         dc.from_raw(g)
                         break
 
-                # When filling TX FIFO, we do so if < 5 word pre-loaded
-                # then we add add either 2 or 3 32-bit words (depending on sync)
-                # So TX FIFO may be:
-                # <- 3, 2, 3
-                # <- 2, 3, 2
-
-                # correct read TC, for frames queued in FIFO
+                # correct read TC value, for frames queued in FIFO
                 dc.prev_frame()
                 if tf1 > 3:
                     dc.prev_frame()
@@ -504,7 +495,7 @@ def OLED_display_thread(mode=pt.RUN):
                     tx_ticks = t1
                     OLED.show(49 ,64, c*16)
 
-                    # update Userbit display
+                    # update Userbits display
                     ub = pt.eng.tc.user_to_ascii()
                     if tx_ub != ub:
                         OLED.fill_rect(0,38,128,8,OLED.black)
@@ -654,7 +645,7 @@ def OLED_display_thread(mode=pt.RUN):
                             OLED.show(12,20)
                             rx_ub = ub
 
-                        # Show RX Timecode
+                        # Show RX Timecode and bar
                         OLED.text(dc.to_ascii(),64,22,OLED.white,1,2)
                         OLED.show(22,36)
 
@@ -665,12 +656,6 @@ def OLED_display_thread(mode=pt.RUN):
                         sync_after_jam = 0
                         jam_started = False
 
-
-                        '''
-                        # debug - place marker when RX updates, cleared when TX updates
-                        OLED.pixel(126 ,62, OLED.white)
-                        OLED.show(62, 63, 15)
-                        '''
 
             if pt.eng.mode == pt.HALTED:
                 OLED.rect(0,51,128,10,OLED.black,True)

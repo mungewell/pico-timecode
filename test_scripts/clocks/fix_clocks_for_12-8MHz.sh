@@ -8,24 +8,42 @@ openocd -f interface/cmsis-dap.cfg -f target/rp2040.cfg -c "init;halt;" &
 sleep 1
 
 # Force CPU to 120MHz (12.8MHz XTAL)
-#(gdb) set *((unsigned int)0x40028000) = 0x0000002
+#(gdb) set *((unsigned int)0x40028000) = 0x0000001
 #(gdb) set *((unsigned int)0x40028004) = 0x0000004
+#(gdb) set *((unsigned int)0x40028008) = 0x00000048
+#(gdb) set *((unsigned int)0x4002800C) = 0x00042000
+#	-ex "set *((unsigned int)0x40028000) = 0x00000001" \
+#	-ex "set *((unsigned int)0x40028004) = 0x00000004" \
+#	-ex "set *((unsigned int)0x40028008) = 0x00000048" \
+#	-ex "set *((unsigned int)0x4002800C) = 0x00042000" \
+
+# Force USB to 48MHz (12.8MHz XTAL)
+#(gdb) set *((unsigned int)0x4002c000) = 0x0000001
+#(gdb) set *((unsigned int)0x4002c004) = 0x0000004
 #(gdb) set *((unsigned int)0x4002c008) = 0x00000069
 #(gdb) set *((unsigned int)0x4002c00C) = 0x00074000
 
-# Force USB to 48MHz (12.8MHz XTAL)
-#(gdb) set *((unsigned int)0x40028008) = 0x00000048
-#(gdb) set *((unsigned int)0x4002800C) = 0x00042000
-
 gdb-multiarch -ex "target extended-remote localhost:3333" \
-	-ex "set *((unsigned int)0x4002c000) = 0x00000001" \
-	-ex "set *((unsigned int)0x4002c004) = 0x00000004" \
-	-ex "set *((unsigned int)0x4002c008) = 0x00000069" \
-	-ex "set *((unsigned int)0x4002c00C) = 0x00074000" \
 	-ex "set *((unsigned int)0x40028000) = 0x00000001" \
 	-ex "set *((unsigned int)0x40028004) = 0x00000004" \
 	-ex "set *((unsigned int)0x40028008) = 0x00000048" \
 	-ex "set *((unsigned int)0x4002800C) = 0x00042000" \
+	-ex "x 0x40028000" \
+	-ex "x 0x40028004" \
+	-ex "x 0x40028008" \
+	-ex "x 0x4002800c" \
+	-ex "set *((unsigned int)0x4002c000) = 0x00000101" \
+	-ex "set *((unsigned int)0x4002c008) = 0x00000069" \
+	-ex "set *((unsigned int)0x4002c004) = 0x0000000c" \
+	-ex "x 0x4002c004" \
+	-ex "set *((unsigned int)0x4002c00C) = 0x00074000" \
+	-ex "set *((unsigned int)0x4002c004) = 0x00000004" \
+	-ex "x 0x4002c004" \
+	-ex "set *((unsigned int)0x4002c000) = 0x00000001" \
+	-ex "x 0x4002c000" \
+	-ex "x 0x4002c004" \
+	-ex "x 0x4002c008" \
+	-ex "x 0x4002c00c" \
 	-ex "cont" &
 
 sleep 1

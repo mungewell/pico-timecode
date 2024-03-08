@@ -71,6 +71,7 @@ import gc
 # Set up (extra) globals
 menu = None
 zoom = False
+monitor = False
 calibrate = False
 menu_hidden = True
 
@@ -187,18 +188,20 @@ def callback_stop_start():
 
 
 def callback_monitor():
-    global menu_hidden
+    global menu_hidden, monitor
 
     menu_hidden = True
 
     if pt.eng.mode == pt.RUN:
         pt.eng.mode = pt.MONITOR
+        monitor = True
     elif pt.eng.mode == pt.MONITOR:
         pt.eng.mode = pt.RUN
+        callback_setting_monitor(config.setting['monitor'][0])
 
 
 def callback_jam():
-    global menu_hidden
+    global menu_hidden, monitor
 
     menu_hidden = True
 
@@ -244,6 +247,15 @@ def callback_setting_zoom(set):
         zoom = True
     else:
         zoom = False
+
+
+def callback_setting_monitor(set):
+    global monitor
+
+    if set=="Yes":
+        monitor = True
+    else:
+        monitor = False
 
 
 def callback_setting_calibrate(set):
@@ -303,6 +315,7 @@ def OLED_display_thread(mode=pt.RUN):
     callback_fps_df(config.setting['dropframe'][0])
 
     callback_setting_zoom(config.setting['zoom'][0])
+    callback_setting_monitor(config.setting['monitor'][0])
     callback_setting_calibrate(config.setting['calibrate'][0])
     callback_setting_flashframe(config.setting['flashframe'][0])
     callback_setting_userbits(config.setting['userbits'][0])
@@ -311,6 +324,7 @@ def OLED_display_thread(mode=pt.RUN):
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
     timerA = Neotimer(50)
     timerB = Neotimer(50)
+    timerH = Neotimer(3000)
 
     # Internal temp sensor
     sensor = Temperature()
@@ -356,6 +370,8 @@ def OLED_display_thread(mode=pt.RUN):
         .add(SubMenuItem("Unit Settings")
             .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
                 selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
+            .add(EnumItem("monitor", config.setting['monitor'][1], callback_setting_monitor, \
+                selected=config.setting['monitor'][1].index(config.setting['monitor'][0])))
             .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
                 selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
             .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
@@ -446,6 +462,10 @@ def OLED_display_thread(mode=pt.RUN):
                     # enter the Menu...
                     menu.reset()
                     menu_hidden = False
+
+                # Hold B for 3s to (re)start jam
+                if pt.eng.mode <= pt.MONITOR and timerH.hold_signal(keyB.value()==0):
+                    callback_jam()
 
                 # Debug - freeze screen
                 while pt.eng.mode == pt.MONITOR and timerB.debounce_signal(keyB.value()==0):
@@ -591,6 +611,7 @@ def OLED_display_thread(mode=pt.RUN):
                                     sync_after_jam = 0
                                     jam_started = False
                                     pid.auto_mode = False
+
                             else:
                                 print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
                                       temp_avg.store_read(sensor.read()))
@@ -650,7 +671,12 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.show(22,36)
 
                         # clear for next frame
-                        OLED.fill_rect(0,22,128,17,OLED.black)
+                        OLED.fill_rect(0,22,128,15,OLED.black)
+
+                        if not monitor and pt.eng.mode == pt.MONITOR:
+                            OLED.fill_rect(0,12,128,10,OLED.black)
+                            OLED.show()
+                            pt.eng.mode = pt.RUN
                     else:
                         # catch if user has cancelled jam/calibrate
                         sync_after_jam = 0

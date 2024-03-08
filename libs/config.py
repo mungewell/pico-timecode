@@ -2,6 +2,7 @@ setting = {
     'framerate' : ['30', ['30', '29.97', '25', '24.98', '24', '23.98']],
     'dropframe' : ['No', ['No', 'Yes']],
     'zoom'      : ['No', ['No', 'Yes']],
+    'monitor'   : ['No', ['No', 'Yes']],
     'calibrate' : ['No', ['No', 'Once', 'Always']],
     'flashframe': ['11', ['Off', '0', '11']],
     'userbits'  : ['Text', ['Text', 'Digits', 'Date']],

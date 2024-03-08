@@ -673,7 +673,8 @@ def OLED_display_thread(mode=pt.RUN):
                         # clear for next frame
                         OLED.fill_rect(0,22,128,15,OLED.black)
 
-                        if not monitor and pt.eng.mode == pt.MONITOR:
+                        if not monitor and not sync_after_jam \
+                               and pt.eng.mode == pt.MONITOR:
                             OLED.fill_rect(0,12,128,10,OLED.black)
                             OLED.show()
                             pt.eng.mode = pt.RUN

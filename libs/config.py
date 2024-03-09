@@ -3,7 +3,7 @@ setting = {
     'dropframe' : ['No', ['No', 'Yes']],
     'zoom'      : ['No', ['No', 'Yes']],
     'monitor'   : ['No', ['No', 'Yes']],
-    'calibrate' : ['No', ['No', 'Once', 'Always']],
+    'calibrate' : ['Always', ['No', 'Once', 'Always']],
     'flashframe': ['11', ['Off', '0', '11']],
     'userbits'  : ['Text', ['Text', 'Digits', 'Date']],
     'ub_ascii'  : "PICO",

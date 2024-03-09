@@ -211,7 +211,7 @@ def callback_jam():
             utime.sleep(0.1)
 
     # Force Garbage collection
-    gc.collect()
+    #gc.collect()
 
     # Turn off Jam if already enabled
     pt.eng.sm = []
@@ -599,7 +599,8 @@ def OLED_display_thread(mode=pt.RUN):
                                       pid.components)
 
                                 # stop calibration after 15mins and save calculated value
-                                if jam_started and (now - 900) > jam_started:
+                                #if jam_started and (now - 900) > jam_started:
+                                if jam_started and (now - 120) > jam_started:
                                     pt.eng.micro_adjust(adj_avg.read(), period * 1000)
 
                                     config.set('calibration', format, adj_avg.read())

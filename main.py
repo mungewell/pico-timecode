@@ -122,6 +122,7 @@ class MCP6S91():
         self.spi = machine.SPI(0, baudrate=10000, polarity=0, phase=0, bits=8,
                   firstbit=machine.SPI.MSB, sck=machine.Pin(6), mosi=machine.Pin(7))
 
+        self.power = False
         self.powerdown(False)
 
     def gain(self, value):
@@ -140,10 +141,12 @@ class MCP6S91():
             self.cs.value(0)
             self.spi.write(b"\x01\x00")     # Power Down
             self.cs.value(1)
+            self.power = False
         else:
             self.cs.value(0)
             self.spi.write(b"\x00\x00")     # NOP/Power Up
             self.cs.value(1)
+            self.power = True
 
 #---------------------------------------------
 # Class for performing rolling averages
@@ -362,6 +365,8 @@ def OLED_display_thread(mode=pt.RUN):
 
     # Output Amp
     outamp = MCP6S91()
+    detA = Pin(14,Pin.IN,Pin.PULL_UP)
+    detB = Pin(16,Pin.IN,Pin.PULL_UP)
 
     # apply saved settings
     callback_fps_df(config.setting['framerate'][0])

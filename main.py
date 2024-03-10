@@ -368,6 +368,9 @@ def OLED_display_thread(mode=pt.RUN):
     detA = Pin(14,Pin.IN,Pin.PULL_UP)
     detB = Pin(16,Pin.IN,Pin.PULL_UP)
 
+    # Force PWM mode on PSU, for cleaner 3V3
+    psu = Pin(23,Pin.OUT, value=1)
+
     # apply saved settings
     callback_fps_df(config.setting['framerate'][0])
     callback_fps_df(config.setting['dropframe'][0])

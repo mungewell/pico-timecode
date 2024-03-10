@@ -69,6 +69,7 @@ import rp2
 import gc
 
 # Set up (extra) globals
+outamp = None
 menu = None
 zoom = False
 monitor = False
@@ -105,6 +106,34 @@ def add_more_state_machines():
     # set up IRQ handler
     for m in pt.eng.sm:
         m.irq(handler=pt.irq_handler, hard=True)
+
+#---------------------------------------------
+# Class for controlling MCP6S91 programable Amp
+# (as used on official PCB)
+
+class MCP6S91():
+    GAIN_ADDR = b"\x40"
+    GAINVALS = (1, 2, 4, 5, 8, 10, 16, 32)
+
+    def __init__(self):
+        self.cs = machine.Pin(5, Pin.OUT)
+        self.cs.value(1)
+        self.cs.value(0)
+        self.cs.value(1)
+
+        self.spi = machine.SPI(0, baudrate=10000, polarity=0, phase=0, bits=8,
+                  firstbit=machine.SPI.MSB, sck=machine.Pin(6), mosi=machine.Pin(7))
+
+    def gain(self, value):
+        try:
+            gainval = MCP6S91.GAINVALS.index(value)
+        except ValueError:
+            raise ValueError('MCP6S91 invalid gain {}'.format(value))
+
+        self.cs.value(0)
+        self.spi.write(MCP6S91.GAIN_ADDR)
+        self.spi.write(gainval.to_bytes(1,"little"))
+        self.cs.value(1)
 
 #---------------------------------------------
 # Class for performing rolling averages
@@ -240,6 +269,17 @@ def callback_fps_df(set):
     pt.eng.tc.set_fps_df(fps, df)
 
 
+def callback_setting_output(set):
+    global outamp
+
+    if set=="Mic":
+        outamp.gain(1)
+    elif set=="Line":
+        outamp.gain(10)
+    else:
+        outamp.gain(int(set))
+
+
 def callback_setting_zoom(set):
     global zoom
 
@@ -304,16 +344,20 @@ def callback_exit():
 
 def OLED_display_thread(mode=pt.RUN):
     global menu, menu_hidden
-    global zoom, calibrate
+    global outamp, zoom, calibrate
 
     pt.eng = pt.engine()
     pt.eng.mode = mode
     pt.eng.set_stopped(True)
 
+    # Output Amp
+    outamp = MCP6S91()
+
     # apply saved settings
     callback_fps_df(config.setting['framerate'][0])
     callback_fps_df(config.setting['dropframe'][0])
 
+    callback_setting_output(config.setting['output'][0])
     callback_setting_flashframe(config.setting['flashframe'][0])
     callback_setting_userbits(config.setting['userbits'][0])
     callback_setting_zoom(config.setting['zoom'][0])
@@ -368,6 +412,8 @@ def OLED_display_thread(mode=pt.RUN):
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
 
         .add(SubMenuItem("Unit Settings")
+            .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
+                selected=config.setting['output'][1].index(config.setting['output'][0])))
             .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
                 selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
             .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \

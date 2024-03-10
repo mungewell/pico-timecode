@@ -314,11 +314,11 @@ def OLED_display_thread(mode=pt.RUN):
     callback_fps_df(config.setting['framerate'][0])
     callback_fps_df(config.setting['dropframe'][0])
 
+    callback_setting_flashframe(config.setting['flashframe'][0])
+    callback_setting_userbits(config.setting['userbits'][0])
     callback_setting_zoom(config.setting['zoom'][0])
     callback_setting_monitor(config.setting['monitor'][0])
     callback_setting_calibrate(config.setting['calibrate'][0])
-    callback_setting_flashframe(config.setting['flashframe'][0])
-    callback_setting_userbits(config.setting['userbits'][0])
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
@@ -368,16 +368,16 @@ def OLED_display_thread(mode=pt.RUN):
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
 
         .add(SubMenuItem("Unit Settings")
+            .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
+                selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
+            .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
+                selected=config.setting['userbits'][1].index(config.setting['userbits'][0])))
             .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
                 selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
             .add(EnumItem("monitor", config.setting['monitor'][1], callback_setting_monitor, \
                 selected=config.setting['monitor'][1].index(config.setting['monitor'][0])))
             .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
                 selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
-            .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
-                selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
-            .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
-                selected=config.setting['userbits'][1].index(config.setting['userbits'][0])))
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
     )
 

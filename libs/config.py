@@ -1,11 +1,11 @@
 setting = {
     'framerate' : ['30', ['30', '29.97', '25', '24.98', '24', '23.98']],
     'dropframe' : ['No', ['No', 'Yes']],
+    'flashframe': ['11', ['Off', '0', '11']],
+    'userbits'  : ['Text', ['Text', 'Digits', 'Date']],
     'zoom'      : ['No', ['No', 'Yes']],
     'monitor'   : ['No', ['No', 'Yes']],
     'calibrate' : ['No', ['No', 'Once', 'Always']],
-    'flashframe': ['11', ['Off', '0', '11']],
-    'userbits'  : ['Text', ['Text', 'Digits', 'Date']],
     'ub_ascii'  : "PICO",
     'ub_bcd'    : "00000000",
     'ub_date'   : "Y74-M01-D01+0000",

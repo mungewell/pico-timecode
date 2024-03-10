@@ -374,7 +374,11 @@ def callback_fps_df(set):
     pt.eng.tc.set_fps_df(fps, df)
 
 
-<<<<<<< HEAD
+def callback_tc_start(set):
+    if not pt.eng.is_running():
+        pt.eng.tc.from_ascii(set, False)
+
+
 def callback_setting_output(set):
     global outamp
 
@@ -384,12 +388,6 @@ def callback_setting_output(set):
         outamp.gain(10)
     else:
         outamp.gain(int(set))
-=======
-def callback_tc_start(set):
-    if not pt.eng.is_running():
-        pt.eng.tc.from_ascii(set, False)
->>>>>>> 27a016a (Basic menu for editting UserBit values)
-
 
 def callback_setting_powersave(set):
     global powersave
@@ -484,8 +482,8 @@ def callback_exit():
 
 def OLED_display_thread(mode=pt.RUN):
     global menu, menu_hidden
-    global powersave, zoom, calibrate
-    global outamp
+    global zoom, calibrate
+    global powersave, outamp
 
     pt.eng = pt.engine()
     pt.eng.mode = mode

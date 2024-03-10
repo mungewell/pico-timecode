@@ -118,11 +118,11 @@ class MCP6S91():
     def __init__(self):
         self.cs = machine.Pin(5, Pin.OUT)
         self.cs.value(1)
-        self.cs.value(0)
-        self.cs.value(1)
 
         self.spi = machine.SPI(0, baudrate=10000, polarity=0, phase=0, bits=8,
                   firstbit=machine.SPI.MSB, sck=machine.Pin(6), mosi=machine.Pin(7))
+
+        self.powerdown(False)
 
     def gain(self, value):
         try:
@@ -134,6 +134,16 @@ class MCP6S91():
         self.spi.write(MCP6S91.GAIN_ADDR)
         self.spi.write(gainval.to_bytes(1,"little"))
         self.cs.value(1)
+
+    def powerdown(self, powerdown=True):
+        if powerdown:
+            self.cs.value(0)
+            self.spi.write(b"\x01\x00")     # Power Down
+            self.cs.value(1)
+        else:
+            self.cs.value(0)
+            self.spi.write(b"\x00\x00")     # NOP/Power Up
+            self.cs.value(1)
 
 #---------------------------------------------
 # Class for performing rolling averages

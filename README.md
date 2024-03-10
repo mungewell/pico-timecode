@@ -2,22 +2,18 @@
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
 and the PIO blocks on the Pico make it very possible...
 
-# Now we're JAM'ing...
+# DIY Timecode made real.
 
-We've moved past the Proof-of-concept stage! Well past....
+The Rev-1 PCBs arrived, and the first is assembled and working.
 
-![Prototype Hardware](docs/pics/prototype_hardware.jpg)
+![Rev-1 Board Assembled](docs/pics/first_board.jpg)
 
-The project stalled in the summer, there was a scheduler bug in MicroPython which was causing
-occassional lock-ups, and I couldn't figure it out.... anyhow they're smarter than me and the 
-`RPI_PICO-20240105-v1.22.1.uf2` release works fine.
+I have designed the first revision of hardware to be flexible, with the intent of being used
+in multiple ways and with different 'Pico Boards'. The [schematic](hardware/output/schematic.pdf)
+will show you how simple it is.
 
-A prototype audio inteface is built, and I was able to Jam with the LTC from my Sync-IO, and feed
-the regenerated LTC to an Evertz 5300 LTC Analyzer. After Jam the LTC is spot on, but (as expected)
-'drifted off' as time went by.
-
-I have designed the first revision of hardware, it's being fabricated and hopefully will be in
-my hands soon. The [schematic](hardware/output/schematic.pdf) will show you how simple it is.
+There is a fair bit of testing, and we'll need to select the optimum components. But did I say
+that it WORKS!!! :-)
 
 ![Render of Rev1](hardware/output/rev1-render.png)
 

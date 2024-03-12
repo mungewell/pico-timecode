@@ -365,8 +365,8 @@ def OLED_display_thread(mode=pt.RUN):
 
     # Output Amp
     outamp = MCP6S91()
-    detA = Pin(14,Pin.IN,Pin.PULL_UP)
-    detB = Pin(16,Pin.IN,Pin.PULL_UP)
+    detIn  = Pin(16,Pin.IN,Pin.PULL_UP)
+    detOut = Pin(14,Pin.IN,Pin.PULL_UP)
 
     # Force PWM mode on PSU, for cleaner 3V3
     psu = Pin(23,Pin.OUT, value=1)
@@ -528,7 +528,8 @@ def OLED_display_thread(mode=pt.RUN):
                     menu_hidden = False
 
                 # Hold B for 3s to (re)start jam
-                if pt.eng.mode <= pt.MONITOR and timerH.hold_signal(keyB.value()==0):
+                if pt.eng.mode <= pt.MONITOR and timerH.hold_signal(keyB.value()==0) and \
+                        detIn.value() == 0:
                     callback_jam()
 
                 # Debug - freeze screen

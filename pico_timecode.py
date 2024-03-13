@@ -917,7 +917,8 @@ def ascii_display_thread(mode = RUN):
     eng.set_stopped(True)
 
     # Reduce the CPU clock, for better computation of PIO freqs
-    machine.freq(120000000)
+    if machine.freq() != 120000000:
+        machine.freq(120000000)
 
     # Allocate appropriate StateMachines, and their pins
     eng.sm = []

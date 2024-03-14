@@ -70,6 +70,7 @@ import gc
 
 # Set up (extra) globals
 menu = None
+powersave = False
 zoom = False
 monitor = False
 calibrate = False
@@ -240,6 +241,14 @@ def callback_fps_df(set):
     pt.eng.tc.set_fps_df(fps, df)
 
 
+def callback_setting_powersave(set):
+    global powersave
+
+    if set=="Yes":
+        powersave = True
+    else:
+        powersave = False
+
 def callback_setting_zoom(set):
     global zoom
 
@@ -304,7 +313,7 @@ def callback_exit():
 
 def OLED_display_thread(mode=pt.RUN):
     global menu, menu_hidden
-    global zoom, calibrate
+    global powersave, zoom, calibrate
 
     pt.eng = pt.engine()
     pt.eng.mode = mode
@@ -316,6 +325,7 @@ def OLED_display_thread(mode=pt.RUN):
 
     callback_setting_flashframe(config.setting['flashframe'][0])
     callback_setting_userbits(config.setting['userbits'][0])
+    callback_setting_powersave(config.setting['powersave'][0])
     callback_setting_zoom(config.setting['zoom'][0])
     callback_setting_monitor(config.setting['monitor'][0])
     callback_setting_calibrate(config.setting['calibrate'][0])
@@ -372,6 +382,8 @@ def OLED_display_thread(mode=pt.RUN):
                 selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
             .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
                 selected=config.setting['userbits'][1].index(config.setting['userbits'][0])))
+            .add(EnumItem("powersave", config.setting['powersave'][1], callback_setting_powersave, \
+                selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
             .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
                 selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
             .add(EnumItem("monitor", config.setting['monitor'][1], callback_setting_monitor, \
@@ -417,6 +429,9 @@ def OLED_display_thread(mode=pt.RUN):
 
         sync_after_jam = 0
         jam_started = False
+        powersave_active = False
+        last_button = utime.time()
+
         next_mon = None
         next_mon_raw = 0
 
@@ -436,15 +451,17 @@ def OLED_display_thread(mode=pt.RUN):
         except:
             pass
         phase = Rolling(30 * period)  	# sized for max fps, but really
-                                        # we only get ~4fps with RX/CX mode
+                                        # we only get ~4fps with RX/CAL mode
         adj_avg = Rolling(240)          # average over 4 minutes
 
         while True:
+            now = utime.time()
             if menu_hidden == False:
                 if timerA.debounce_signal(keyA.value()==0):
                     menu.move(2)        # Requires patched umenu to work
                 if timerB.debounce_signal(keyB.value()==0):
                     menu.click()
+                last_button = now
                 menu.draw()
 
                 # Clear screen after Menu Exits
@@ -460,17 +477,41 @@ def OLED_display_thread(mode=pt.RUN):
                     rx_ub = ""
             else:
                 if timerA.debounce_signal(keyA.value()==0):
+                    if powersave_active == True:
+                        OLED.on()
+                        powersave_active = False
+                    last_button = now
+
                     # enter the Menu...
                     menu.reset()
                     menu_hidden = False
 
+                if timerB.debounce_signal(keyB.value()==0):
+                    if powersave_active == True:
+                        OLED.on()
+                        powersave_active = False
+                    last_button = now
+
                 # Hold B for 3s to (re)start jam
-                if pt.eng.mode <= pt.MONITOR and timerH.hold_signal(keyB.value()==0):
+                if pt.eng.mode <= pt.MONITOR and timerH.hold_signal(keyB.value()==0) \
+                        and not powersave_active:
                     callback_jam()
 
                 # Debug - freeze screen
                 while pt.eng.mode == pt.MONITOR and timerB.debounce_signal(keyB.value()==0):
                     utime.sleep(1)
+
+                # Check whether to enter power save mode
+                if pt.eng.mode == pt.RUN:
+                    if powersave_active == False and powersave == True:
+                        if (now - 30) > last_button:
+                            print("Entering PowerSave")
+                            OLED.off()
+                            powersave_active = True
+
+                    # If power save is active, we don't update the screen
+                    if powersave_active == True:
+                        continue
 
                 # Attempt to align display with the TX timing
                 t1 = pt.tx_ticks_us
@@ -562,7 +603,6 @@ def OLED_display_thread(mode=pt.RUN):
                                 d -= 1.0
 
                         # Rolling average
-                        now = utime.time()
                         if d >= -0.5 and d <= 0.5:
                             phase.store(d, now)
 
@@ -624,8 +664,8 @@ def OLED_display_thread(mode=pt.RUN):
 
 
                         if pt.eng.mode == pt.MONITOR and sync_after_jam > 0:
-                            # CX = Sync'ed to RX and calibrating XTAL
-                            OLED.text("CX  ",0,22,OLED.white)
+                            # CAL = Sync'ed to RX and calibrating XTAL
+                            OLED.text("CAL ",0,22,OLED.white)
                         else:
                             OLED.text("RX  ",0,22,OLED.white)
 

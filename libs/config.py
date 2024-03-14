@@ -3,6 +3,7 @@ setting = {
     'dropframe' : ['No', ['No', 'Yes']],
     'flashframe': ['11', ['Off', '0', '11']],
     'userbits'  : ['Text', ['Text', 'Digits', 'Date']],
+    'powersave' : ['No', ['No', 'Yes']],
     'zoom'      : ['No', ['No', 'Yes']],
     'monitor'   : ['No', ['No', 'Yes']],
     'calibrate' : ['No', ['No', 'Once', 'Always']],

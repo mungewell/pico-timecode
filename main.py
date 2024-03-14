@@ -299,6 +299,7 @@ def callback_setting_output(set):
     else:
         outamp.gain(int(set))
 
+
 def callback_setting_powersave(set):
     global powersave
 
@@ -306,6 +307,7 @@ def callback_setting_powersave(set):
         powersave = True
     else:
         powersave = False
+
 
 def callback_setting_output(set):
     global outamp

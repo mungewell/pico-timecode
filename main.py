@@ -55,6 +55,7 @@ from libs.neotimer import *
 # https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
 
 from libs.PicoOled13 import *
+from libs.ht16k33segment import HT16K33Segment
 
 # Special font, for display the TX'ed timecode in a particular way
 from libs.fonts import TimecodeFont
@@ -361,6 +362,21 @@ def OLED_display_thread(mode=pt.RUN):
     OLED.fill(0x0000)
     OLED.show()
 
+    digi_slate_HM = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
+            i2c_address=0x71)
+    digi_slate_SF = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
+            i2c_address=0x70)
+    digi_slate_HM.set_brightness(5)
+    digi_slate_SF.set_brightness(5)
+
+    for i in range(4):
+        digi_slate_HM.set_character("-", i, has_dot=(True if i&1 else False))
+        digi_slate_SF.set_character("-", i)
+    digi_slate_HM.draw()
+    digi_slate_SF.rotate()
+    digi_slate_SF.set_colon(True)
+    digi_slate_SF.draw()
+
     menu = Menu(OLED, 5, 10)
     menu.set_screen(MenuScreen('A=Skip, B=Select')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
@@ -565,6 +581,13 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.show(38,46)
                         tx_ub = ub
 
+                    # update Digi-Slate
+                    for i in range(4):
+                        digi_slate_HM.set_character(tx_asc[i], i, \
+                                    has_dot=(True if i&1 else False))
+                        digi_slate_SF.set_character(tx_asc[4+i], i)
+                    digi_slate_HM.draw()
+                    digi_slate_SF.draw()
 
                 # Figure out what RX frame to display
                 if pt.eng.mode > pt.RUN:

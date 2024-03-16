@@ -345,6 +345,41 @@ def OLED_display_thread(mode=pt.RUN):
     if keyB.value() == 0:
         pt.eng.mode=pt.JAM
 
+    # Configure Digi-Slate
+    keyC = Pin(4,Pin.IN,Pin.PULL_UP)
+    keyR = Pin(5,Pin.IN,Pin.PULL_UP)
+    timerC = Neotimer(50)
+    timerR = Neotimer(50)
+    timerS = Neotimer(1000)
+
+    slate_rotated = False
+    slate_open = 0
+
+    slate_L = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
+            i2c_address=0x70)
+    slate_R = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
+            i2c_address=0x71)
+
+    slate_HM = slate_L
+    slate_HM.set_brightness(5)
+
+    slate_SF = slate_R
+    slate_SF.set_brightness(5)
+    slate_SF.rotate()
+
+    # Disply unit 'name', but not all characters supported...
+    try:
+        for i in range(4):
+            slate_HM.set_character(config.setting['ub_ascii'][i], i)
+            slate_SF.set_character(" ", i)
+    except AssertionError:
+        for i in range(4):
+            slate_HM.set_character("-", i)
+            slate_SF.set_character("-", i)
+    slate_HM.draw()
+    slate_SF.draw()
+    timerS.start()
+
     # load font into FB
     timecode_fb = []
     for i in range(len(TimecodeFont)):
@@ -361,21 +396,6 @@ def OLED_display_thread(mode=pt.RUN):
     utime.sleep(2)
     OLED.fill(0x0000)
     OLED.show()
-
-    digi_slate_HM = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
-            i2c_address=0x71)
-    digi_slate_SF = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
-            i2c_address=0x70)
-    digi_slate_HM.set_brightness(5)
-    digi_slate_SF.set_brightness(5)
-
-    for i in range(4):
-        digi_slate_HM.set_character("-", i, has_dot=(True if i&1 else False))
-        digi_slate_SF.set_character("-", i)
-    digi_slate_HM.draw()
-    digi_slate_SF.rotate()
-    digi_slate_SF.set_colon(True)
-    digi_slate_SF.draw()
 
     menu = Menu(OLED, 5, 10)
     menu.set_screen(MenuScreen('A=Skip, B=Select')
@@ -529,6 +549,49 @@ def OLED_display_thread(mode=pt.RUN):
                     if powersave_active == True:
                         continue
 
+                # Check for slate rotation
+                if slate_rotated == False and timerR.debounce_signal(keyR.value()==0):
+                    slate_HM = slate_R
+                    slate_HM.rotate()
+                    slate_HM.set_colon(False)
+                    slate_SF = slate_L
+                    slate_SF.rotate()
+                    slate_rotated = True
+                elif slate_rotated == True and timerR.debounce_signal(keyR.value()==1):
+                    slate_HM = slate_L
+                    slate_HM.rotate()
+                    slate_HM.set_colon(False)
+                    slate_SF = slate_R
+                    slate_SF.rotate()
+                    slate_rotated = False
+
+                # Display FPS on slate, when clapper is lifted
+                if slate_open < 1 and timerC.debounce_signal(keyC.value()==0):
+                    slate_open = 1
+                    timerS.start()
+                    for i in range(4):
+                        slate_HM.set_character(format[i+(1 if i>1 else 0)], \
+                                i, has_dot=(True if i==1 else False))
+                        slate_SF.set_character(" ", i)
+                    if len(format) > 5:
+                        '''
+                        - = 6         = 0x40
+                        d = 1 2 3 4 6 = 0x5e
+                        f = 0 4 5 6   = 0x71
+                        '''
+                        slate_SF.set_glyph(0x40, 0)
+                        slate_SF.set_glyph(0x5e, 1)
+                        slate_SF.set_glyph(0x71, 2)
+
+                    slate_HM.draw()
+                    slate_SF.set_colon(False)
+                    slate_SF.draw()
+
+                # Check for clapper closing
+                if slate_open == 1 and timerC.debounce_signal(keyC.value()==1):
+                    slate_open = 0
+                    timerS.start()
+
                 # Attempt to align display with the TX timing
                 t1 = pt.tx_ticks_us
                 if pt.eng.mode == pt.RUN:
@@ -557,6 +620,23 @@ def OLED_display_thread(mode=pt.RUN):
 
                 # check which characters of the TC have changed
                 if tx_asc != asc:
+                    # update Digi-Slate
+                    if slate_open < 1 and timerS.finished():
+                        slate_open = -1
+                        slate_HM.clear()
+                        slate_HM.draw()
+                        slate_SF.clear()
+                        slate_SF.draw()
+                    elif timerS.finished():
+                        for i in range(4):
+                            if sync_after_jam == 0:
+                                slate_HM.set_character(tx_asc[i], i, \
+                                        has_dot=(True if i&1 else False))
+                            slate_SF.set_character(tx_asc[4+i], i)
+                        slate_HM.draw()
+                        slate_SF.set_colon(True)
+                        slate_SF.draw()
+
                     for c in range(len(asc)):
                         if asc[c]!=tx_asc[c]:
                             break
@@ -580,14 +660,6 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.text(ub,64,38,OLED.white,1,2)
                         OLED.show(38,46)
                         tx_ub = ub
-
-                    # update Digi-Slate
-                    for i in range(4):
-                        digi_slate_HM.set_character(tx_asc[i], i, \
-                                    has_dot=(True if i&1 else False))
-                        digi_slate_SF.set_character(tx_asc[4+i], i)
-                    digi_slate_HM.draw()
-                    digi_slate_SF.draw()
 
                 # Figure out what RX frame to display
                 if pt.eng.mode > pt.RUN:
@@ -689,8 +761,31 @@ def OLED_display_thread(mode=pt.RUN):
                         if pt.eng.mode == pt.MONITOR and sync_after_jam > 0:
                             # CAL = Sync'ed to RX and calibrating XTAL
                             OLED.text("CAL ",0,22,OLED.white)
+
+                            # update Digi-Slate
+                            '''
+                            C = 0 3 4 5     = 0x39
+                            A = 0 1 2 4 5 6 = 0x77
+                            L = 3 4 5       = 0x38
+                            '''
+                            slate_HM.set_glyph(0x39, 0)
+                            slate_HM.set_glyph(0x77, 1)
+                            slate_HM.set_glyph(0x38, 2)
+                            slate_HM.set_glyph(0, 3)
                         else:
                             OLED.text("RX  ",0,22,OLED.white)
+
+                            # update Digi-Slate
+                            '''
+                            S = 0 2 3 5 6 = 0x6D
+                            Y = 1 2 3 5 6 = 0x6E
+                            n = 2 4 6     = 0x54
+                            c = 3 4 6     = 0x58
+                            '''
+                            slate_HM.set_glyph(0x6D, 0)
+                            slate_HM.set_glyph(0x6E, 1)
+                            slate_HM.set_glyph(0x54, 2)
+                            slate_HM.set_glyph(0x58, 3)
 
                         OLED.vline(64, 33, 2, OLED.white)
                         if zoom == True:
@@ -713,6 +808,18 @@ def OLED_display_thread(mode=pt.RUN):
                     if pt.eng.mode > pt.MONITOR:
                         OLED.text("Jam ",0,22,OLED.white)
 
+                        # update Digi-Slate
+                        '''
+                        S = 0 2 3 5 6 = 0x6D
+                        Y = 1 2 3 5 6 = 0x6E
+                        n = 2 4 6     = 0x54
+                        c = 3 4 6     = 0x58
+                        '''
+                        slate_HM.set_glyph(0x6D, 0)
+                        slate_HM.set_glyph(0x6E, 1)
+                        slate_HM.set_glyph(0x54, 2)
+                        slate_HM.set_glyph(0x58, 3)
+
                         # Draw a line representing time until Jam complete
                         OLED.vline(0, 32, 4, OLED.white)
                         OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
@@ -734,6 +841,14 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.text(dc.to_ascii(),64,22,OLED.white,1,2)
                         OLED.show(22,36)
 
+                        # update Digi-Slate
+                        rx_asc = dc.to_ascii(False)
+                        for i in range(4):
+                            slate_SF.set_character(rx_asc[4+i], i)
+                        slate_HM.draw()
+                        slate_SF.set_colon(True)
+                        slate_SF.draw()
+
                         # clear for next frame
                         OLED.fill_rect(0,22,128,15,OLED.black)
 
@@ -749,6 +864,12 @@ def OLED_display_thread(mode=pt.RUN):
 
 
             if pt.eng.mode == pt.HALTED:
+                for i in range(4):
+                    slate_HM.set_character("-", i)
+                    slate_SF.set_character("-", i)
+                slate_HM.draw()
+                slate_SF.draw()
+
                 OLED.rect(0,51,128,10,OLED.black,True)
                 OLED.text("Underflow Error",64,53,OLED.white,1,2)
                 OLED.show(49 ,64)

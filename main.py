@@ -446,12 +446,18 @@ def OLED_display_thread(mode=pt.RUN):
         pt.eng.mode=pt.JAM
 
     # Configure Digi-Slate
+<<<<<<< HEAD
     debug = Pin(27,Pin.OUT)
     debug.off()
 
     keyC = Pin(4,Pin.IN,Pin.PULL_UP)
     keyR = Pin(5,Pin.IN,Pin.PULL_UP)
     timerC = Neotimer(15)
+=======
+    keyC = Pin(4,Pin.IN,Pin.PULL_UP)
+    keyR = Pin(5,Pin.IN,Pin.PULL_UP)
+    timerC = Neotimer(50)
+>>>>>>> 94cc435 (Add more functionality - Pause display on Clapper and Tail Slating)
     timerR = Neotimer(50)
     timerS = Neotimer(1000)
 
@@ -698,6 +704,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                 # Display FPS on slate, when clapper is lifted
                 if slate_open < 1 and timerC.debounce_signal(keyC.value()==0):
+<<<<<<< HEAD
                     pt.sl_ticks_us = 0
 
                     # resuse PIO to accurately time clapper
@@ -709,6 +716,8 @@ def OLED_display_thread(mode=pt.RUN):
                                 jmp_pin=machine.Pin(4))        # Sync from clapper
                         pt.eng.sm[0].active(1)
 
+=======
+>>>>>>> 94cc435 (Add more functionality - Pause display on Clapper and Tail Slating)
                     slate_open = 1
                     timerS.start()
                     for i in range(4):
@@ -795,6 +804,15 @@ def OLED_display_thread(mode=pt.RUN):
                                 slate_SF.draw()
 
                             pt.sl_ticks_us = 0
+                    elif timerS.finished():
+                        for i in range(4):
+                            if sync_after_jam == 0:
+                                slate_HM.set_character(tx_asc[i], i, \
+                                        has_dot=(True if i&1 else False))
+                            slate_SF.set_character(tx_asc[4+i], i)
+                        slate_HM.draw()
+                        slate_SF.set_colon(True)
+                        slate_SF.draw()
 
                     # update OLED display
                     for c in range(len(asc)):

@@ -55,19 +55,6 @@ def start_from_pin():
 
     label("start")
     irq(clear, 4)                   # Trigger Sync
-
-    label("halt")
-    jmp("halt") [31]
-
-
-@rp2.asm_pio()
-
-def clapper_from_pin():
-    wrap_target()
-    jmp(pin, "clapper")             # Check pin, jump if 1
-    wrap()
-
-    label("clapper")
     irq(rel(0))                     # set IRQ for ticks_us monitoring
 
     label("halt")

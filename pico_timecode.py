@@ -18,8 +18,11 @@ from micropython import schedule
 eng = None
 stop = False
 
+tx_offset = 0
+tx_raw = 0
 tx_ticks_us = 0
 rx_ticks_us = 0
+sl_ticks_us = 0
 
 core_dis = [0, 0]
 
@@ -57,7 +60,21 @@ def start_from_pin():
     jmp("halt") [31]
 
 
-@rp2.asm_pio(set_init=(rp2.PIO.OUT_LOW,)*4, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+@rp2.asm_pio()
+
+def clapper_from_pin():
+    wrap_target()
+    jmp(pin, "clapper")             # Check pin, jump if 1
+    wrap()
+
+    label("clapper")
+    irq(rel(0))                     # set IRQ for ticks_us monitoring
+
+    label("halt")
+    jmp("halt") [31]
+
+
+@rp2.asm_pio(set_init=(rp2.PIO.OUT_LOW,)*2, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def blink_led():
     out(x, 16)                      # first cycle lenght may be slightly
@@ -70,7 +87,7 @@ def blink_led():
     out(y, 16)                      # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
-    set(pins, 0b1111)
+    set(pins, 0b11)
     jmp("cont")
     label("led_off")
     nop() [1]                       # this section 3 cycles
@@ -200,14 +217,23 @@ def sync_and_read():
 
 def irq_handler(m):
     global eng, stop
-    global tx_ticks_us, rx_ticks_us
+    global tx_offset, tx_raw
+    global tx_ticks_us, rx_ticks_us, sl_ticks_us
     global core_dis
 
     core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
     ticks = utime.ticks_us()
 
+    if m==eng.sm[0]:
+        sl_ticks_us = ticks
+
     if m==eng.sm[1]:
         tx_ticks_us = ticks
+        try:
+            tx_raw = (eng.tc.df << 31) + (eng.tc.hh << 24) + (eng.tc.mm << 16) + (eng.tc.ss << 8) + eng.tc.ff
+        except:
+            pass
+        tx_offset = tx_offset - 1
 
     if m==eng.sm[5]:
         rx_ticks_us = ticks
@@ -658,23 +684,24 @@ class timecode(object):
 #---------------------------------------------
 
 class engine(object):
-    mode = RUN
-    flashframe = 0
-    dlock = _thread.allocate_lock()
+    def __init__(self):
+        self.mode = RUN
+        self.flashframe = 0
+        self.dlock = _thread.allocate_lock()
 
-    tc = timecode()
-    rc = timecode()
-    sm = None
+        self.tc = timecode()
+        self.rc = timecode()
+        self.sm = None
 
-    duty = 0
-    prev_duty = 0
+        self.duty = 0
+        self.prev_duty = 0
 
-    period = 10000 # 10s, can be update by client
-    timer1 = None
-    timer2 = None
+        self.period = 10000 # 10s, can be update by client
+        self.timer1 = None
+        self.timer2 = None
 
-    # state of running (ie whether being used for output)
-    stopped = True
+        # state of running (ie whether being used for output)
+        self.stopped = True
 
     def is_stopped(self):
         return self.stopped
@@ -796,6 +823,8 @@ class engine(object):
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
+    global tx_offset
+
     eng.set_stopped(False)
 
     send_sync = True        # send 1st packet with sync
@@ -828,6 +857,7 @@ def pico_timecode_thread(eng, stop):
     #eng.crude_adjust(eng.duty)
 
     # Loop, increasing frame count each time
+    tx_offset = 0
     while not stop():
 
         # Empty RX FIFO as it fills
@@ -876,13 +906,14 @@ def pico_timecode_thread(eng, stop):
                     eng.tc.bgf1 = eng.rc.bgf1
 
         # Wait for TX FIFO to be empty enough to accept more
-        if eng.mode <= MONITOR and eng.sm[2].tx_fifo() < 5: # and tc.to_int() < 0x0200:
+        while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < 5:
             for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[2].put(w)
             eng.tc.release()
             send_sync = (send_sync + 1) & 1
 
             # Calculate next frame value
+            tx_offset = tx_offset + 1
             eng.tc.next_frame()
 
             # Does the LED flash for this frame?

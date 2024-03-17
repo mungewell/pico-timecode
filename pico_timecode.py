@@ -338,7 +338,7 @@ class timecode(object):
                     self.hh -= 1
                 self.mm = 59                    # only happens on mm==0
                 self.ss = 59
-                self.ff = int(self.fps) - 1
+                self.ff = int(self.fps + 0.1) - 1
         self.release()
 
     def from_ascii(self, start="00:00:00:00"):
@@ -414,7 +414,7 @@ class timecode(object):
     def next_frame(self):
         self.acquire()
         self.ff += 1
-        if self.ff >= int(self.fps):
+        if self.ff >= int(self.fps + 0.1):
             self.ff = 0
             self.ss += 1
             if self.ss >= 60:
@@ -434,7 +434,7 @@ class timecode(object):
         self.acquire()
         self.ff -= 1
         if self.ff < 0:
-            self.ff = int(self.fps) - 1
+            self.ff = int(self.fps + 0.1) - 1
             self.ss -= 1
             if self.ss < 0:
                 self.ss = 59

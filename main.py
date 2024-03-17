@@ -307,6 +307,17 @@ def callback_setting_powersave(set):
     else:
         powersave = False
 
+def callback_setting_output(set):
+    global outamp
+
+    if set=="Mic":
+        outamp.gain(1)
+    elif set=="Line":
+        outamp.gain(10)
+    else:
+        outamp.gain(int(set))
+
+
 def callback_setting_zoom(set):
     global zoom
 

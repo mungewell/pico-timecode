@@ -575,7 +575,8 @@ def OLED_display_thread(mode=pt.RUN):
                     # resuse PIO to accurately time clapper
                     if pt.eng.mode == pt.RUN:
                         pt.eng.sm[0].active(0)
-                        pt.eng.sm[0] = rp2.StateMachine(0, pt.clapper_from_pin, \
+
+                        pt.eng.sm[0] = rp2.StateMachine(0, pt.start_from_pin, \
                                 freq=int(pt.eng.tc.fps * 80 * 32),
                                 jmp_pin=machine.Pin(4))        # Sync from clapper
                         pt.eng.sm[0].active(1)
@@ -888,6 +889,11 @@ def OLED_display_thread(mode=pt.RUN):
                             OLED.fill_rect(0,12,128,10,OLED.black)
                             OLED.show()
                             pt.eng.mode = pt.RUN
+
+                            slate_HM.clear()
+                            slate_HM.draw()
+                            slate_SF.clear()
+                            slate_SF.draw()
                     else:
                         # catch if user has cancelled jam/calibrate
                         sync_after_jam = 0

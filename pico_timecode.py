@@ -228,12 +228,19 @@ def irq_handler(m):
         sl_ticks_us = ticks
 
     if m==eng.sm[1]:
+        if eng.offset1 == eng.offset2:
+            tx_offset = eng.offset1
+            tx_raw = eng.raw1
+        elif eng.raw1 == eng.raw2:
+            tx_offset = eng.offset1
+            tx_raw = eng.raw1
+        else:
+            tx_offset = eng.offset2
+            tx_raw = eng.raw2
+
+        eng.offset1 = eng.offset1 - 1
+        eng.offset2 = eng.offset2 - 1
         tx_ticks_us = ticks
-        try:
-            tx_raw = (eng.tc.df << 31) + (eng.tc.hh << 24) + (eng.tc.mm << 16) + (eng.tc.ss << 8) + eng.tc.ff
-        except:
-            pass
-        tx_offset = tx_offset - 1
 
     if m==eng.sm[5]:
         rx_ticks_us = ticks
@@ -703,6 +710,10 @@ class engine(object):
         # state of running (ie whether being used for output)
         self.stopped = True
 
+        self.raw1 = 0
+        self.raw2 = 0
+        self.offset1 = 0
+        self.offset2 = 0
     def is_stopped(self):
         return self.stopped
 
@@ -823,7 +834,7 @@ class engine(object):
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
-    global tx_offset
+    global raw, tx_offset
 
     eng.set_stopped(False)
 
@@ -913,8 +924,12 @@ def pico_timecode_thread(eng, stop):
             send_sync = (send_sync + 1) & 1
 
             # Calculate next frame value
-            tx_offset = tx_offset + 1
             eng.tc.next_frame()
+
+            eng.offset1 = eng.offset1 + 1
+            eng.raw1 = eng.tc.to_raw()
+            eng.raw2 = eng.tc.to_raw()
+            eng.offset2 = eng.offset2 + 1
 
             # Does the LED flash for this frame?
             eng.tc.acquire()

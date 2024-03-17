@@ -346,9 +346,12 @@ def OLED_display_thread(mode=pt.RUN):
         pt.eng.mode=pt.JAM
 
     # Configure Digi-Slate
+    debug = Pin(27,Pin.OUT)
+    debug.off()
+
     keyC = Pin(4,Pin.IN,Pin.PULL_UP)
     keyR = Pin(5,Pin.IN,Pin.PULL_UP)
-    timerC = Neotimer(50)
+    timerC = Neotimer(15)
     timerR = Neotimer(50)
     timerS = Neotimer(1000)
 
@@ -567,6 +570,16 @@ def OLED_display_thread(mode=pt.RUN):
 
                 # Display FPS on slate, when clapper is lifted
                 if slate_open < 1 and timerC.debounce_signal(keyC.value()==0):
+                    pt.sl_ticks_us = 0
+
+                    # resuse PIO to accurately time clapper
+                    if pt.eng.mode == pt.RUN:
+                        pt.eng.sm[0].active(0)
+                        pt.eng.sm[0] = rp2.StateMachine(0, pt.clapper_from_pin, \
+                                freq=int(pt.eng.tc.fps * 80 * 32),
+                                jmp_pin=machine.Pin(4))        # Sync from clapper
+                        pt.eng.sm[0].active(1)
+
                     slate_open = 1
                     timerS.start()
                     for i in range(4):
@@ -599,6 +612,7 @@ def OLED_display_thread(mode=pt.RUN):
                         continue
 
                 # Draw the main TC counter
+                debug.on()
                 while True:
                     t1 = pt.tx_ticks_us
                     offset = pt.tx_offset
@@ -615,25 +629,45 @@ def OLED_display_thread(mode=pt.RUN):
                     dc.prev_frame()
                 asc = dc.to_ascii(False)
 
+                debug.off()
+
                 # check which characters of the TC have changed
                 if tx_asc != asc:
                     # update Digi-Slate
-                    if slate_open < 1 and timerS.finished():
+                    if slate_open == 0 and timerS.finished():
                         slate_open = -1
                         slate_HM.clear()
                         slate_HM.draw()
                         slate_SF.clear()
                         slate_SF.draw()
-                    elif timerS.finished():
+                    elif slate_open == 1 and timerS.finished():
                         for i in range(4):
                             if sync_after_jam == 0:
-                                slate_HM.set_character(tx_asc[i], i, \
+                                slate_HM.set_character(asc[i], i, \
                                         has_dot=(True if i&1 else False))
-                            slate_SF.set_character(tx_asc[4+i], i)
+                            slate_SF.set_character(asc[4+i], i)
                         slate_HM.draw()
                         slate_SF.set_colon(True)
                         slate_SF.draw()
+                    elif slate_open == 0:
+                        # slate just closed, maybe update display
+                        if pt.sl_ticks_us != 0:
+                            d = utime.ticks_diff(pt.tx_ticks_us, pt.sl_ticks_us) / cycle_us 
+                            #print("slate closed", pt.tx_ticks_us, pt.sl_ticks_us, d)
+                            if d < 0.0:
+                                # Correct as Slate closed in previous frame
+                                for i in range(4):
+                                    slate_HM.set_character(asc[i], i, \
+                                        has_dot=(True if i&1 else False))
+                                    slate_SF.set_character(asc[4+i], i)
+                                slate_HM.draw()
+                                #slate_SF.set_colon(True)
+                                slate_SF.set_colon(False)
+                                slate_SF.draw()
 
+                            pt.sl_ticks_us = 0
+
+                    # update OLED display
                     for c in range(len(asc)):
                         if asc[c]!=tx_asc[c]:
                             break

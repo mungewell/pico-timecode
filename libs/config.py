@@ -95,8 +95,9 @@ def _write_lines_to_file(lines):
             for line in lines:
                 f.write(line)
             return 1
-    except Exception:
+    except Exception as e:
         print("Could not write file: ", __file__)
+        print(e)
         return 0
 
 def _open_file_to_lines():

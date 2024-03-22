@@ -285,37 +285,37 @@ tzs = [ \
 
 
 class timecode(object):
+    def __init__(self):
+        self.fps = 30.0
+        self.df = False      # Drop-Frame
 
-    fps = 30.0
-    df = False      # Drop-Frame
+        # Timecode - starting value
+        self.hh = 0
+        self.mm = 0
+        self.ss = 0
+        self.ff = 0
 
-    # Timecode - starting value
-    hh = 0
-    mm = 0
-    ss = 0
-    ff = 0
+        # Colour Frame flag
+        self.cf = False
 
-    # Colour Frame flag
-    cf = False
+        # Clock flag
+        self.bgf1 = False
 
-    # Clock flag
-    bgf1 = False
+        # User bits - format depends on BF2 and BF0
+        self.bgf0 = True     # 4 ASCII characters
+        self.bgf2 = False
 
-    # User bits - format depends on BF2 and BF0
-    bgf0 = True     # 4 ASCII characters
-    bgf2 = False
+        self.uf1 = 0x0       # 'PICO'
+        self.uf2 = 0x5
+        self.uf3 = 0x9
+        self.uf4 = 0x4
+        self.uf5 = 0x3
+        self.uf6 = 0x4
+        self.uf7 = 0xF
+        self.uf8 = 0x4
 
-    uf1 = 0x0       # 'PICO'
-    uf2 = 0x5
-    uf3 = 0x9
-    uf4 = 0x4
-    uf5 = 0x3
-    uf6 = 0x4
-    uf7 = 0xF
-    uf8 = 0x4
-
-    # Lock for multithreading
-    lock = _thread.allocate_lock()
+        # Lock for multithreading
+        self.lock = _thread.allocate_lock()
 
     def acquire(self):
         self.lock.acquire()
@@ -701,6 +701,7 @@ class engine(object):
         self.raw2 = 0
         self.offset1 = 0
         self.offset2 = 0
+
     def is_stopped(self):
         return self.stopped
 

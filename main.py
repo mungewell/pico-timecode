@@ -115,7 +115,7 @@ class Rolling:
         self.max = size
         self.data = []
         for i in range(size):
-            self.data.append([0.0, 0.0])
+            self.data.append([0.0, 0])
 
         self.dsum = 0.0
 
@@ -123,7 +123,7 @@ class Rolling:
         self.exit = 0
         self.size = 0
 
-    def store(self, data, mark=0.0):
+    def store(self, data, mark=0):
         if self.size == self.max:
             self.dsum -= self.data[self.exit][0]
             self.exit = (self.exit + 1) % self.max
@@ -140,13 +140,14 @@ class Rolling:
         if self.size > 0:
             return(self.dsum/self.size)
 
-    def store_read(self, data, mark=0.0):
+    def store_read(self, data, mark=0):
         self.store(data, mark)
         return(self.read())
 
     def purge(self, mark):
         while self.size and self.data[self.exit][1] < mark:
             self.dsum -= self.data[self.exit][0]
+            self.data[self.exit][0] = None
             self.exit = (self.exit + 1) % self.max
             self.size -= 1
 
@@ -442,14 +443,16 @@ def OLED_display_thread(mode=pt.RUN):
 
         # apply previously saved calibration value
         period = 10
-        try:
-            period = config.calibration['period']
-        except:
-            pass
-        try:
-            pt.eng.micro_adjust(config.calibration[format], period)
-        except:
-            pass
+        if calibrate == 0:
+            try:
+                period = config.calibration['period']
+            except:
+                pass
+            try:
+                pt.eng.micro_adjust(config.calibration[format], period)
+            except:
+                pass
+
         phase = Rolling(30 * period)  	# sized for max fps, but really
                                         # we only get ~4fps with RX/CAL mode
         adj_avg = Rolling(240)          # average over 4 minutes
@@ -636,11 +639,17 @@ def OLED_display_thread(mode=pt.RUN):
                                       pt.eng.tc.user_to_ascii(), \
                                       pid.components)
 
-                                # stop calibration after 15mins and save calculated value
-                                if jam_started and (now - 900) > jam_started:
-                                    pt.eng.micro_adjust(adj_avg.read(), period * 1000)
+                                # stop calibration after 10mins and save calculated value
+                                if jam_started and (now - 600) > jam_started:
+                                    new_cal_value = adj_avg.read()
+                                    pt.eng.micro_adjust(new_cal_value, period * 1000)
 
-                                    config.set('calibration', format, adj_avg.read())
+                                    # Purge everything, to clean up memory!
+                                    phase.purge(now)
+                                    adj_avg.purge(1)
+                                    gc.collect()
+
+                                    config.set('calibration', format, new_cal_value)
                                     config.set('calibration', 'period', period)
 
                                     if calibrate == 1:

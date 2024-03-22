@@ -7,7 +7,7 @@ do
 done
 
 export GRAB='~/grabserial-github/grabserial -Q -B 115200'
-export TIME='1200'
+export TIME='700'
 
 echo "Test Starting..."
 
@@ -21,6 +21,6 @@ done
 
 # Wait for units finish
 sleep $TIME
-sleep 30
+sleep 10
 
 echo "Test Complete"

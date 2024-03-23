@@ -813,6 +813,11 @@ def OLED_display_thread(mode=pt.RUN):
                         sync_after_jam = 0
                         jam_started = False
 
+                        # Purge everything, to clean up memory!
+                        phase.purge(now)
+                        adj_avg.purge(1)
+                        gc.collect()
+
 
             if pt.eng.mode == pt.HALTED:
                 OLED.rect(0,51,128,10,OLED.black,True)

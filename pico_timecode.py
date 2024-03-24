@@ -341,7 +341,7 @@ class timecode(object):
                 self.ff = int(self.fps + 0.1) - 1
         self.release()
 
-    def from_ascii(self, start="00:00:00:00"):
+    def from_ascii(self, start="00:00:00:00", sep=True):
         # Example "00:00:00:00"
         #          hh mm ss ff
         #          01234567890
@@ -350,14 +350,20 @@ class timecode(object):
         time = [x - 0x30 for x in bytes(start, "utf-8")]
 
         self.acquire()
-        self.hh = (time[0]*10) + time[1]
-        self.mm = (time[3]*10) + time[4]
-        self.ss = (time[6]*10) + time[7]
-        self.ff = (time[9]*10) + time[10]
-        if time[8] == 11:
-            self.df = True
+        self.df = False
+        if sep == True:
+            self.hh = (time[0]*10) + time[1]
+            self.mm = (time[3]*10) + time[4]
+            self.ss = (time[6]*10) + time[7]
+            self.ff = (time[9]*10) + time[10]
+
+            if time[8] == 11:
+                self.df = True
         else:
-            self.df = False
+            self.hh = (time[0]*10) + time[1]
+            self.mm = (time[2]*10) + time[3]
+            self.ss = (time[4]*10) + time[5]
+            self.ff = (time[6]*10) + time[7]
         self.release()
 
         if self.df:

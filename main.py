@@ -108,6 +108,90 @@ def add_more_state_machines():
         m.irq(handler=pt.irq_handler, hard=True)
 
 #---------------------------------------------
+# Class for Custom Editing of Userbits/Name
+
+class EditString(CustomItem, CallbackItem):
+
+    def __init__(self, title, string, callback, \
+                    alphabet=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"], \
+                    selected=None, visible=None):
+        super().__init__(title, visible=visible)
+        self.callback = callback
+        self.selected = None
+
+        self.value = string
+        self.alphabet = alphabet
+        self.pos = 0
+
+        self.items = []
+        for i in range(len(string)):
+            v = 0
+            for j in range(len(self.alphabet)):
+                if string[i] == self.alphabet[j]:
+                    v = j
+            self.items.append(v)
+
+    def down(self):
+        self.pos +=1
+        if self.pos >= len(self.items):
+            self.pos = -2
+        self.draw()
+
+    def select(self):
+        if self.pos == -2:
+            string = ""
+            for i in range(len(self.items)):
+                string += self.alphabet[self.items[i]]
+            self.value = string
+            return self.parent
+        elif self.pos == -1:
+            return self.parent
+        else:
+            self.items[self.pos] += 1
+            if self.items[self.pos] >= len(self.alphabet):
+                self.items[self.pos] = 0
+        return self
+
+    def draw(self):
+        self.display.fill(0)
+
+        for i in range(len(self.items)):
+            self.display.text(self.alphabet[self.items[i]], 10*i, 15 if i == self.pos else 20, 1)
+
+        if self.pos == -2:
+            self.display.text("SAVE", 100, 40)
+        else:
+            self.display.text("save", 100, 40)
+
+        if self.pos == -1:
+            self.display.text("CANCEL", 0, 40)
+        else:
+            self.display.text("cancel", 0, 40)
+        self.display.show()
+
+    @property
+    def value(self):
+        return self._value
+
+    @value.setter
+    def value(self, value):
+        self._value = value
+        self._call_callable(self.callback, self._value)
+
+
+# Make menus loop back to first item (single button navigation)
+class MenuLoop(Menu):
+    def move(self, direction: int = 1):
+        if direction > 1 and type(self.current_screen) is not ValueItem and \
+                    type(self.current_screen) is not EditString:
+            if self.current_screen.selected + 1 == self.current_screen.count():
+                self.current_screen.selected = 0
+                return
+
+        self.current_screen.up() if direction < 0 else self.current_screen.down()
+        self.draw()
+
+#---------------------------------------------
 # Class for performing rolling averages
 
 class Rolling:
@@ -242,6 +326,11 @@ def callback_fps_df(set):
     pt.eng.tc.set_fps_df(fps, df)
 
 
+def callback_tc_start(set):
+    if not pt.eng.is_running():
+        pt.eng.tc.from_ascii(set, False)
+
+
 def callback_setting_powersave(set):
     global powersave
 
@@ -287,13 +376,22 @@ def callback_setting_flashframe(set):
 
 
 def callback_setting_userbits(set):
-    if set=="Text":
-        pt.eng.tc.user_from_ascii(config.setting['ub_ascii'])
+    if set=="Name":
+        pt.eng.tc.user_from_ascii(config.setting['ub_name'])
     elif set=="Digits":
-        pt.eng.tc.user_from_bcd_hex(config.setting['ub_bcd'])
+        pt.eng.tc.user_from_bcd_hex(config.setting['ub_digits'])
     else:
         pt.eng.tc.user_from_date(config.setting['ub_date'])
 
+def callback_setting_ub_name(set):
+    if set != config.setting['ub_name']:
+        config.set('setting', 'ub_name', set)
+        callback_setting_userbits(config.setting['userbits'][0])
+
+def callback_setting_ub_digits(set):
+    if set != config.setting['ub_digits']:
+        config.set('setting', 'ub_digits', set)
+        callback_setting_userbits(config.setting['userbits'][0])
 
 def callback_setting_save():
     global menu
@@ -323,6 +421,7 @@ def OLED_display_thread(mode=pt.RUN):
     # apply saved settings
     callback_fps_df(config.setting['framerate'][0])
     callback_fps_df(config.setting['dropframe'][0])
+    callback_tc_start(config.setting['tc_start'])
 
     callback_setting_flashframe(config.setting['flashframe'][0])
     callback_setting_userbits(config.setting['userbits'][0])
@@ -362,7 +461,7 @@ def OLED_display_thread(mode=pt.RUN):
     OLED.fill(0x0000)
     OLED.show()
 
-    menu = Menu(OLED, 5, 10)
+    menu = MenuLoop(OLED, 5, 10)
     menu.set_screen(MenuScreen('A=Skip, B=Select')
         .add(CallbackItem("Exit", callback_exit, return_parent=True))
         .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
@@ -376,7 +475,18 @@ def OLED_display_thread(mode=pt.RUN):
                 selected=config.setting['framerate'][1].index(config.setting['framerate'][0])))
             .add(EnumItem("dropframe", config.setting['dropframe'][1], callback_fps_df, \
                 selected=config.setting['dropframe'][1].index(config.setting['dropframe'][0])))
+            .add(EditString('tc_start', config.setting['tc_start'], callback_tc_start))
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
+
+        .add(SubMenuItem("User Bits")
+            .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
+                selected=config.setting['userbits'][1].index(config.setting['userbits'][0])))
+            .add(EditString('ub_name', config.setting['ub_name'], callback_setting_ub_name, \
+                alphabet=[" ", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", \
+                    "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", \
+                    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "_"]))
+            .add(EditString('ub_digits', config.setting['ub_digits'], callback_setting_ub_digits, \
+                alphabet=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"])))
 
         .add(SubMenuItem("Unit Settings")
             .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \

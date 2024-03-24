@@ -1,15 +1,16 @@
 setting = {
     'framerate' : ['30', ['30', '29.97', '25', '24.98', '24', '23.98']],
     'dropframe' : ['No', ['No', 'Yes']],
+    'tc_start'  : "01000000",
     'output'    : ['Line', ['Mic', 'Line']],
     'flashframe': ['11', ['Off', '0', '11']],
-    'userbits'  : ['Text', ['Text', 'Digits', 'Date']],
+    'userbits'  : ['Name', ['Name', 'Digits', 'Date']],
     'powersave' : ['No', ['No', 'Yes']],
     'zoom'      : ['No', ['No', 'Yes']],
     'monitor'   : ['No', ['No', 'Yes']],
     'calibrate' : ['No', ['No', 'Once', 'Always']],
-    'ub_ascii'  : "PICO",
-    'ub_bcd'    : "00000000",
+    'ub_name'   : "PICO",
+    'ub_digits' : "00000000",
     'ub_date'   : "Y74-M01-D01+0000",
 }
 

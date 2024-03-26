@@ -219,7 +219,7 @@ def irq_handler(m):
             tx_offset = eng.offset1
             tx_raw = eng.raw1
         elif eng.raw1 == eng.raw2:
-            tx_offset = eng.offset1
+            tx_offset = eng.offset2
             tx_raw = eng.raw1
         else:
             tx_offset = eng.offset2
@@ -828,7 +828,6 @@ class engine(object):
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
-    global raw, tx_offset
 
     eng.set_stopped(False)
 
@@ -862,7 +861,8 @@ def pico_timecode_thread(eng, stop):
     #eng.crude_adjust(eng.duty)
 
     # Loop, increasing frame count each time
-    tx_offset = 0
+    eng.offset1 = 0
+    eng.offset2 = 0
     while not stop():
 
         # Empty RX FIFO as it fills
@@ -922,8 +922,8 @@ def pico_timecode_thread(eng, stop):
 
             eng.offset1 = eng.offset1 + 1
             eng.raw1 = eng.tc.to_raw()
-            eng.raw2 = eng.tc.to_raw()
             eng.offset2 = eng.offset2 + 1
+            eng.raw2 = eng.tc.to_raw()
 
             # Does the LED flash for this frame?
             eng.tc.acquire()

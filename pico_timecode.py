@@ -70,7 +70,7 @@ def blink_led():
 
     label("read_new")
     wrap_target()
-    irq(rel(0))                     # set IRQ for ticks_us monitoring
+    nop() #irq(rel(0))                     # set IRQ for ticks_us monitoring
     out(y, 16)                      # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
@@ -702,6 +702,7 @@ class engine(object):
 
         # state of running (ie whether being used for output)
         self.stopped = True
+        self.powersave = False
 
         self.raw1 = 0
         self.raw2 = 0
@@ -719,6 +720,7 @@ class engine(object):
 
         self.stopped = s
         if s:
+            self.powersave = False
             self.tc.bgf1 = False
 
             if self.timer1:
@@ -733,6 +735,12 @@ class engine(object):
 
             rduty = 0
             rcache = []
+
+    def set_powersave(self, p=True):
+        self.powersave = p
+
+    def get_powersave(self):
+        return self.powersave
 
     def frig_clocks(self, fps):
         # divider computed for CPU clock at 120MHz
@@ -828,6 +836,8 @@ class engine(object):
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
+    debug = machine.Pin(28,machine.Pin.OUT)
+    debug.off()
 
     eng.set_stopped(False)
 
@@ -864,7 +874,7 @@ def pico_timecode_thread(eng, stop):
     eng.offset1 = 0
     eng.offset2 = 0
     while not stop():
-
+        '''
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
             p = []
@@ -909,9 +919,10 @@ def pico_timecode_thread(eng, stop):
 
                     # clone Userbit Clock flag
                     eng.tc.bgf1 = eng.rc.bgf1
+        '''
 
         # Wait for TX FIFO to be empty enough to accept more
-        while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < 5:
+        while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < (7 - send_sync):
             for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[2].put(w)
             eng.tc.release()
@@ -922,8 +933,8 @@ def pico_timecode_thread(eng, stop):
 
             eng.offset1 = eng.offset1 + 1
             eng.raw1 = eng.tc.to_raw()
-            eng.offset2 = eng.offset2 + 1
-            eng.raw2 = eng.tc.to_raw()
+            eng.offset2 = eng.offset1
+            eng.raw2 = eng.raw1
 
             # Does the LED flash for this frame?
             eng.tc.acquire()
@@ -937,8 +948,19 @@ def pico_timecode_thread(eng, stop):
                 # enable 'Start' machine last, so others can synchronise to it
                 eng.sm[0].active(1)
                 start_sent = True
-            
-        utime.sleep(0.001)
+
+        if eng.powersave and eng.sm[2].tx_fifo() > 5:
+            debug.on()
+            CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00001000
+            machine.lightsleep(60, CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS)
+            debug.off()
+
+            '''
+            # Test - automatically exit after 10s or so
+            if (eng.tc.to_raw() & 0x0000FF00) == 0x000001E00:
+                eng.set_powersave(False)
+                print("X")
+            '''
 
     # Stop the StateMachines
     for m in range(len(eng.sm)):
@@ -1020,7 +1042,21 @@ def ascii_display_thread(mode = RUN):
         if eng.mode == RUN:
             print("TX:", eng.tc.to_ascii())
 
+            if (eng.tc.to_raw() & 0x0000FF00) == 0x00000A00:
+                # After 10s enable Power-Save
+                print("Entering powersave")
+                eng.set_powersave(True)
+
+                while eng.get_powersave():
+                    utime.sleep(0.1)
+
+                print("Exited powersave")
+                base = 0x40054000
+                for offset in [0x28, 0x1c, 0x20]:
+                    print(hex(base+offset), hex(machine.mem32[base + offset]))
+
         if eng.mode == HALTED:
+            eng.set_powersave(False)
             print("Underflow Error")
             break
 
@@ -1033,4 +1069,4 @@ if __name__ == "__main__":
     print("www.github.com/mungewell/pico-timecode")
     utime.sleep(2)
 
-    ascii_display_thread(1)
+    ascii_display_thread(0)

@@ -589,17 +589,21 @@ def OLED_display_thread(mode=pt.RUN):
                     rx_ub = ""
             else:
                 if timerA.debounce_signal(keyA.value()==0):
+                    last_button = now
                     if powersave_active == True:
+                        pt.eng.set_powersave(False)
+                        print("Exiting PowerSave")
                         OLED.on()
                         powersave_active = False
-                    last_button = now
-
-                    # enter the Menu...
-                    menu.reset()
-                    menu_hidden = False
+                    else:
+                        # enter the Menu...
+                        menu.reset()
+                        menu_hidden = False
 
                 if timerB.debounce_signal(keyB.value()==0):
                     if powersave_active == True:
+                        pt.eng.set_powersave(False)
+                        print("Exiting PowerSave")
                         OLED.on()
                         powersave_active = False
                     last_button = now
@@ -619,11 +623,22 @@ def OLED_display_thread(mode=pt.RUN):
                         if (now - 30) > last_button:
                             print("Entering PowerSave")
                             OLED.off()
+
+                            # Stop the RX StateMachines, as don't want to power them
+                            pt.eng.sm[4].active(0)
+                            pt.eng.sm[5].active(0)
+
                             powersave_active = True
+                            pt.eng.set_powersave(True)
 
                     # If power save is active, we don't update the screen
                     if powersave_active == True:
-                        continue
+                        utime.sleep(1)
+                        powersave_active = pt.eng.get_powersave()
+                        if powersave_active:
+                            continue
+                        else:
+                            print("Powersave Exited")
 
                 # Attempt to align display with the TX timing
                 t1 = pt.tx_ticks_us

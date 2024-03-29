@@ -70,7 +70,7 @@ def blink_led():
 
     label("read_new")
     wrap_target()
-    nop() #irq(rel(0))                     # set IRQ for ticks_us monitoring
+    irq(rel(0))                     # set IRQ for ticks_us monitoring
     out(y, 16)                      # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
@@ -874,7 +874,6 @@ def pico_timecode_thread(eng, stop):
     eng.offset1 = 0
     eng.offset2 = 0
     while not stop():
-        '''
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
             p = []
@@ -919,7 +918,6 @@ def pico_timecode_thread(eng, stop):
 
                     # clone Userbit Clock flag
                     eng.tc.bgf1 = eng.rc.bgf1
-        '''
 
         # Wait for TX FIFO to be empty enough to accept more
         while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < (7 - send_sync):
@@ -1045,15 +1043,25 @@ def ascii_display_thread(mode = RUN):
             if (eng.tc.to_raw() & 0x0000FF00) == 0x00000A00:
                 # After 10s enable Power-Save
                 print("Entering powersave")
+
+                # Stop the RX StateMachines, as don't want to power them
+                eng.sm[4].active(0)
+                eng.sm[5].active(0)
+
+                # disable Flash IRQ
+                #eng.sm[1].irq(handler=None, hard=True)
+
                 eng.set_powersave(True)
 
                 while eng.get_powersave():
                     utime.sleep(0.1)
 
                 print("Exited powersave")
+                '''
                 base = 0x40054000
                 for offset in [0x28, 0x1c, 0x20]:
                     print(hex(base+offset), hex(machine.mem32[base + offset]))
+                '''
 
         if eng.mode == HALTED:
             eng.set_powersave(False)

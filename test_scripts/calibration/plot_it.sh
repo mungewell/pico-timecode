@@ -6,7 +6,7 @@ do
 	echo > gnu.plt
 	echo -n "a=[" > yrange_${d}.py
 
-	echo "set term png small size 600,600" >> gnu.plt
+	echo "set term png large size 1024,1024" >> gnu.plt
 	echo "set output \"cal_${d}\"" >> gnu.plt
 	#echo "_cal.png\"" >> gnu.plt
 

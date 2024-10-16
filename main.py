@@ -702,7 +702,7 @@ def OLED_display_thread(mode=pt.RUN):
                     if tx_ticks == t1:
                         continue
 
-                # Draw the main TC counter
+                # Figure out what TX frame to display
                 while True:
                     t1 = pt.tx_ticks_us
                     offset = pt.tx_offset
@@ -713,12 +713,25 @@ def OLED_display_thread(mode=pt.RUN):
                         dc.from_raw(raw)
                         break
 
-                # correct read TC value, for frames queued in FIFO
-                dc.prev_frame()
+                # Figure out what RX frame to display
+                if pt.eng.mode > pt.RUN:
+                    while True:
+                        r1 = pt.rx_ticks_us
+                        rf1 = pt.eng.sm[5].rx_fifo()
+                        g = pt.eng.rc.to_raw()
+                        rf2 = pt.eng.sm[5].rx_fifo()
+                        r2 = pt.rx_ticks_us
+
+                        t2 = pt.tx_ticks_us
+                        if r1==r2 and rf1==rf2:
+                            break
+
+                # correct read TC value, allow for frames queued in FIFO
                 for i in range(offset):
                     dc.prev_frame()
                 asc = dc.to_ascii(False)
 
+                # Draw the main TC counter
                 # check which characters of the TC have changed
                 if tx_asc != asc:
                     for c in range(len(asc)):
@@ -746,22 +759,9 @@ def OLED_display_thread(mode=pt.RUN):
                         tx_ub = ub
 
 
-                # Figure out what RX frame to display
                 if pt.eng.mode > pt.RUN:
-                    while True:
-                        r1 = pt.rx_ticks_us
-                        rf1 = pt.eng.sm[5].rx_fifo()
-                        g = pt.eng.rc.to_raw()
-                        rf2 = pt.eng.sm[5].rx_fifo()
-                        r2 = pt.rx_ticks_us
-
-                        t2 = pt.tx_ticks_us
-                        if r1==r2 and rf1==rf2:
-                            dc.from_raw(g)
-                            break
-
                     # every code left in FIFO, means that we have outdated TC
-                    dc.next_frame()
+                    dc.from_raw(g)
                     for i in range(int(rf1/2)):
                         dc.next_frame()
 

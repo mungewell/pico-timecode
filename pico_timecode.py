@@ -731,8 +731,13 @@ class engine(object):
             stop = False
             self.asserted = False
 
-            rduty = 0
-            rcache = []
+            self.duty = 0
+            self.prev_duty = 0
+
+            self.raw1 = 0
+            self.raw2 = 0
+            self.offset1 = 0
+            self.offset2 = 0
 
     def frig_clocks(self, fps):
         # divider computed for CPU clock at 120MHz

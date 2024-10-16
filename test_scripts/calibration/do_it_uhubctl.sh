@@ -14,7 +14,7 @@ export TIME=700
 export CYCLES=20
 
 export HUBLOG=/dev/null
-export REPEATS=5	# instruct hub to 'turn off' port multiple times, to be sure
+export REPEATS=5		# instruct hub to 'turn off' port multiple times, to be sure
 
 export GRAB='/home/simon/grabserial-github/grabserial -Q -B 115200'
 
@@ -62,16 +62,34 @@ do
 		# Power particular unit off
 		bash -c "sudo uhubctl -l $hub -p $port -a off -r $REPEATS" >> $HUBLOG
 		bash -c "sudo uhubctl | grep -A 10 '$hub' | grep -m 1 'Port $port'"
-		sleep 2
+	done
+
+	for d in $units
+	do
+		export hub=`echo ${!d} | cut -d '.' -f 2- | rev`
+		export port=`echo ${!d} | cut -d '.' -f 1 | rev`
+		echo "Unit $d : Hub $hub, Port $port"
 
 		# Then turn unit back on
 		bash -c "sudo uhubctl -l $hub -p $port -a on -r $REPEATS" >> $HUBLOG
-		bash -c "sudo uhubctl | grep -A 10 '$hub' | grep -m 1 'Port $port'"
-		sleep 2
+		sleep 5
+		export check=`bash -c "sudo uhubctl | grep -A 10 '$hub' | grep -m 1 'Port $port'"`
+		echo $check
+
+		# Did it actually turn on? Try again....
+		if [[ $check != *"enable"* ]]; then
+			echo "  Check failed"
+			echo "Check failed" >> $HUBLOG
+			bash -c "sudo uhubctl -l $hub -p $port -a on -r $REPEATS" >> $HUBLOG
+			sleep 5
+		fi
+
+		# It appears that we can't trust that ttyACMx will be consistant
+		export tty=`ls /sys/bus/usb/devices/$hub.$port/$hub.$port\:1.0/tty/`
 
 		# Start recording from each unit (allowing time to start up)
-		echo "  Capturing from $d"
-		bash -c "sleep 20; cd $d; python3 $GRAB -d /dev/$d -e $TIME -t -o %" &
+		echo "  Capturing from $tty"
+		bash -c "sleep 20; cd $d; python3 $GRAB -d /dev/$tty -e $TIME -t -o %" &
 	done
 
 	# Wait for units finish (automatically time out)

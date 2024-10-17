@@ -61,7 +61,7 @@ do
 
 		# Power particular unit off
 		bash -c "sudo uhubctl -l $hub -p $port -a off -r $REPEATS" >> $HUBLOG
-		bash -c "sudo uhubctl | grep -A 10 '$hub' | grep -m 1 'Port $port '"
+		bash -c "sudo uhubctl | grep -A 10 '$hub ' | grep -m 1 'Port $port'"
 	done
 
 	for d in $units
@@ -73,7 +73,7 @@ do
 		# Then turn unit back on
 		bash -c "sudo uhubctl -l $hub -p $port -a on -r $REPEATS" >> $HUBLOG
 		sleep 5
-		export check=`bash -c "sudo uhubctl | grep -A 10 '$hub' | grep -m 1 'Port $port '"`
+		export check=`bash -c "sudo uhubctl | grep -A 10 '$hub ' | grep -m 1 'Port $port'"`
 		echo "  $check"
 
 		# Did it actually turn on? Try again....

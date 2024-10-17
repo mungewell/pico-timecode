@@ -74,7 +74,7 @@ do
 		bash -c "sudo uhubctl -l $hub -p $port -a on -r $REPEATS" >> $HUBLOG
 		sleep 5
 		export check=`bash -c "sudo uhubctl | grep -A 10 '$hub ' | grep -m 1 'Port $port'"`
-		echo "  $check"
+		echo "$check"
 
 		# Did it actually turn on? Try again....
 		if [[ $check != *"enable"* ]]; then

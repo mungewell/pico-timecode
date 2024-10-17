@@ -616,7 +616,7 @@ def OLED_display_thread(mode=pt.RUN):
         next_mon = None
         next_mon_raw = 0
 
-        pid = PID(500, 12.5, 0.0, setpoint=0)
+        pid = PID(500, 20, 0.0, setpoint=0)
         pid.auto_mode = False
         pid.sample_time = 1
         pid.output_limits = (-50.0, 50.0)
@@ -629,13 +629,13 @@ def OLED_display_thread(mode=pt.RUN):
             except:
                 pass
             try:
-                pt.eng.micro_adjust(config.calibration[format], period)
+                pt.eng.micro_adjust(config.calibration[format], period * 1000) # in ms
             except:
                 pass
 
         phase = Rolling(30 * period)  	# sized for max fps, but really
                                         # we only get ~4fps with RX/CAL mode
-        adj_avg = Rolling(240)          # average over 4 minutes
+        adj_avg = Rolling(120)          # average over 2 minutes
 
         while True:
             now = utime.time()
@@ -808,10 +808,15 @@ def OLED_display_thread(mode=pt.RUN):
                                 if pid.auto_mode == False:
                                     pid.set_auto_mode(True, last_output=pt.eng.duty)
 
-                                phase.purge(now - period)
-                                adjust = pid(phase.read())
-
-                                pt.eng.micro_adjust(adjust, period * 1000)
+                                if jam_started and (now - 400) > jam_started:
+                                    phase.purge(now - period)
+                                    adjust = pid(phase.read())
+                                    pt.eng.micro_adjust(adjust, period * 1000)
+                                else:
+                                    # start calibration with 1s period
+                                    phase.purge(now - 1)
+                                    adjust = pid(phase.read())
+                                    pt.eng.micro_adjust(adjust, 1000)
 
                                 print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
                                       temp_avg.store_read(sensor.read()), \

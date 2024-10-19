@@ -61,7 +61,7 @@ def start_from_pin():
     jmp("halt") [31]
 
 
-@rp2.asm_pio(set_init=(rp2.PIO.OUT_LOW,)*2, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+@rp2.asm_pio(set_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def blink_led():
     out(x, 16)                      # first cycle lenght may be slightly

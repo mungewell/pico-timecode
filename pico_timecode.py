@@ -219,7 +219,7 @@ def irq_handler(m):
             tx_offset = eng.offset1
             tx_raw = eng.raw1
         elif eng.raw1 == eng.raw2:
-            tx_offset = eng.offset2
+            tx_offset = eng.offset1
             tx_raw = eng.raw1
         else:
             tx_offset = eng.offset2
@@ -249,10 +249,12 @@ def timer_re_init(timer):
     if eng.is_running() == False:
         return
 
+    # if timer1 exists it means we are dithering
+    # between two values
     if timer == eng.timer1:
         lock = eng.dlock.acquire(0)
         if lock:
-            if eng.prev_duty < 0:
+            if eng.duty > 0:
                 eng.dec_divider()
             else:
                 eng.inc_divider()
@@ -260,13 +262,13 @@ def timer_re_init(timer):
 
         eng.timer1 = None
 
-    elif timer == eng.timer2:
+    if timer == eng.timer2:
         if eng.timer1:
-            # ensure timer1 has completed
+            # ensure timer1 has completed first
             schedule(timer_re_init, timer)
         else:
             eng.timer2 = None
-            eng.micro_adjust(eng.duty)
+            eng.micro_adjust(eng.next_duty)
 
 #---------------------------------------------
 
@@ -694,7 +696,7 @@ class engine(object):
         self.sm = None
 
         self.duty = 0
-        self.prev_duty = 0
+        self.next_duty = 0
 
         self.period = 10000 # 10s, can be update by client
         self.timer1 = None
@@ -731,19 +733,33 @@ class engine(object):
             stop = False
             self.asserted = False
 
-            rduty = 0
-            rcache = []
+            self.duty = 0
+            self.next_duty = 0
 
-    def frig_clocks(self, fps):
+            self.raw1 = 0
+            self.raw2 = 0
+            self.offset1 = 0
+            self.offset2 = 0
+
+    def frig_clocks(self, fps, offset=0):
         # divider computed for CPU clock at 120MHz
-        if fps == 29.97:
+        if fps == 30.00:
+            new_div = 0x061a8000
+        elif fps == 29.97:
             new_div = 0x061c1000
+        elif fps == 25.00:
+            new_div = 0x07530000
         elif fps == 24.98:
             new_div = 0x0754e000
+        elif fps == 24.00:
+            new_div = 0x07a12000
         elif fps == 23.98:
             new_div = 0x07a31400
         else:
             return
+
+        # apply offset, from calibration/duty
+        new_div -= int(offset) << 8
 
         # Set dividers for all PIO machines
         for base in [0x50200000, 0x50300000]:
@@ -782,52 +798,37 @@ class engine(object):
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
 
-    def crude_adjust(self, duty):
-        dif = int(duty) - int(self.prev_duty)
-        self.prev_duty = duty
-
-        if dif==0:
-            return
-
-        self.dlock.acquire()
-        for i in range(abs(dif)):
-            if dif > 0:
-                self.dec_divider()
-            else:
-                self.inc_divider()
-        self.dlock.release()
-
     def micro_adjust(self, duty, period=0):
         if self.stopped:
             return
 
-        self.duty = duty
+        self.next_duty = duty
         if period > 0:
             # in ms, only change if specified
             self.period = period
 
         if self.timer1 == None and self.timer2 == None:
+            self.duty = duty
+
+            # re-init clock dividers
+            self.dlock.acquire()
+            self.frig_clocks(self.tc.fps, duty)
+            self.dlock.release()
+
             # re-init timers
-            self.crude_adjust(duty)
-
-            part = int(self.period * (abs(duty) % 1))
-            if part > 0:
-                self.dlock.acquire()
-                if duty > 0:
-                    self.dec_divider()
-                else:
-                    self.inc_divider()
-                self.dlock.release()
-
-                self.timer1 = Timer()
-                self.timer1.init(period=part, mode=Timer.ONE_SHOT, callback=timer_sched)
-
             self.timer2 = Timer()
             self.timer2.init(period=self.period, mode=Timer.ONE_SHOT, callback=timer_sched)
+
+            # are we dithering between two clock values?
+            part = int(self.period * (1 - (abs(duty) % 1)))
+            if part > 0:
+                self.timer1 = Timer()
+                self.timer1.init(period=part, mode=Timer.ONE_SHOT, callback=timer_sched)
 
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
+    global raw, tx_offset
 
     eng.set_stopped(False)
 
@@ -861,8 +862,7 @@ def pico_timecode_thread(eng, stop):
     #eng.crude_adjust(eng.duty)
 
     # Loop, increasing frame count each time
-    eng.offset1 = 0
-    eng.offset2 = 0
+    tx_offset = 0
     while not stop():
 
         # Empty RX FIFO as it fills
@@ -922,8 +922,8 @@ def pico_timecode_thread(eng, stop):
 
             eng.offset1 = eng.offset1 + 1
             eng.raw1 = eng.tc.to_raw()
-            eng.offset2 = eng.offset2 + 1
             eng.raw2 = eng.tc.to_raw()
+            eng.offset2 = eng.offset2 + 1
 
             # Does the LED flash for this frame?
             eng.tc.acquire()

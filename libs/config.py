@@ -2,6 +2,7 @@ setting = {
     'framerate' : ['30', ['30', '29.97', '25', '24.98', '24', '23.98']],
     'dropframe' : ['No', ['No', 'Yes']],
     'tc_start'  : "01000000",
+    'output'    : ['Line', ['Mic', 'Line']],
     'flashframe': ['11', ['Off', '0', '11']],
     'userbits'  : ['Name', ['Name', 'Digits', 'Date']],
     'powersave' : ['No', ['No', 'Yes']],

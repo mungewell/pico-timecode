@@ -69,6 +69,7 @@ import rp2
 import gc
 
 # Set up (extra) globals
+outamp = None
 menu = None
 powersave = False
 zoom = False
@@ -190,6 +191,53 @@ class MenuLoop(Menu):
 
         self.current_screen.up() if direction < 0 else self.current_screen.down()
         self.draw()
+
+#---------------------------------------------
+# Class for controlling MCP6S91 programable Amp
+# (as used on official PCB)
+
+class MCP6S91():
+    GAIN_ADDR = b"\x40"
+    GAINVALS = (1, 2, 4, 5, 8, 10, 16, 32)
+
+    def __init__(self):
+        self.cs = machine.Pin(5, Pin.OUT)
+        self.cs.value(1)
+
+        self.spi = machine.SPI(0, baudrate=10000, polarity=0, phase=0, bits=8,
+                  firstbit=machine.SPI.MSB, sck=machine.Pin(6), mosi=machine.Pin(7))
+
+        self.power = False
+        self.psu = Pin(23,Pin.OUT, value=1)
+
+        self.powerdown(False)
+
+    def gain(self, value):
+        try:
+            gainval = MCP6S91.GAINVALS.index(value)
+        except ValueError:
+            raise ValueError('MCP6S91 invalid gain {}'.format(value))
+
+        self.cs.value(0)
+        self.spi.write(MCP6S91.GAIN_ADDR)
+        self.spi.write(gainval.to_bytes(1,"little"))
+        self.cs.value(1)
+
+    def powerdown(self, powerdown=True):
+        if powerdown:
+            self.cs.value(0)
+            self.spi.write(b"\x01\x00")     # Power Down
+            self.cs.value(1)
+
+            self.power = False
+            self.psu.value(0)
+        else:
+            self.cs.value(0)
+            self.spi.write(b"\x00\x00")     # NOP/Power Up
+            self.cs.value(1)
+
+            self.power = True
+            self.psu.value(1)
 
 #---------------------------------------------
 # Class for performing rolling averages
@@ -330,6 +378,16 @@ def callback_tc_start(set):
         pt.eng.tc.from_ascii(set, False)
 
 
+def callback_setting_output(set):
+    global outamp
+
+    if set=="Mic":
+        outamp.gain(1)
+    elif set=="Line":
+        outamp.gain(10)
+    else:
+        outamp.gain(int(set))
+
 def callback_setting_powersave(set):
     global powersave
 
@@ -412,16 +470,26 @@ def callback_exit():
 def OLED_display_thread(mode=pt.RUN):
     global menu, menu_hidden
     global powersave, zoom, calibrate
+    global outamp
 
     pt.eng = pt.engine()
     pt.eng.mode = mode
     pt.eng.set_stopped(True)
+
+    # Output Amp
+    outamp = MCP6S91()
+    detIn  = Pin(16,Pin.IN,Pin.PULL_UP)
+    detOut = Pin(14,Pin.IN,Pin.PULL_UP)
+
+    # Force PWM mode on PSU, for cleaner 3V3
+    psu = Pin(23,Pin.OUT, value=1)
 
     # apply saved settings
     callback_fps_df(config.setting['framerate'][0])
     callback_fps_df(config.setting['dropframe'][0])
     callback_tc_start(config.setting['tc_start'])
 
+    callback_setting_output(config.setting['output'][0])
     callback_setting_flashframe(config.setting['flashframe'][0])
     callback_setting_userbits(config.setting['userbits'][0])
     callback_setting_powersave(config.setting['powersave'][0])
@@ -488,6 +556,8 @@ def OLED_display_thread(mode=pt.RUN):
                 alphabet=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"])))
 
         .add(SubMenuItem("Unit Settings")
+            .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
+                selected=config.setting['output'][1].index(config.setting['output'][0])))
             .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
                 selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
             .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
@@ -545,7 +615,7 @@ def OLED_display_thread(mode=pt.RUN):
         next_mon = None
         next_mon_raw = 0
 
-        pid = PID(500, 12.5, 0.0, setpoint=0)
+        pid = PID(500, 20, 0.0, setpoint=0)
         pid.auto_mode = False
         pid.sample_time = 1
         pid.output_limits = (-50.0, 50.0)
@@ -558,13 +628,13 @@ def OLED_display_thread(mode=pt.RUN):
             except:
                 pass
             try:
-                pt.eng.micro_adjust(config.calibration[format], period)
+                pt.eng.micro_adjust(config.calibration[format], period * 1000) # in ms
             except:
                 pass
 
         phase = Rolling(30 * period)  	# sized for max fps, but really
                                         # we only get ~4fps with RX/CAL mode
-        adj_avg = Rolling(240)          # average over 4 minutes
+        adj_avg = Rolling(120)          # average over 2 minutes
 
         while True:
             now = utime.time()
@@ -605,8 +675,8 @@ def OLED_display_thread(mode=pt.RUN):
                     last_button = now
 
                 # Hold B for 3s to (re)start jam
-                if pt.eng.mode <= pt.MONITOR and timerH.hold_signal(keyB.value()==0) \
-                        and not powersave_active:
+                if pt.eng.mode <= pt.MONITOR and timerH.hold_signal(keyB.value()==0) and \
+                        not powersave_active and detIn.value() == 0:
                     callback_jam()
 
                 # Debug - freeze screen
@@ -631,7 +701,7 @@ def OLED_display_thread(mode=pt.RUN):
                     if tx_ticks == t1:
                         continue
 
-                # Draw the main TC counter
+                # Figure out what TX frame to display
                 while True:
                     t1 = pt.tx_ticks_us
                     offset = pt.tx_offset
@@ -642,11 +712,25 @@ def OLED_display_thread(mode=pt.RUN):
                         dc.from_raw(raw)
                         break
 
-                # correct read TC value, for frames queued in FIFO
+                # Figure out what RX frame to display
+                if pt.eng.mode > pt.RUN:
+                    while True:
+                        r1 = pt.rx_ticks_us
+                        rf1 = pt.eng.sm[5].rx_fifo()
+                        g = pt.eng.rc.to_raw()
+                        rf2 = pt.eng.sm[5].rx_fifo()
+                        r2 = pt.rx_ticks_us
+
+                        t2 = pt.tx_ticks_us
+                        if r1==r2 and rf1==rf2:
+                            break
+
+                # correct read TC value, allow for frames queued in FIFO
                 for i in range(offset):
                     dc.prev_frame()
                 asc = dc.to_ascii(False)
 
+                # Draw the main TC counter
                 # check which characters of the TC have changed
                 if tx_asc != asc:
                     for c in range(len(asc)):
@@ -674,22 +758,9 @@ def OLED_display_thread(mode=pt.RUN):
                         tx_ub = ub
 
 
-                # Figure out what RX frame to display
                 if pt.eng.mode > pt.RUN:
-                    while True:
-                        r1 = pt.rx_ticks_us
-                        rf1 = pt.eng.sm[5].rx_fifo()
-                        g = pt.eng.rc.to_raw()
-                        rf2 = pt.eng.sm[5].rx_fifo()
-                        r2 = pt.rx_ticks_us
-
-                        t2 = pt.tx_ticks_us
-                        if r1==r2 and rf1==rf2:
-                            dc.from_raw(g)
-                            break
-
                     # every code left in FIFO, means that we have outdated TC
-                    dc.next_frame()
+                    dc.from_raw(g)
                     for i in range(int(rf1/2)):
                         dc.next_frame()
 
@@ -736,10 +807,15 @@ def OLED_display_thread(mode=pt.RUN):
                                 if pid.auto_mode == False:
                                     pid.set_auto_mode(True, last_output=pt.eng.duty)
 
-                                phase.purge(now - period)
-                                adjust = pid(phase.read())
-
-                                pt.eng.micro_adjust(adjust, period * 1000)
+                                if jam_started and (now - 400) > jam_started:
+                                    phase.purge(now - period)
+                                    adjust = pid(phase.read())
+                                    pt.eng.micro_adjust(adjust, period * 1000)
+                                else:
+                                    # start calibration with 1s period
+                                    phase.purge(now - 1)
+                                    adjust = pid(phase.read())
+                                    pt.eng.micro_adjust(adjust, 1000)
 
                                 print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
                                       temp_avg.store_read(sensor.read()), \

@@ -2,9 +2,15 @@
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
 and the PIO blocks on the Pico make it very possible...
 
-# DIY Timecode made real.
+# DIY Timecode made real (cheap).
 
-The Rev-1 PCBs arrived, and the first is assembled and working.
+The Rev-1 PCBs have been assembled and tested, although the project can run on a un-modified Pi Pico -
+optionally with a [display](docs/Display.md).
+
+The primary concern would be the accuracy/stability of the XTAL, testing so far shows that the stock
+XTAL on the Pico is not temperature stable enough. A few degrees of temperate change is enough to throw
+the [calibration](https://github.com/mungewell/pico-timecode/blob/main/docs/Calibration.md) off, which
+will result in the timecode eventually drifting off.
 
 ![Rev-1 Board Assembled](docs/pics/first_board.jpg)
 
@@ -18,15 +24,14 @@ that it WORKS!!! :-)
 ![Render of Rev1](hardware/output/rev1-render.png)
 
 The code now contains a 'calibrate' mode, where the incoming RX LTC is monitored and the XTAL
-frequencies are adjusted to match, these seems to work pretty well... but I am still working
-with the passive/stock XTALs on the PICO.
+frequencies are adjusted to match. The stock XTAL can be used in the short term for testing/etc,
+but a replacement TCXO is/would be better.
 
-Not yet looked at using a more precise/temp compensated XTAL... but once 'calibrated' the
-stock XTAL performs OK on the bench (likely will have difficulties with changing temp).
+I am qualifying a number of replacement candiates.
 
 [Demo Video - Rev 1](https://www.youtube.com/watch?v=2LLGX8mJC4A)
 
-The `main.py` has a menu which can be used to control the device, and to navigate the settings. 
+The `main.py` scripts has a menu which can be used to control the device, and to navigate the settings. 
 The incoming LTC is now validated before Jam is performed, and the RX monitor has indicator bar to 
 show the relative timing between RX and TX.
 
@@ -59,10 +64,10 @@ its own on a 'bare' Pico board.
 My intent is that the project could be used to build your own devices. The proof-of-concept script(s) can 
 just be dropped onto a 'bare-bones' Pico.
 
-There's some [DIY suggestions](docs/DIY.md)
+There's some [DIY suggestions](docs/DIY.md).
 
 If you do use my code for a personal project, drop me an email/picture.
-If you make a device to sell, please send me an sample to test.
+If you make a device to sell, please send me a sample to test (and promote).
 
 # How it works
 
@@ -75,7 +80,7 @@ The `pico_timecode.py` script just needs to monitor the FIFOs, to keep them feed
 
 The `main.py` forms the user interface/application, and controls the OLED screen
 
-There's an indepth description on the [workings](docs/how_it_works.md)
+There's an indepth description on the [workings](docs/how_it_works.md).
 
 ## So how good is it?
 
@@ -87,7 +92,8 @@ interoperate.
 
 My approach will be to get the code to a point where it will 'Jam' to incoming LTC and then 'free-run' it's
 output LTC. The code itself has the ability to monitor the RX LTC, however the display is not fast enough
-to display every frame (this does NOT affect the output though, as that's running from different core/thread).
+to display every frame (this does NOT affect the output though, as that's running with the PIO block with
+TC frames fed from different core/thread).
 
-For more details see [testing](docs/testing.md)
+For more details see [testing](docs/testing.md).
 

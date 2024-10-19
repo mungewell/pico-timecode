@@ -26,7 +26,7 @@ have the ability to measure the timing of the structure of the frame, the RX dec
 
 We take the timing of the TX frame and compare it to the timing of the RX frame, and call this _phase_. If the frames perfectly align the _phase_ would 
 be 0, and as the RX frames are early (upto 1/2 frame) the phase changes to -0.5 and if late to +0.5. This is used to display the bargraph shown on
-the RX monitor [display](https://github.com/mungewell/pico-timecode/blob/main/docs/DISPLAY.md).
+the RX monitor [display](https://github.com/mungewell/pico-timecode/blob/main/docs/Display.md).
 
 ## Calibration to perfect
 
@@ -60,12 +60,12 @@ This value will be used in future to compensate for an inaccurate XTAL, and to p
 run multiple times (with the test scripts) we get slight different values. Evaluating this _spread_ can tell us a bit about the process and
 let us assess multiple values to hand configure an even better calibration value.
 
-![Plot of successive calibration cycles](https://github.com/mungewell/pico-timecode/blob/pcb_rev1/docs/pics/cal_ttyACM0_anot.png)
+![Plot of successive calibration cycles](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/cal_ttyACM0_anot.png)
 
 With testing the stock Pico boards, at a single temperature (more on that later), the _spread_ of the calibration values is somewhere in the
 0.05 to 0.08 range. With some math, we can see that this is actually __very__ precise and gives us sub-1PPM adjustment of the XTAL.
 
-![Spreadsheet assessing the spread in compensation values](https://github.com/mungewell/pico-timecode/blob/pcb_rev1/docs/pics/calibration_accuracy.png)
+![Spreadsheet assessing the spread in compensation values](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/calibration_accuracy.png)
 
 When we start testing at changing temperature, we see that the stock XTAL has some bigger issues. Even a few degrees change can push the calibration 
 value significantly - meaning that if we had calibrated at a different temp, then the resultant LTC stream will be fast/slow and eventually the 

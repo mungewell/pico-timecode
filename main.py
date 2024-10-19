@@ -933,4 +933,8 @@ def OLED_display_thread(mode=pt.RUN):
 #---------------------------------------------
 
 if __name__ == "__main__":
+    print("Pico-Timecode")
+    print("www.github.com/mungewell/pico-timecode")
+    utime.sleep(2)
+
     OLED_display_thread()

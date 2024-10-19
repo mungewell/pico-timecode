@@ -344,9 +344,10 @@ def callback_jam():
         while pt.eng.is_running():
             utime.sleep(0.1)
 
-    # Ensure that there's time for current frame interrupt to complete
-    utime.sleep(0.5)
+    # Force Garbage collection
+    gc.collect()
 
+    # Turn off Jam if already enabled
     pt.eng.sm = []
     pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
                                jmp_pin=machine.Pin(21)))        # Sync from RX LTC

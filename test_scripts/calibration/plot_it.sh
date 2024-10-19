@@ -30,6 +30,7 @@ do
 	echo "print('set yrange['+str(min(a)-0.2)+':'+str(max(a)+0.2)+']')" >> yrange_${d}.py
 	echo "print('set title \\\"Minimum Calibration', min(a), '\\\"')" >> yrange_${d}.py
 	echo "print('set title \\\"Maximum Calibration', max(a), '\\\"')" >> yrange_${d}.py
+	echo "print('set title \\\"Median Calibration', (min(a) + max(a))/2, '\\\"')" >> yrange_${d}.py
 	echo "print('set title \\\"Average Calibration', sum(a)/len(a), '\\\"')" >> yrange_${d}.py
 
 	echo "set xrange[400:600]" >> gnu.plt

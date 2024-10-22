@@ -1,84 +1,86 @@
+# Testing Pico-Timecode with stock Pico's
 
-Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
-and the PIO blocks on the Pico make it very possible...
+The scripts `main.py` and `pico_timecode.py` can be run on stock/non-modified Pico's, this might
+be helpful to those wanting to play a little before building the audio interface circuits.
 
-# Now we're JAM'ing in the real world.
+Each Pico can both send and receive LTC, however in this test we'll use one as a 'sender' and
+one as a 'receiver (and monitor the difference in the time codes)'.
 
-We've moved past the Proof-of-concept stage! Well past....
+The LTC output/input is regular 3.3V logic so connect the following pins, and a common ground
+between the boards. 
 
-![Prototype Hardware](docs/pics/prototype_hardware.jpg)
+From 'sender':
+```
+# Pin 17 = GP13 - TX: LTC_OUTPUT (physical connection)
+```
+To 'receiver':
+```
+# Pin 24 = GP18 - RX: LTC_INPUT  (physical connection)
+```
 
-Mk-1 of the audio inteface is built, and I was able to Jam with the LTC from my Sync-IO, and feed
-the regenerated LTC to an Evertz 5300 LTC Analyzer. After Jam the LTC is spot on, but (as expected)
-'drifted off' as time went by.
+Install the scripts (and library directory) on each Pico, then adjust the `libs/config.py`
+file on the 'receiver' to enable the monitor function.
+```
+setting = {
+    'framerate' : ['30', ['30', '29.97', '25', '24.98', '24', '23.98']],
+    'dropframe' : ['No', ['No', 'Yes']],
+    'tc_start'  : "01000000",
+    'output'    : ['Line', ['Mic', 'Line']],
+    'flashframe': ['11', ['Off', '0', '11']],
+    'userbits'  : ['Name', ['Name', 'Digits', 'Date']],
+    'powersave' : ['No', ['No', 'Yes']],
+    'zoom'      : ['No', ['No', 'Yes']],
+    'monitor'   : ['Yes', ['No', 'Yes']],
+    'calibrate' : ['No', ['No', 'Once', 'Always']],
+    'ub_name'   : "PI-C",
+    'ub_digits' : "00000000",
+    'ub_date'   : "Y74-M01-D01+0000",
+```
 
-The project stalled in the summer, there was a scheduler bug in MicroPython which was causing
-occassional lock-ups, and I couldn't figure it out.... anyhow they're smarter than me and the 
-`RPI_PICO-20240105-v1.22.1.uf2` release works fine.
+The LED on the Pico's will flash once per second, to represent the passing time. By default I 
+set this for frame 11 to match the UltraSync One's operation, but it can be changed in the 
+`libs/config.py` file.
 
-I've added some compensation for XTAL frequencies, the device can 'Sync after Jam' to learn the
-correction factor required to match RX/incoming LTC. It then remembers this as part of it's config.
+## Out of Sync
 
-Not yet looked at using a more precise/temp compensated XTAL...
+When you turn on both Pico's, after a short delay you will see the LED flashing... but they 
+will likely not be synchonized!
+
+We need to instruct the 'receiver' to 'Jam' to the incoming LTC (albeit 3.3V logic signal).
+
+When the Pico boots it checks (what would be) Button-B, if this is held low it will enter
+the 'Jam' process. During 'Jam' the LED is continuously on, and it will then start flashing
+in sync with the 'sender' board.
+```
+# Pin 22 = GP17 - User key 'B'
+```
+
+## UART data
+
+In order to aid testing, during 'monitor mode' the Pico will output information on it's
+LTC input and how it compares to it's own LTC output. _This information is for debug, it
+is not delivered in a timely manner._
+
+A serial terminal (or Thonny) will give something like:
+```
+Pico-Timecode
+www.github.com/mungewell/pico-timecode
+01:00:12:01 -0.0002933331 0.02522542 0 26.58253
+01:00:13:02 6.666687e-05 0.011475 0 27.28474
+01:00:14:03 -5.333312e-05 0.007575238 0 27.51881
+01:00:15:00 0.0004266668 0.005864775 0 27.63585
+01:00:16:00 3.666617e-05 0.004790071 0 27.70607
+01:00:17:01 0.0009366665 0.004065087 0 27.98696
+01:00:18:01 0.0004566666 0.003559204 0 27.89333
+```
+
+Note: During 'calibration' (when matching XTALs freq) there is more information such as
+PID state.
+
 
 [Demo Video](https://youtu.be/miWlGS6fJNI)
 [Demo2 Video](https://www.youtube.com/watch?v=WEdSII-7nx4)
 
-
-The script(s) now has a menu which can be used to control the device, and to navigate the settings. 
-The incoming LTC is now validated before Jam is performed, and the RX monitor has indicator bar to 
-show the relative timing between RX and TX.
-
-This code is in five files; upload all seven if you have the same hardware.
-
-`PicoOled13.py` is library of screen functions, `umenu.py` is menuing library, `neotimer.py` is timer
-library, `pid.py` is a PID controller and `config.py` holds the settings for the unit.
-
-`pico_timecode.py` and `main.py` combine to make the GUI app.
-
-The first 5 are from other projects, which I use permissively under their own licenses:
-
-- https://github.com/samveen/pico-oled-1.3-driver (*)
-- https://github.com/plugowski/umenu
-- https://github.com/jrullan/micropython_neotimer
-- https://github.com/m-lundberg/simple-pid
-- https://github.com/aleppax/upyftsconf
-
-(*) actually using my port, as some changes are not yet accepted upstream
-
-I created a sub-directory for the 'libs' to clarify that they are not really part of this project.
-
-![Save to Pico](docs/pics/save_to_pico.PNG)
-
-The `pico_timecode.py` script is also self contained for use without a display, ie can be used on 
-its own on a 'bare' Pico board.
-
-In the following screen shot the top trace is the 'raw' bitstream, and the lower is the encoded 
-LTC stream. We will need some interfacing hardware before the TTL level can be fed nicely into other 
-hardware. 
-
-# Build Your Own
-
-My intent is that the project could be used to build your own devices. The proof-of-concept script(s) can 
-just be dropped onto a 'bare-bones' Pico.
-
-There's some DIY suggestions [here](docs/DIY.md)
-
-If you do use my code for a personal project, drop me an email/picture.
-If you make a device to sell, please send me an sample to test.
-
-# How it works
-
-It's fair to say that this task should be far above a $3 MCU.
-
-All of the LTC decoding is done in the PIO blocks, each has it's own task. Communincation
-between the PIO is via their in/out pins, and with interrupts. 
-
-The `pico_timecode.py` script just needs to monitor the FIFOs, to keep them feed or emptied.
-
-The `main.py` forms the user interface/application, and controls the OLED screen
-
-There's an indepth description on the workings [here](docs/PIO.md)
 
 ## So how good is it?
 
@@ -95,8 +97,6 @@ issue. Otherwise we'll have to look at compensating somehow, or replacing the cr
 My approach will be to get the code to a point where it will 'Jam' to incoming LTC and then 'free-run' it's
 output LTC. Using my test equipment I can monitor the LTC value from my source, as well as from the 
 'Pico-Timecode' device.
-
-For more details see [testing](docs/testing.md)
 
 ![Test Equipment](docs/pics/test_equipment.png)
 

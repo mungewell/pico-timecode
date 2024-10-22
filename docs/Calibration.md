@@ -67,12 +67,23 @@ With testing the stock Pico boards, at a single temperature (more on that later)
 
 ![Spreadsheet assessing the spread in compensation values](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/calibration_accuracy.png)
 
-When we start testing at changing temperature, we see that the stock XTAL has some bigger issues. Even a few degrees change can push the calibration 
-value significantly - meaning that if we had calibrated at a different temp, then the resultant LTC stream will be fast/slow and eventually the 
-reported time/frame will be inaccurate.
+For these two units 'P-05' is a stock XTAL, and 'T-02' is modified with a TCXO module. For a static temp, on the bench test cycle
+both units calibrated with similar accuracy. The 'spread' of the (multiple/concequtive) calibrations is quite silimar ~0.08 units.
+which I believe is down to the noise in how the system measures the phase of the RX LTC stream.
 
-The industry accepted drift would be in the '1 frame in 8hrs' region. 8hrs is '8 * 3600 * framerate = 864000', so for accuracy we'd want
-'864001 / 864000 = 1.000001157' (around 1.1PPM).
+This spread (of ~0.08) roughly equates to a variance +/-96ppb (+/-0.096ppm), which would be excellent.
 
-It is possible to replace the stock XTAL with a TCXO (temperature compensated module), see discussions in ticket #4. I have started testing
-with modified boards, which appear to operate in a much more consitant manner.
+However the stock XTAL shows it's weakness when the temperature changes, in a test where the temperature increased by ~10'C
+during the calibrations cycles, the 'spread' for the stock XTAL increase to over 0.8! It is clear from the following plot
+that the calibration is very much affected by changing temperature.
+
+![Changing temp with stock XTAL](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/temp_vs_cal_ttyACM0.png)
+
+Even a few degrees change can push the calibration value significantly - meaning that if we had previous calibrated at a 
+different temp, then the resultant LTC stream will be fast/slow and eventually the reported time/frame will be inaccurate.
+
+The industry accepted drift would be in the '1 frame in 8hrs' region. 8hrs is '8 * 3600 * framerate = 864000', so for 
+accuracy we'd want '864001 / 864000 = 1.000001157' (around 1.1PPM).
+
+It is possible to replace the stock XTAL with a TCXO (temperature compensated module), see discussions in ticket #4.
+I have started testing with modified boards, which appear to operate in a much more consitant manner.

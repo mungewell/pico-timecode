@@ -519,7 +519,7 @@ def OLED_display_thread(mode=pt.RUN):
 
     OLED = OLED_1inch3_SPI()
     OLED.fill(0x0000)
-    OLED.text("Pico-Timecode",64,0,OLED.white,0,2)
+    OLED.text("Pico-Timecode " + pt.VERSION,64,0,OLED.white,0,2)
     OLED.text("www.github.com/",0,24,OLED.white,0,0)
     OLED.text("mungewell/",64,36,OLED.white,0,2)
     OLED.text("pico-timecode",128,48,OLED.white,0,1)
@@ -933,7 +933,7 @@ def OLED_display_thread(mode=pt.RUN):
 #---------------------------------------------
 
 if __name__ == "__main__":
-    print("Pico-Timecode")
+    print("Pico-Timecode " + pt.VERSION)
     print("www.github.com/mungewell/pico-timecode")
     utime.sleep(2)
 

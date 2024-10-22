@@ -14,6 +14,8 @@ micropython.alloc_emergency_exception_buf(100)
 from machine import Timer
 from micropython import schedule
 
+VERSION="v2.0+"
+
 # set up Globals
 eng = None
 stop = False
@@ -1029,7 +1031,7 @@ def ascii_display_thread(mode = RUN):
 #---------------------------------------------
 
 if __name__ == "__main__":
-    print("Pico-Timecode")
+    print("Pico-Timecode " + VERSION)
     print("www.github.com/mungewell/pico-timecode")
     utime.sleep(2)
 

@@ -3,39 +3,44 @@
 #
 # https://github.com/mungewell/pico-timecode
 
-# implement a basic UI on hardware with Pico-OLED-1.3
+# Basic UI implemented on hardware with 'Pico-OLED-1.3'
 #
 # Pico-OLED-1.3 is connected as follows:
-# GP6  - I2C_SDA
-# GP7  - I2C_CLK
-# GP8  - OLED_DC
-# GP9  - CS
-# GP10 - OLED_CLK
-# GP11 - OLED_DIN
-# GP13 - RESET
-# GP15 - User key 'A'
-# GP17 - User key 'B'
+# Pin9  / GP6  - I2C_SDA (not actually used)
+# Pin10 / GP7  - I2C_CLK (not actually used)
+# Pin11 / GP8  - OLED_DC
+# Pin12 / GP9  - CS
+# Pin14 / GP10 - OLED_CLK
+# Pin15 / GP11 - OLED_DIN
+# Pin17 / GP13 - RESET
+# Pin20 / GP15 - User key 'A'
+# Pin22 / GP17 - User key 'B'
 #
 # GP25 - Onboard LED
 #
-# We'll allocate the following to the PIO blocks
+# We'll allocate the following to the PIO blocks:
 #
 # GP18 - RX: LTC_INPUT  (physical connection)
 # GP19 - RX: raw/decoded LTC input (debug)
 # GP20 - ditto - Hack to accomodate running out of memory
 # GP21 - RX: sync from LTC input (debug)
 #
-# GP22 - TX: raw LTC bitstream output (debug)
-# GP13 - TX: LTC_OUTPUT (physical connection)
+# Pin29 / GP22 - TX: raw LTC bitstream output (debug)
+# Pin17 / GP13 - TX: LTC_OUTPUT (physical connection)
 #
-# In the future we will also use:
+# In PCB Rev1 we will also use:
 #
-# GP14 - OUT_DET (reserved)
-# GP16 - IN_DET (reserved)
-# GP26 - BLINK_LED (reserved)
-# (this will enable both Pico and off board LED simulataneously)
+# Pin19 / GP14 - OUT_DET (shorted to GND when J1 is connected)
+# Pin21 / GP16 - IN_DET (shorted to GND when J2 is connected)
+# Pin32 / GP26 - BLINK_LED (additional LED on front of PCB, near J1)
 #
-# We will also use the I2C bus to 'talk' to other devices...
+# For controlling the Output Amp:
+#
+# Pin7  / GP6  - ENABLE (fly wire as PCB error)
+# Pin14 / GP10 - Shared with OLED_CLK
+# Pin15 / GP11 - Shared with OLED_DIN
+#
+# In the future we may also use the I2C bus to 'talk' to other devices...
 #
 
 # We need to install the following modules

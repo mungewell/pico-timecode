@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # Modified testing script, which uses 'uhubctl' to switch on/off the power to specific hub ports
 # requires spec hardware which supports this function
 #
@@ -17,30 +19,36 @@ export HUBLOG=/dev/null
 export REPEATS=5		# instruct hub to 'turn off' port multiple times, to be sure
 
 export GRAB='/home/simon/grabserial-github/grabserial -Q -B 115200'
+export GRABLOG=/dev/null
 
 # check user
 if [ `whoami` != "root" ]; then
     echo "UHUBCTL may not function as mere-user..."
 fi
 
-# Create target directories and enumerate units
-export units=`cd /dev;ls ttyACM* | xargs`
-echo "Units: " $units
-
 if [ -f devices.txt ]; then
 	echo "'devices.txt' exists, using as cached reference."
 else
-	find -L /sys/bus/usb/devices/ -maxdepth 7 -name "dev" -exec grep -Hi 166 {} \; 2>/dev/null | grep "port" | sort > devices.txt
+	# Create target directories and enumerate units
+	export devices=`uhubctl | grep MicroPython | rev | cut -d ' ' -f 1 | cut -c 2- | rev`
+	echo "Found: " $devices
+
+	for d in $devices
+	do
+		export port=`uhubctl | grep $d | cut -d ":" -f 1 | rev | cut -d ' ' -f 1 | rev`
+		export hub=`uhubctl | tac | grep -A 10 $d | grep -m 1 "Current status for hub" | cut -d ' ' -f 5`
+		export tty=`ls /sys/bus/usb/devices/$hub.$port/$hub.$port\:1.0/tty/`
+
+		echo "$d: $hub $port $tty" >> devices.txt
+	done
 fi
+
+export units=`cut -d ' ' -f 4 devices.txt`
+echo "Units: " $units
 
 for d in $units
 do
 	mkdir $d 2>/dev/null
-
-	# we need to associate a USB path with each ACM
-	export found=`grep -m 1 $d devices.txt`
-	export ${d}=`echo -n $found | awk -F 'tty' '{print $1}'| rev | cut -d ':' -f 2  | cut -d '/' -f 1`
-	echo "$found -> `echo ${!d} | rev`"
 done
 
 echo "Test Starting..."
@@ -55,8 +63,8 @@ do
 
 	for d in $units
 	do
-		export hub=`echo ${!d} | cut -d '.' -f 2- | rev`
-		export port=`echo ${!d} | cut -d '.' -f 1 | rev`
+		export hub=`grep $d devices.txt | cut -d ' ' -f 2`
+		export port=`grep $d devices.txt | cut -d ' ' -f 3`
 		echo "Unit $d : Hub $hub, Port $port"
 
 		# Power particular unit off
@@ -66,8 +74,9 @@ do
 
 	for d in $units
 	do
-		export hub=`echo ${!d} | cut -d '.' -f 2- | rev`
-		export port=`echo ${!d} | cut -d '.' -f 1 | rev`
+		export hub=`grep $d devices.txt | cut -d ' ' -f 2`
+		export port=`grep $d devices.txt | cut -d ' ' -f 3`
+
 		echo "Unit $d : Hub $hub, Port $port"
 
 		# Then turn unit back on
@@ -82,14 +91,17 @@ do
 			echo "Check failed" >> $HUBLOG
 			bash -c "sudo uhubctl -l $hub -p $port -a on -r $REPEATS" >> $HUBLOG
 			sleep 5
+
+			export check=`bash -c "sudo uhubctl | grep -A 10 '$hub ' | grep -m 1 'Port $port'"`
+			echo "$check"
 		fi
 
-		# It appears that we can't trust that ttyACMx will be consistant
+		# It appears that we can't trust that ttyACMx will be consistant allocated
 		export tty=`ls /sys/bus/usb/devices/$hub.$port/$hub.$port\:1.0/tty/`
 
 		# Start recording from each unit (allowing time to start up)
 		echo "  Capturing from $tty"
-		bash -c "sleep 20; cd $d; python3 $GRAB -d /dev/$tty -e $TIME -t -o %" &
+		bash -c "sleep 20; cd $d; python3 $GRAB -d /dev/$tty -e $TIME -t -o %" 2>&1 > $GRABLOG &
 	done
 
 	# Wait for units finish (automatically time out)

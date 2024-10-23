@@ -1,4 +1,4 @@
-
+#!/bin/bash
 
 for d in `ls -d ttyACM* | xargs`
 do
@@ -30,10 +30,10 @@ do
 
 	echo "]" >> yrange_${d}.py
 	echo "print('set yrange['+str(min(a)-0.2)+':'+str(max(a)+0.2)+']')" >> yrange_${d}.py
-	echo "print('set title \\\"$name Minimum =', min(a), 		'\\\"')" >> yrange_${d}.py
-	echo "print('set title \\\"$name Maximum =', max(a), 		'\\\"')" >> yrange_${d}.py
-	echo "print('set title \\\"$name Median =', (min(a) + max(a))/2,'\\\"')" >> yrange_${d}.py
-	echo "print('set title \\\"$name Average =', sum(a)/len(a), 	'\\\"')" >> yrange_${d}.py
+	echo "print('set title \\\"$name Minimum :', min(a), 		'\\\"')" >> yrange_${d}.py
+	echo "print('set title \\\"$name Maximum :', max(a), 		'\\\"')" >> yrange_${d}.py
+	echo "print('set title \\\"$name Median :', (min(a) + max(a))/2,'\\\"')" >> yrange_${d}.py
+	echo "print('set title \\\"$name Average :', sum(a)/len(a), 	'\\\"')" >> yrange_${d}.py
 
 	echo "set xrange[400:600]" >> gnu.plt
 	python3 yrange_${d}.py >> gnu.plt

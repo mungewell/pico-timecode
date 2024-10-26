@@ -266,12 +266,25 @@ def timer_re_init(timer):
 
     if timer == eng.timer2:
         if eng.timer1:
-            # ensure timer1 has completed first
-            schedule(timer_re_init, timer)
-        else:
-            eng.timer2 = None
-            eng.micro_adjust(eng.next_duty)
+            # timer1 should completed first
+            print("!!!")
+            eng.timer1.deinit()
+            eng.timer1 = None
 
+        eng.timer2 = None
+        eng.micro_adjust(eng.next_duty)
+
+    if timer == eng.timer3:
+        # This should NEVER occur, it means previous timers were missed.
+        print("!!!!!")
+        if eng.timer1:
+            eng.timer1.deinit()
+        if eng.timer2:
+            eng.timer2.deinit()
+
+        eng.timer1 = None
+        eng.timer2 = None
+        eng.micro_adjust(eng.next_duty)
 #---------------------------------------------
 
 # https://web.archive.org/web/20240000000000*/http://www.barney-wol.net/time/timecode.html
@@ -703,6 +716,7 @@ class engine(object):
         self.period = 10000 # 10s, can be update by client
         self.timer1 = None
         self.timer2 = None
+        self.timer3 = None
 
         # state of running (ie whether being used for output)
         self.stopped = True
@@ -731,6 +745,9 @@ class engine(object):
             if self.timer2:
                 self.timer2.deinit()
                 self.timer2 = None
+            if self.timer3:
+                self.timer3.deinit()
+                self.timer3 = None
 
             stop = False
             self.asserted = False
@@ -820,6 +837,12 @@ class engine(object):
             # re-init timers
             self.timer2 = Timer()
             self.timer2.init(period=self.period, mode=Timer.ONE_SHOT, callback=timer_sched)
+
+            # safety timer - triggers 2s after timer2, if timer2 fails
+            if eng.timer3:
+                eng.timer3.deinit()
+            self.timer3 = Timer()
+            self.timer3.init(period=self.period + 2000, mode=Timer.ONE_SHOT, callback=timer_sched)
 
             # are we dithering between two clock values?
             part = int(self.period * (1 - (abs(duty) % 1)))

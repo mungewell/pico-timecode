@@ -7,18 +7,18 @@ if [[ $1 == "" ]]; then
 fi
 export source=$1
 
-export scale=0.05
+export scale=0.5
 if [[ $2 != "" ]]; then
 	export scale=$2
 fi
 
-export width=`wc -l $source | cut -d " " -f 1`
-export width=$(expr $width / 20)
+export width=1280
 if [[ $3 != "" ]]; then
 	export width=$3
 fi
-if [[ $width < 1280 ]]; then
-	export witdh=1280
+if [[ $width == "-1" ]]; then
+	export width=`wc -l $source | cut -d " " -f 1`
+	export width=$(expr $width / 20)
 fi
 echo "Width $width"
 

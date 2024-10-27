@@ -6,7 +6,7 @@ do
 	echo > gnu.plt
 	echo -n "a=[" > yrange_${d}.py
 
-	echo "set term png large size 1024,1024" >> gnu.plt
+	echo "set term png large size 1280,720" >> gnu.plt
 	echo "set output \"cal_${d}.png\"" >> gnu.plt
 
 	echo "set multiplot" >> gnu.plt
@@ -56,7 +56,7 @@ do
 	# plot Temp vs Calibration
 	echo > gnu.plt
 
-	echo "set term png small size 600,600" >> gnu.plt
+	echo "set term png small size 1280,720" >> gnu.plt
 	echo "set output \"temp_vs_cal_${d}.png\"" >> gnu.plt
 
 	echo "set multiplot" >> gnu.plt
@@ -92,7 +92,7 @@ do
 	# Plot the phase
 	echo > gnu.plt
 
-	echo "set term png small size 1200,600" >> gnu.plt
+	echo "set term png small size 1280,720" >> gnu.plt
 	echo "set output \"phase_${d}.png\"" >> gnu.plt
 
      	echo "set yrange[-0.005:0.005]" >> gnu.plt

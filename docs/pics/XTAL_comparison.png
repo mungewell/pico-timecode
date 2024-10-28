@@ -1,0 +1,20 @@
+set term png small size 1280,720
+set output "combo_plot.png"
+set xdata time
+set timefmt "%H:%M:%S"
+set format x "%H:%M"
+set multiplot
+set size 1,0.25
+set origin 0,0.75
+set yrange [15:30]
+plot "ttyACM2/2024-10-27_10:37:32" using 3:7 with points lc rgb "red" title ""
+replot "ttyACM1/2024-10-27_10:37:32" using 3:7 with points lc rgb "yellow" title ""
+replot "ttyACM0/2024-10-27_10:37:32" using 3:7 with points lc rgb "green" title ""
+set size 1,0.75
+set origin 0,0.0
+set yrange [-0.5:0.5]
+set title "XTAL test @ 30.00fps, reference UltraSync One"
+plot "ttyACM2/2024-10-27_10:37:32" using 3:5 with lines lc rgb "red" title "Stock XTAL, un-cal"
+replot "ttyACM1/2024-10-27_10:37:32" using 3:5 with lines lc rgb "yellow" title "Modified TCXO, un-cal"
+replot "ttyACM0/2024-10-27_10:37:32" using 3:5 with lines lc rgb "green" title "Modified TCXO, calibrate"
+unset multiplot

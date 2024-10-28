@@ -82,8 +82,29 @@ that the calibration is very much affected by changing temperature.
 Even a few degrees change can push the calibration value significantly - meaning that if we had previous calibrated at a 
 different temp, then the resultant LTC stream will be fast/slow and eventually the reported time/frame will be inaccurate.
 
-The industry accepted drift would be in the '1 frame in 8hrs' region. 8hrs is '8 * 3600 * framerate = 864000', so for 
-accuracy we'd want '864001 / 864000 = 1.000001157' (around 1.1PPM).
+## Acceptable drift/accuracy
 
-It is possible to replace the stock XTAL with a TCXO (temperature compensated module), see discussions in ticket #4.
-I have started testing with modified boards, which appear to operate in a much more consitant manner.
+I've heard it said that the industry accepted drift would be in the '1 frame in 8hrs' region. But what does that mean?
+
+I _think_ that it means that the output Timecode should be closest to the _True_ time for at least 8hrs, so a drift of
+not more than 1/2 the frame period - ie a 'phase' of less that +/-0.5.
+
+So what can we achieve? We know that the stock XTAL on the Pico is, lets say, cost optimized... in the following plot 
+this particular board (selected at random, but likely others will be different), only 'holds' +/-0.5 for 1hour 15mins. 
+By the end of the 8hrs it is inaccurate by almost 4 frames.
+
+If we were to calibrate at the temperature we are woking at it would be __much__ better, but slight variations in 
+temp can send the /phase wild/.
+
+The other two plots are boards with a modified TCXO (Temperature Compensated XTAL Osscillator), and they perform 
+__much__ better - even the uncalibrated on is still within the requirement!
+
+![XTAL comparison](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/XTAL_comparison.png)
+
+For reference: 8hrs is '8 * 3600 * 30fps = 864000 frames', so for accuracy we'd want '864000.5 / 864000 = 1.000000579' 
+(around +/-0.6 ppm).
+
+We could also question how accurate the reference (UltraSync One) is, as if that drifts as well then it would affect the
+measurement for the Pico's. Another note is that being open-source, our project provides the tools to make these 
+comparisons, the commercial offerings are not so transparent.
+

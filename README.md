@@ -84,16 +84,20 @@ There's an indepth description on the [workings](docs/how_it_works.md).
 
 ## So how good is it?
 
-*Time will still tell...*
+*Time will tell...*
 
 Given my interest (nee obsession) with TimeCode, I have already aquired some specialised test equipment.
 I have also purchased an UltraSync One to use as a reference, and see how well Pico-Timecode can
 interoperate.
 
-My approach will be to get the code to a point where it will 'Jam' to incoming LTC and then 'free-run' it's
-output LTC. The code itself has the ability to monitor the RX LTC, however the display is not fast enough
-to display every frame (this does NOT affect the output though, as that's running with the PIO block with
-TC frames fed from different core/thread).
+As it stands the code will 'Jam' to incoming LTC (if available) and then 'free-run' it's output LTC. 
+
+The code itself has the ability to monitor the RX LTC, however the display is not fast enough
+to display every frame (this does NOT affect the output though), the display includes a bar-graph
+showing the 'phase' difference between RX and TX.
+
+A stock Pico can be calibrated to accurate over many hours, but the XTAL sensitive to temperature
+changes. A better solution is to replace the XTAL with a TCXO, which improves accuracy significantly.
 
 For more details see [testing](docs/testing.md).
 

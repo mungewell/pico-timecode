@@ -352,7 +352,7 @@ def callback_jam():
     # Force Garbage collection
     gc.collect()
 
-    # Turn off Jam if already enabled
+    # Reconfigure PIOs
     pt.eng.sm = []
     pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
                                jmp_pin=machine.Pin(21)))        # Sync from RX LTC
@@ -360,6 +360,22 @@ def callback_jam():
 
     pt.eng.mode = pt.JAM
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
+
+    # apply previously saved calibration value
+    dc = pt.timecode()
+    dc.set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
+
+    format = "{:.2f}".format(dc.fps) + ("-DF" if dc.df == True else "")
+    period = None
+    try:
+        period = config.calibration['period']
+    except:
+        pass
+    if period != None:
+        try:
+            pt.eng.micro_adjust(config.calibration[format], period * 1000) # in ms
+        except:
+            pass
 
 
 def callback_fps_df(set):

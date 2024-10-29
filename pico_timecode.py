@@ -254,13 +254,10 @@ def timer_re_init(timer):
     # if timer1 exists it means we are dithering
     # between two values
     if timer == eng.timer1:
-        lock = eng.dlock.acquire(0)
-        if lock:
-            if eng.duty > 0:
-                eng.dec_divider()
-            else:
-                eng.inc_divider()
-            eng.dlock.release()
+        if eng.duty > 0:
+            eng.dec_divider()
+        else:
+            eng.inc_divider()
 
         eng.timer1 = None
 
@@ -285,6 +282,7 @@ def timer_re_init(timer):
         eng.timer1 = None
         eng.timer2 = None
         eng.micro_adjust(eng.next_duty)
+
 #---------------------------------------------
 
 # https://web.archive.org/web/20240000000000*/http://www.barney-wol.net/time/timecode.html
@@ -781,41 +779,66 @@ class engine(object):
         new_div -= int(offset) << 8
 
         # Set dividers for all PIO machines
+        self.dlock.acquire()
+        '''
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = new_div
+        '''
+        machine.mem32[0x502000c8] = new_div
+        machine.mem32[0x502000e0] = new_div
+        machine.mem32[0x502000f8] = new_div
+        machine.mem32[0x50200110] = new_div
+        machine.mem32[0x503000c8] = new_div
+        machine.mem32[0x503000e0] = new_div
+        machine.mem32[0x503000f8] = new_div
+        machine.mem32[0x50300110] = new_div
+
+        self.dlock.release()
 
     def inc_divider(self):
         # increasing divider -> slower clock
-        integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
-        fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
-
-        if fraction == 0xFF:
-            fraction = 0
-            integer += 1
-        else:
-            fraction += 1
+        self.dlock.acquire()
+        new_div = machine.mem32[0x502000c8] + 0x0100
 
         # Set dividers for all PIO machines
+        '''
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
+        '''
+        machine.mem32[0x502000c8] = new_div
+        machine.mem32[0x502000e0] = new_div
+        machine.mem32[0x502000f8] = new_div
+        machine.mem32[0x50200110] = new_div
+        machine.mem32[0x503000c8] = new_div
+        machine.mem32[0x503000e0] = new_div
+        machine.mem32[0x503000f8] = new_div
+        machine.mem32[0x50300110] = new_div
+
+        self.dlock.release()
 
     def dec_divider(self):
         # decreasing divider -> faster clock
-        integer = (machine.mem32[0x502000c8] >> 16) & 0xFFFF
-        fraction = (machine.mem32[0x502000c8] >> 8) & 0xFF
-
-        if fraction == 0:
-            fraction = 0xFF
-            integer -= 1
-        else:
-            fraction -= 1
+        self.dlock.acquire()
+        new_div = machine.mem32[0x502000c8] - 0x0100
 
         # Set dividers for all PIO machines
+        '''
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
+        '''
+        machine.mem32[0x502000c8] = new_div
+        machine.mem32[0x502000e0] = new_div
+        machine.mem32[0x502000f8] = new_div
+        machine.mem32[0x50200110] = new_div
+        machine.mem32[0x503000c8] = new_div
+        machine.mem32[0x503000e0] = new_div
+        machine.mem32[0x503000f8] = new_div
+        machine.mem32[0x50300110] = new_div
+
+        self.dlock.release()
 
     def micro_adjust(self, duty, period=0):
         if self.stopped:
@@ -830,9 +853,7 @@ class engine(object):
             self.duty = duty
 
             # re-init clock dividers
-            self.dlock.acquire()
             self.frig_clocks(self.tc.fps, duty)
-            self.dlock.release()
 
             # re-init timers
             self.timer2 = Timer()
@@ -845,10 +866,10 @@ class engine(object):
             self.timer3.init(period=self.period + 2000, mode=Timer.ONE_SHOT, callback=timer_sched)
 
             # are we dithering between two clock values?
-            part = int(self.period * (1 - (abs(duty) % 1)))
+            part = int(self.period * (abs(duty) % 1))
             if part > 0:
                 self.timer1 = Timer()
-                self.timer1.init(period=part, mode=Timer.ONE_SHOT, callback=timer_sched)
+                self.timer1.init(period=self.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
 
 #-------------------------------------------------------
 
@@ -884,7 +905,6 @@ def pico_timecode_thread(eng, stop):
     # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
     # -1 -> +1 : +ve = faster clock, -ve = slower clock
     eng.micro_adjust(eng.duty)
-    #eng.crude_adjust(eng.duty)
 
     # Loop, increasing frame count each time
     tx_offset = 0

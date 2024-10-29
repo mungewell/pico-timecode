@@ -81,6 +81,7 @@ zoom = False
 monitor = False
 calibrate = False
 menu_hidden = True
+displayfps = None
 
 def add_more_state_machines():
     sm_freq = int(pt.eng.tc.fps * 80 * 32)
@@ -112,6 +113,21 @@ def add_more_state_machines():
     # set up IRQ handler
     for m in pt.eng.sm:
         m.irq(handler=pt.irq_handler, hard=True)
+
+def apply_calibration():
+    global displayfps
+
+    period = None
+    try:
+        period = config.calibration['period']
+    except:
+        pass
+    if period != None:
+        try:
+            pt.eng.micro_adjust(config.calibration[displayfps], period * 1000) # in ms
+        except:
+            pass
+
 
 #---------------------------------------------
 # Class for Custom Editing of Userbits/Name
@@ -325,6 +341,9 @@ def callback_stop_start():
 
         _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
+        # apply previously saved calibration value
+        apply_calibration()
+
 
 def callback_monitor():
     global menu_hidden, monitor
@@ -362,20 +381,7 @@ def callback_jam():
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
     # apply previously saved calibration value
-    dc = pt.timecode()
-    dc.set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
-
-    format = "{:.2f}".format(dc.fps) + ("-DF" if dc.df == True else "")
-    period = None
-    try:
-        period = config.calibration['period']
-    except:
-        pass
-    if period != None:
-        try:
-            pt.eng.micro_adjust(config.calibration[format], period * 1000) # in ms
-        except:
-            pass
+    apply_calibration()
 
 
 def callback_fps_df(set):
@@ -490,7 +496,7 @@ def callback_exit():
 #---------------------------------------------
 
 def OLED_display_thread(mode=pt.RUN):
-    global menu, menu_hidden
+    global menu, menu_hidden, displayfps
     global powersave, zoom, calibrate
     global outamp
 
@@ -615,13 +621,13 @@ def OLED_display_thread(mode=pt.RUN):
         dc = pt.timecode()
         dc.set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
 
-        format = "{:.2f}".format(dc.fps) + ("-DF" if dc.df == True else "")
+        displayfps = "{:.2f}".format(dc.fps) + ("-DF" if dc.df == True else "")
         cycle_us = (1000000.0 / dc.fps)
 
         if menu_hidden == True:
             OLED.fill(0x0000)
             OLED.text("A=Menu" ,0,2,OLED.white)
-            OLED.text(format,128,2,OLED.white,1,1)
+            OLED.text(displayfps,128,2,OLED.white,1,1)
             OLED.show()
 
         tx_asc="--------"
@@ -643,16 +649,13 @@ def OLED_display_thread(mode=pt.RUN):
         pid.output_limits = (-50.0, 50.0)
 
         # apply previously saved calibration value
+        apply_calibration()
+
         period = 10
-        if calibrate == 0:
-            try:
-                period = config.calibration['period']
-            except:
-                pass
-            try:
-                pt.eng.micro_adjust(config.calibration[format], period * 1000) # in ms
-            except:
-                pass
+        try:
+            period = config.calibration['period']
+        except:
+            pass
 
         phase = Rolling(30 * period)  	# sized for max fps, but really
                                         # we only get ~4fps with RX/CAL mode
@@ -672,7 +675,7 @@ def OLED_display_thread(mode=pt.RUN):
                 if menu_hidden == True:
                     OLED.fill(0x0000)
                     OLED.text("A=Menu" ,0,2,OLED.white)
-                    OLED.text(format,128,2,OLED.white,1,1)
+                    OLED.text(displayfps,128,2,OLED.white,1,1)
                     OLED.show()
 
                     tx_asc="--------"
@@ -855,7 +858,7 @@ def OLED_display_thread(mode=pt.RUN):
                                     adj_avg.purge(1)
                                     gc.collect()
 
-                                    config.set('calibration', format, new_cal_value)
+                                    config.set('calibration', displayfps, new_cal_value)
                                     config.set('calibration', 'period', period)
 
                                     if calibrate == 1:

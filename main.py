@@ -887,6 +887,8 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.vline(64, 33, 2, OLED.white)
                         if zoom == True:
                             length = int(1280 * d)
+                            OLED.vline(0, 32, 4, OLED.black)
+                            OLED.vline(127, 32, 4, OLED.black)
                         else:
                             length = int(128 * d)
 
@@ -926,8 +928,10 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.text(dc.to_ascii(),64,22,OLED.white,1,2)
                         OLED.show(22,36)
 
-                        # clear for next frame
-                        OLED.fill_rect(0,22,128,15,OLED.black)
+                        # clear bar ready for next frame
+                        #OLED.fill_rect(1,33,126,2,OLED.black)
+                        OLED.hline(1, 33, 127, OLED.black)
+                        OLED.hline(1, 34, 127, OLED.black)
 
                         if not monitor and not sync_after_jam \
                                and pt.eng.mode == pt.MONITOR:

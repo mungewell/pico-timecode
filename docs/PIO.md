@@ -44,13 +44,23 @@ with the TX machines.
 
 ## blink_led
 
-This loops precisely every frame, pushed values determine whether the LED blinks (for how
-long) and the length of the loop. The very first cycle is slight longer to align blink with
-start of frame - as we actually send Sync word before data.
+The FIFO for this PIO is used to determine whether or not to flash the LED. The low 16bits
+is a count representing the whole LTC frame, and the upper 16bits is a count of how long
+(if at all) the LED blinks for.
+
+This PIO code loops precisely every frame. The very first cycle is slightly longer to align 
+the blink with start of the following frames - as for the very first frame we send Sync word 
+before data.
+
 
 ## buffer_out
 
-Data and Sync words are loaded by script via FIFO and machine plays out a 'raw' bit stream.
+The FIFO for this PIO contains the bit data for the LTC frame, it is precomputed by the Python
+code and pushed into the FIFO as alternatively two and three 32bit words.
+
+The PIO code just plays out this 'raw' bit stream, with the rate determined by the division of
+the CPU clock.
+
 
 ## encode_dmc
 
@@ -70,7 +80,7 @@ Value of Sync word is pre-loaded to Y via the FIFO. As the PIO does not have mat
 **double-clocks** into the ISR, and can then use the `jmp(X != Y)` function to evaluate Sync word. 
 
 When a Sync is found, it then clocks data portion into the ISR and pushes into the RX FIFO, as
-two words. *It does not send Sync word to FIFO.*
+two 32bit words. *It does not send Sync word to FIFO.*
 
 It also sends a sync pulse on it's output pin, this is used to trigger the TX machine(s) when 
 we are Jamming to received LTC.

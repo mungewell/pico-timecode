@@ -28,20 +28,54 @@ We take the timing of the TX frame and compare it to the timing of the RX frame,
 be 0, and as the RX frames are early (upto 1/2 frame) the phase changes to -0.5 and if late to +0.5. This is used to display the bargraph shown on
 the RX monitor [display](https://github.com/mungewell/pico-timecode/blob/main/docs/Display.md).
 
+## Acceptable drift/accuracy
+
+I've heard it said that the industry accepted drift would be in the '1 frame in 8hrs' region. But what does that mean?
+
+I _think_ that it means that the output Timecode should be closest to the _True_ time for at least 8hrs, so a drift of
+not more than 1/2 the frame period - ie a 'phase' of less that +/-0.5.
+
+So what can we achieve? We know that the stock XTAL on the Pico is, lets say, cost optimized... in the following plot 
+this particular board (selected at random, but likely others will be different), only 'holds' +/-0.5 for 1hour 15mins. 
+By the end of the 8hrs it is inaccurate by almost 4 frames.
+
+If we were to calibrate at the temperature we are woking at it would be __much__ better, but slight variations in 
+temp can send the _phase wild_.
+
+The other two plots are boards with a modified TCXO (Temperature Compensated XTAL Osscillator), and they perform 
+__much__ better - even the uncalibrated on is still within the requirement!
+
+![XTAL comparison](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/XTAL_comparison.png)
+
+For reference: 8hrs is '8 * 3600 * 30fps = 864000 frames', so for accuracy we'd want '864000.5 / 864000 = 1.000000579' 
+(around +/-0.6 ppm).
+
+We could also question how accurate the reference (UltraSync One) is, as if that drifts as well then it would affect the
+measurement for the Pico's. Another note is that being open-source, our project provides the tools to make these 
+comparisons, the commercial offerings are not so transparent.
+
 ## Calibration to perfect
 
 Since we can measure, can we compensate? Sure...
 
-As mentioned above the PIO clock divider is fine grained, with a fractional part. This, however, is not detailed enough and we need to further tweak
-the clock frequency. We do this by modulating the divider, dithering between two divider values (Div-A and Div-B) so that the 'apparent divider' is 
-more precise (when veiwed over a longer period of time).
+As mentioned above the PIO clock divider is fine grained, with a fractional part. This, however, is not detailed 
+enough and we need to further tweak the clock frequency. We do this by modulating the divider, dithering between two 
+divider values (Div-A and Div-B) so that the 'apparent divider' is more precise (when veiwed over a longer period of time).
 
-So we have a calibration in two parts; one part which is the _offset_ from nominal (in fractional ticks of the PIO divider value) and the other is a
-_duty_ factor for how much time is spent at Div-A vs Div-B. The code combines this into a single number, with integer for the _offset_ and fractional
-for the _duty_.
+So we have a calibration in two parts; one part which is the _offset_ from nominal (in fractional ticks of the PIO divider 
+value) and the other is a _duty_ factor for how much time is spent at Div-A vs Div-B. The code combines this into a 
+single number, with integer for the _offset_ and fractional for the _duty_.
 
-As the system has to operate with difference frame rates, the simplest solution is to have a calibration value for each. These are stored within
-the `config.py` script, and automatically loaded when the frame rate is selected.
+This is implemented with two timers, Timer1 controls the duty cycle and Timer2 controls the period. At the start of the
+cycle the divider is set to the integer _offset_, and when Timer1 triggers the divider is increased or decreased.
+
+Once Timer2 completes, it reset the divider and reconfigures both timers (potentially with differ values, as used 
+during the calibration process).
+
+![Timer diagram showing Duty cycle](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/dither_divider.png)
+
+As the system has to operate with difference frame rates, the simplest solution is to have a calibration values for each. 
+These are stored within the `config.py` script, and automatically loaded when the frame rate is selected.
 
 ## Real world implementation
 
@@ -81,30 +115,4 @@ that the calibration is very much affected by changing temperature.
 
 Even a few degrees change can push the calibration value significantly - meaning that if we had previous calibrated at a 
 different temp, then the resultant LTC stream will be fast/slow and eventually the reported time/frame will be inaccurate.
-
-## Acceptable drift/accuracy
-
-I've heard it said that the industry accepted drift would be in the '1 frame in 8hrs' region. But what does that mean?
-
-I _think_ that it means that the output Timecode should be closest to the _True_ time for at least 8hrs, so a drift of
-not more than 1/2 the frame period - ie a 'phase' of less that +/-0.5.
-
-So what can we achieve? We know that the stock XTAL on the Pico is, lets say, cost optimized... in the following plot 
-this particular board (selected at random, but likely others will be different), only 'holds' +/-0.5 for 1hour 15mins. 
-By the end of the 8hrs it is inaccurate by almost 4 frames.
-
-If we were to calibrate at the temperature we are woking at it would be __much__ better, but slight variations in 
-temp can send the /phase wild/.
-
-The other two plots are boards with a modified TCXO (Temperature Compensated XTAL Osscillator), and they perform 
-__much__ better - even the uncalibrated on is still within the requirement!
-
-![XTAL comparison](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/XTAL_comparison.png)
-
-For reference: 8hrs is '8 * 3600 * 30fps = 864000 frames', so for accuracy we'd want '864000.5 / 864000 = 1.000000579' 
-(around +/-0.6 ppm).
-
-We could also question how accurate the reference (UltraSync One) is, as if that drifts as well then it would affect the
-measurement for the Pico's. Another note is that being open-source, our project provides the tools to make these 
-comparisons, the commercial offerings are not so transparent.
 

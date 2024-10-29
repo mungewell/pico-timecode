@@ -633,6 +633,7 @@ def OLED_display_thread(mode=pt.RUN):
         tx_asc="--------"
         tx_ticks = 0
         tx_ub = ""
+        rx_asc="--:--:--:--"
         rx_ub = ""
 
         sync_after_jam = 0
@@ -789,6 +790,27 @@ def OLED_display_thread(mode=pt.RUN):
                     for i in range(int(rf1/2)):
                         dc.next_frame()
 
+                    # Show RX Timecode
+                    asc = dc.to_ascii()
+                    if rx_asc != asc:
+                        OLED.text(asc,64,22,OLED.white,1,2)
+                        if pt.eng.mode == pt.RUN:
+                            for c in range(len(asc)):
+                                if asc[c]!=rx_asc[c]:
+                                    break
+                            OLED.show(22,32,98-((12-c)*6),98)
+                        else:
+                            OLED.show(22,32)
+                        rx_asc = asc
+
+                    # Show RX Userbits
+                    ub = pt.eng.rc.user_to_ascii()
+                    if rx_ub != ub:
+                        OLED.fill_rect(0,12,128,8,OLED.black)
+                        OLED.text(ub,64,12,OLED.white,1,2)
+                        OLED.show(12,20)
+                        rx_ub = ub
+
                     # Draw an error bar to represent timing phase between TX and RX
                     # Positive Delta = TX is ahead of RX, bar is shown to the right
                     # and should increase 'duty' to slow down it's bit-clock
@@ -916,17 +938,8 @@ def OLED_display_thread(mode=pt.RUN):
                         jam_started = utime.time()
 
                     if pt.eng.mode > pt.RUN:
-                        # Show RX Userbits
-                        ub = pt.eng.rc.user_to_ascii()
-                        if rx_ub != ub:
-                            OLED.fill_rect(0,12,128,8,OLED.black)
-                            OLED.text(ub,64,12,OLED.white,1,2)
-                            OLED.show(12,20)
-                            rx_ub = ub
-
-                        # Show RX Timecode and bar
-                        OLED.text(dc.to_ascii(),64,22,OLED.white,1,2)
-                        OLED.show(22,36)
+                        # Show RX bar
+                        OLED.show(33,36)
 
                         # clear bar ready for next frame
                         #OLED.fill_rect(1,33,126,2,OLED.black)

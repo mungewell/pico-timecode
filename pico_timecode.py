@@ -702,6 +702,7 @@ class engine(object):
     def __init__(self):
         self.mode = RUN
         self.flashframe = 0
+        self.flashtime = 0  # 'raw' TC
         self.dlock = _thread.allocate_lock()
 
         self.tc = timecode()
@@ -871,6 +872,12 @@ class engine(object):
                 self.timer1 = Timer()
                 self.timer1.init(period=self.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
 
+
+    def set_flashtime(self, ft):
+        self.dlock.acquire()
+        self.flashtime = (ft.df << 31) + (ft.hh << 24) + (ft.mm << 16) + (ft.ss << 8) + ft.ff
+        self.dlock.release()
+
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
@@ -972,10 +979,16 @@ def pico_timecode_thread(eng, stop):
 
             # Does the LED flash for this frame?
             eng.tc.acquire()
-            if eng.tc.ff == eng.flashframe:
-                eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
+            if eng.flashframe >= 0:
+                if eng.tc.ff == eng.flashframe:
+                    eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
+                else:
+                    eng.sm[1].put(509)              # '509' is complete cycle length
             else:
-                eng.sm[1].put(509)              # '509' is complete cycle length
+                if eng.raw1 == eng.flashtime:
+                    eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
+                else:
+                    eng.sm[1].put(509)              # '509' is complete cycle length
             eng.tc.release()
 
             if not start_sent:

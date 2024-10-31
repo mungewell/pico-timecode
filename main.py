@@ -36,7 +36,7 @@
 #
 # For controlling the Output Amp:
 #
-# Pin7  / GP6  - ENABLE (fly wire as PCB error)
+# Pin7  / GP5  - ENABLE (fly wire as PCB error)
 # Pin14 / GP10 - Shared with OLED_CLK
 # Pin15 / GP11 - Shared with OLED_DIN
 #

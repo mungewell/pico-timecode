@@ -14,7 +14,7 @@ micropython.alloc_emergency_exception_buf(100)
 from machine import Timer
 from micropython import schedule
 
-VERSION="v2.0+"
+VERSION="v2.1"
 
 # set up Globals
 eng = None

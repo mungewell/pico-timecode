@@ -546,10 +546,10 @@ def OLED_display_thread(mode=pt.RUN):
 
     OLED = OLED_1inch3_SPI()
     OLED.fill(0x0000)
-    OLED.text("Pico-Timecode " + pt.VERSION,64,0,OLED.white,0,2)
-    OLED.text("www.github.com/",0,24,OLED.white,0,0)
-    OLED.text("mungewell/",64,36,OLED.white,0,2)
-    OLED.text("pico-timecode",128,48,OLED.white,0,1)
+    OLED.text("Pico-Timecode " + pt.VERSION,16,0,OLED.white)
+    OLED.text("www.github.com/",0,24,OLED.white)
+    OLED.text("mungewell/",16,36,OLED.white)
+    OLED.text("pico-timecode",32,48,OLED.white)
     OLED.show()
 
     utime.sleep(2)
@@ -627,7 +627,7 @@ def OLED_display_thread(mode=pt.RUN):
         if menu_hidden == True:
             OLED.fill(0x0000)
             OLED.text("A=Menu" ,0,2,OLED.white)
-            OLED.text(displayfps,128,2,OLED.white,1,1)
+            OLED.text(displayfps,80,2,OLED.white)
             OLED.show()
 
         tx_asc="--------"
@@ -676,7 +676,7 @@ def OLED_display_thread(mode=pt.RUN):
                 if menu_hidden == True:
                     OLED.fill(0x0000)
                     OLED.text("A=Menu" ,0,2,OLED.white)
-                    OLED.text(displayfps,128,2,OLED.white,1,1)
+                    OLED.text(displayfps,80,2,OLED.white)
                     OLED.show()
 
                     tx_asc="--------"
@@ -773,15 +773,14 @@ def OLED_display_thread(mode=pt.RUN):
 
                     tx_asc = asc
                     tx_ticks = t1
-                    OLED.show(49 ,64, c*16)
 
                     # update Userbits display
                     ub = pt.eng.tc.user_to_ascii()
                     if tx_ub != ub:
                         OLED.fill_rect(0,38,128,8,OLED.black)
-                        OLED.text(ub,64,38,OLED.white,1,2)
-                        OLED.show(38,46)
+                        OLED.text(ub,48,38,OLED.white)
                         tx_ub = ub
+                    OLED.show()
 
 
                 if pt.eng.mode > pt.RUN:
@@ -793,22 +792,18 @@ def OLED_display_thread(mode=pt.RUN):
                     # Show RX Timecode
                     asc = dc.to_ascii()
                     if rx_asc != asc:
-                        OLED.text(asc,64,22,OLED.white,1,2)
+                        OLED.text(asc,32,22,OLED.white)
                         if pt.eng.mode == pt.RUN:
                             for c in range(len(asc)):
                                 if asc[c]!=rx_asc[c]:
                                     break
-                            OLED.show(22,32,98-((12-c)*6),98)
-                        else:
-                            OLED.show(22,32)
                         rx_asc = asc
 
                     # Show RX Userbits
                     ub = pt.eng.rc.user_to_ascii()
                     if rx_ub != ub:
                         OLED.fill_rect(0,12,128,8,OLED.black)
-                        OLED.text(ub,64,12,OLED.white,1,2)
-                        OLED.show(12,20)
+                        OLED.text(ub,48,12,OLED.white)
                         rx_ub = ub
 
                     # Draw an error bar to represent timing phase between TX and RX
@@ -939,7 +934,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                     if pt.eng.mode > pt.RUN:
                         # Show RX bar
-                        OLED.show(33,36)
+                        OLED.show()
 
                         # clear bar ready for next frame
                         #OLED.fill_rect(1,33,126,2,OLED.black)
@@ -964,8 +959,8 @@ def OLED_display_thread(mode=pt.RUN):
 
             if pt.eng.mode == pt.HALTED:
                 OLED.rect(0,51,128,10,OLED.black,True)
-                OLED.text("Underflow Error",64,53,OLED.white,1,2)
-                OLED.show(49 ,64)
+                OLED.text("Underflow Error",32,53,OLED.white)
+                OLED.show()
                 pt.stop = True
 
             if pt.eng.is_stopped():

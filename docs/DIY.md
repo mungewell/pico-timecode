@@ -44,6 +44,11 @@ There are some other Pico like boards, with displays already attached. It really
 to adapt the code for these, just remember that in-order to achieve high FPS the code should be 
 structured to send a few bytes to the display as possible.
 
+I've started experimenting with a super-cheap display based on the SSD1306 chip-set, checkout the
+'alternate_displays' branch
+
+![SSD1306 Display](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/ssd1306_display.jpg)
+
 If you do use my code for a personal project, drop me an email/picture.
 If you make a device to sell, please send me an sample to test.
 

@@ -548,8 +548,8 @@ def OLED_display_thread(mode=pt.RUN):
     OLED.fill(0x0000)
     OLED.text("Pico-Timecode " + pt.VERSION,16,0,OLED.white)
     OLED.text("www.github.com/",0,24,OLED.white)
-    OLED.text("mungewell/",16,36,OLED.white)
-    OLED.text("pico-timecode",32,48,OLED.white)
+    OLED.text("mungewell/",10,36,OLED.white)
+    OLED.text("pico-timecode",20,48,OLED.white)
     OLED.show()
 
     utime.sleep(2)
@@ -627,7 +627,7 @@ def OLED_display_thread(mode=pt.RUN):
         if menu_hidden == True:
             OLED.fill(0x0000)
             OLED.text("A=Menu" ,0,2,OLED.white)
-            OLED.text(displayfps,80,2,OLED.white)
+            OLED.text(displayfps,64,2,OLED.white)
             OLED.show()
 
         tx_asc="--------"
@@ -676,7 +676,7 @@ def OLED_display_thread(mode=pt.RUN):
                 if menu_hidden == True:
                     OLED.fill(0x0000)
                     OLED.text("A=Menu" ,0,2,OLED.white)
-                    OLED.text(displayfps,80,2,OLED.white)
+                    OLED.text(displayfps,64,2,OLED.white)
                     OLED.show()
 
                     tx_asc="--------"
@@ -792,6 +792,7 @@ def OLED_display_thread(mode=pt.RUN):
                     # Show RX Timecode
                     asc = dc.to_ascii()
                     if rx_asc != asc:
+                        OLED.fill_rect(0,22,128,10,OLED.black)
                         OLED.text(asc,32,22,OLED.white)
                         if pt.eng.mode == pt.RUN:
                             for c in range(len(asc)):
@@ -937,7 +938,6 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.show()
 
                         # clear bar ready for next frame
-                        #OLED.fill_rect(1,33,126,2,OLED.black)
                         OLED.hline(1, 33, 127, OLED.black)
                         OLED.hline(1, 34, 127, OLED.black)
 

@@ -60,6 +60,7 @@ from libs.neotimer import *
 # https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
 
 from libs.PicoOled13 import *
+from libs.ssd1306 import *
 
 # Special font, for display the TX'ed timecode in a particular way
 from libs.fonts import TimecodeFont
@@ -544,7 +545,9 @@ def OLED_display_thread(mode=pt.RUN):
     for i in range(len(TimecodeFont)):
         timecode_fb.append(FrameBuffer(TimecodeFont[i], 16, 16, MONO_HMSB))
 
-    OLED = OLED_1inch3_SPI()
+    OLED = SSD1306_SPI(128, 64,
+        SPI(1, sck=Pin(10), mosi=Pin(11)),
+            dc=Pin(8), res=Pin(12), cs=Pin(9))
     OLED.fill(0x0000)
     OLED.text("Pico-Timecode " + pt.VERSION,16,0,OLED.white)
     OLED.text("www.github.com/",0,24,OLED.white)

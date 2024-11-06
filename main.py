@@ -769,7 +769,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                     # blank left most ':'
                     if c < 2:
-                        OLED.rect(0,48,4,16,OLED.black,True)
+                        OLED.fill_rect(0,48,4,16,OLED.black)
 
                     tx_asc = asc
                     tx_ticks = t1
@@ -942,7 +942,6 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.show(33,36)
 
                         # clear bar ready for next frame
-                        #OLED.fill_rect(1,33,126,2,OLED.black)
                         OLED.hline(1, 33, 127, OLED.black)
                         OLED.hline(1, 34, 127, OLED.black)
 
@@ -963,7 +962,7 @@ def OLED_display_thread(mode=pt.RUN):
 
 
             if pt.eng.mode == pt.HALTED:
-                OLED.rect(0,51,128,10,OLED.black,True)
+                OLED.fill_rect(0,51,128,10,OLED.black)
                 OLED.text("Underflow Error",64,53,OLED.white,1,2)
                 OLED.show(49 ,64)
                 pt.stop = True

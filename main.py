@@ -68,7 +68,7 @@ from framebuf import FrameBuffer, MONO_HMSB
 
 import pico_timecode as pt
 
-import machine
+from machine import Pin,SPI,ADC,freq
 import _thread
 import utime
 import rp2
@@ -89,24 +89,24 @@ def add_more_state_machines():
 
     # TX State Machines
     pt.eng.sm.append(rp2.StateMachine(1, pt.blink_led, freq=sm_freq,
-                               set_base=machine.Pin(25)))       # LED on Pico board + GPIO26/27/28
+                               set_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
     pt.eng.sm.append(rp2.StateMachine(2, pt.buffer_out, freq=sm_freq,
-                               out_base=machine.Pin(22)))       # Output of 'raw' bitstream
+                               out_base=Pin(22)))       # Output of 'raw' bitstream
     pt.eng.sm.append(rp2.StateMachine(3, pt.encode_dmc, freq=sm_freq,
-                               jmp_pin=machine.Pin(22),
-                               in_base=machine.Pin(13),         # same as pin as out
-                               out_base=machine.Pin(13)))       # Encoded LTC Output
+                               jmp_pin=Pin(22),
+                               in_base=Pin(13),         # same as pin as out
+                               out_base=Pin(13)))       # Encoded LTC Output
 
     # RX State Machines
     pt.eng.sm.append(rp2.StateMachine(4, pt.decode_dmc, freq=sm_freq,
-                               jmp_pin=machine.Pin(18),         # LTC Input ...
-                               in_base=machine.Pin(18),         # ... from 'other' device
-                               set_base=machine.Pin(19)))       # Decoded LTC Input
+                               jmp_pin=Pin(18),         # LTC Input ...
+                               in_base=Pin(18),         # ... from 'other' device
+                               set_base=Pin(19)))       # Decoded LTC Input
     pt.eng.sm.append(rp2.StateMachine(5, pt.sync_and_read, freq=sm_freq,
-                               jmp_pin=machine.Pin(19),
-                               in_base=machine.Pin(19),
-                               out_base=machine.Pin(21),
-                               set_base=machine.Pin(21)))       # 'sync' from RX bitstream
+                               jmp_pin=Pin(19),
+                               in_base=Pin(19),
+                               out_base=Pin(21),
+                               set_base=Pin(21)))       # 'sync' from RX bitstream
 
     # correct clock dividers
     pt.eng.frig_clocks(pt.eng.tc.fps)
@@ -223,11 +223,11 @@ class MCP6S91():
     GAINVALS = (1, 2, 4, 5, 8, 10, 16, 32)
 
     def __init__(self):
-        self.cs = machine.Pin(5, Pin.OUT)
+        self.cs = Pin(5, Pin.OUT)
         self.cs.value(1)
 
-        self.spi = machine.SPI(0, baudrate=10000, polarity=0, phase=0, bits=8,
-                  firstbit=machine.SPI.MSB, sck=machine.Pin(6), mosi=machine.Pin(7))
+        self.spi = SPI(0, baudrate=10000, polarity=0, phase=0, bits=8,
+                  firstbit=SPI.MSB, sck=Pin(6), mosi=Pin(7))
 
         self.power = False
         self.psu = Pin(23,Pin.OUT, value=1)
@@ -312,7 +312,7 @@ class Rolling:
 class Temperature:
     def __init__(self, ref=3.3):
         self.ref = ref
-        self.sensor = machine.ADC(4)
+        self.sensor = ADC(4)
 
     def read(self):
         adc_value = self.sensor.read_u16()
@@ -375,7 +375,7 @@ def callback_jam():
     # Reconfigure PIOs
     pt.eng.sm = []
     pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
-                               jmp_pin=machine.Pin(21)))        # Sync from RX LTC
+                               jmp_pin=Pin(21)))        # Sync from RX LTC
     add_more_state_machines()
 
     pt.eng.mode = pt.JAM
@@ -608,14 +608,14 @@ def OLED_display_thread(mode=pt.RUN):
     )
 
     # Reduce the CPU clock, for better computation of PIO freqs
-    if machine.freq() != 120000000:
-        machine.freq(120000000)
+    if freq() != 120000000:
+        freq(120000000)
 
     # Allocate appropriate StateMachines, and their pins
     pt.eng.sm = []
     if pt.eng.mode > pt.MONITOR:
         pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
-                                   jmp_pin=machine.Pin(21)))        # Sync from RX LTC
+                                   jmp_pin=Pin(21)))        # Sync from RX LTC
     else:
         pt.eng.sm.append(rp2.StateMachine(0, pt.auto_start, freq=int(pt.eng.tc.fps * 80 * 32)))
     add_more_state_machines()

@@ -59,7 +59,6 @@ from libs.neotimer import *
 # Requires modified lib
 # https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
 
-from libs.PicoOled13 import *
 from libs.ssd1306 import *
 
 # Special font, for display the TX'ed timecode in a particular way

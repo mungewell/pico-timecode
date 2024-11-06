@@ -403,7 +403,10 @@ def callback_fps_df(set):
 
 def callback_tc_start(set):
     if not pt.eng.is_running():
-        pt.eng.tc.from_ascii(set, False)
+        if set[2] == ":":
+            pt.eng.tc.from_ascii(set, True)
+        else:
+            pt.eng.tc.from_ascii(set, False)
 
 
 def callback_setting_output(set):

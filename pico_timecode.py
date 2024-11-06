@@ -365,8 +365,10 @@ class timecode(object):
         time = [x - 0x30 for x in bytes(start, "utf-8")]
 
         self.acquire()
-        self.df = False
         if sep == True:
+            # only change DF if separators are given
+            self.df = False
+
             self.hh = (time[0]*10) + time[1]
             self.mm = (time[3]*10) + time[4]
             self.ss = (time[6]*10) + time[7]

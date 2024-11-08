@@ -689,7 +689,7 @@ def OLED_display_thread(mode=pt.RUN):
             else:
                 if timerA.debounce_signal(keyA.value()==0):
                     if powersave_active == True:
-                        OLED.on()
+                        OLED.poweron()
                         powersave_active = False
                     last_button = now
 
@@ -699,7 +699,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                 if timerB.debounce_signal(keyB.value()==0):
                     if powersave_active == True:
-                        OLED.on()
+                        OLED.poweron()
                         powersave_active = False
                     last_button = now
 
@@ -717,7 +717,7 @@ def OLED_display_thread(mode=pt.RUN):
                     if powersave_active == False and powersave == True:
                         if (now - 30) > last_button:
                             print("Entering PowerSave")
-                            OLED.off()
+                            OLED.poweroff()
                             powersave_active = True
 
                     # If power save is active, we don't update the screen

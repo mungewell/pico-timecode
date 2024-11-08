@@ -61,12 +61,12 @@ class OLED_1inch3_SPI(framebuf.FrameBuffer):
         else:
             return None
 
-    def on(self):
+    def poweron(self):
         if not self.is_on:
             self.write_cmd(0xAF)
             self.is_on=1
 
-    def off(self):
+    def poweroff(self):
         if self.is_on:
             self.write_cmd(0xAE)
             self.is_on=0
@@ -99,7 +99,7 @@ class OLED_1inch3_SPI(framebuf.FrameBuffer):
         time.sleep(0.01)
         self.rst(1)
 
-        self.off()
+        self.poweroff()
 
         self.write_cmd(0x00)   # set lower column address
         self.write_cmd(0x10)   # set higher column address
@@ -136,7 +136,7 @@ class OLED_1inch3_SPI(framebuf.FrameBuffer):
         self.write_cmd(0xad)   # set charge pump enable
         self.write_cmd(0x8a)    #Set DC-DC enable (a=0:disable; a=1:enable)
 
-        self.on()
+        self.poweron()
 
     def show(self, start=0, end=-1, start_col=0, end_col=128):
         if end < 0:

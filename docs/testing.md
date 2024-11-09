@@ -89,17 +89,22 @@ PID state.
 Given my interest (nee obsession) with TimeCode, I have already aquired some specialised test equipment. I
 will measure the accuracy of the Pico modules and post results soon.
 
-On the above 'first jam' video the two units started well in sync, but after ~20hrs it was clear that the
-LEDs had drifted appart - by around 4 frames. This is still pretty good for a 'crappy' crystal. I will 
-need to do some investigations as to whether this is coding error, or attributed to some other (fixable) 
-issue. Otherwise we'll have to look at compensating somehow, or replacing the crystal with a better one. 
+My approach to validating the Pico-Timecode code is to 'Jam' to incoming LTC and then 'free-run' the
+output LTC. Using my test equipment I can monitor the LTC value from my source, a black-burst 
+video generator feeding into a Sync-IO (which generates the reference Timecode), as well as from 
+the 'Pico-Timecode' device.
 
-My approach will be to get the code to a point where it will 'Jam' to incoming LTC and then 'free-run' it's
-output LTC. Using my test equipment I can monitor the LTC value from my source, as well as from the 
-'Pico-Timecode' device.
+_The Ultra-Sync One can also generate a black burst, reference video._
 
-![Test Equipment](docs/pics/test_equipment.png)
+![Test Equipment](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/test_equipment.png)
 
-Evertz #2 will also tell me the phase difference between the VITC (embedded in Video) and the LTC.
+Evertz #2 (top in my rack) will also tell me the phase difference between the VITC (embedded in Video) and 
+the LTC received back from the Pico (or other) Timecode device. The Evertz also output the TC and phase 
+information to a video signal, daisy chaining this you can get an image of both the reference and Pico's
+timecode - captured in an instant...
 
-![Test Equipment](docs/pics/test_equipment2.png)
+![Test Rack](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/test_rack.jpg)
+
+I have already confirmed that the stock XTAL on the Pico is not temperature stable (at all), so this 
+needs to be replaced with a TCXO. I am in the process of validating both the calibration process and
+the 'TCXO' susceptability to temprature variations - using a modified toaster oven. :-)

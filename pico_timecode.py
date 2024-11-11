@@ -715,6 +715,7 @@ class engine(object):
 
         # state of running (ie whether being used for output)
         self.stopped = True
+        self.powersave = False
 
     def is_stopped(self):
         return self.stopped
@@ -727,6 +728,7 @@ class engine(object):
 
         self.stopped = s
         if s:
+            self.powersave = False
             self.tc.bgf1 = False
 
             if self.timer1:
@@ -744,6 +746,12 @@ class engine(object):
 
             self.calval = 0
             self.next_calval = 0
+
+    def set_powersave(self, p=True):
+        self.powersave = p
+
+    def get_powersave(self):
+        return self.powersave
 
     def config_clocks(self, fps, calval=0):
         # divider computed for CPU clock at 120MHz
@@ -869,6 +877,9 @@ class engine(object):
 def pico_timecode_thread(eng, stop):
     global tx_raw
 
+    debug = machine.Pin(28,machine.Pin.OUT)
+    debug.off()
+
     eng.set_stopped(False)
 
     send_sync = True        # send 1st packet with sync
@@ -901,7 +912,6 @@ def pico_timecode_thread(eng, stop):
 
     # Loop, increasing frame count each time
     while not stop():
-
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
             p = []
@@ -948,7 +958,7 @@ def pico_timecode_thread(eng, stop):
                     eng.tc.bgf1 = eng.rc.bgf1
 
         # Wait for TX FIFO to be empty enough to accept more
-        while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < 5:
+        while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < (7 - send_sync):
             if eng.sm[0].tx_fifo() < 3:
                 eng.sm[0].put(eng.tc.to_raw() & 0x7FFFFFFF)     # ??? IRQ issue
             for w in eng.tc.to_ltc_packet(send_sync, False):
@@ -977,8 +987,26 @@ def pico_timecode_thread(eng, stop):
                 # enable 'Start' machine last, so others can synchronise to it
                 eng.sm[0].active(1)
                 start_sent = True
-            
-        utime.sleep(0.001)
+
+        if eng.powersave and eng.sm[2].tx_fifo() > 5:
+            # requires special build microPython with ability to control CLKs
+            # lightsleep for longer than a frame is possible, with FIFOs, but
+            # may cause IRQs to merged and thus corrupt reporting.
+
+            CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00001000
+            debug.on()
+            try:
+                machine.lightsleep(60, CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS)
+            except:
+                eng.set_powersave(False)
+            debug.off()
+
+            '''
+            # Demo - automatically exit when TC is 30s
+            if (eng.tc.to_raw() & 0x0000FF00) == 0x000001E00:
+                eng.set_powersave(False)
+                print("X")
+            '''
 
     # Stop the StateMachines
     for m in range(len(eng.sm)):
@@ -1065,7 +1093,28 @@ def ascii_display_thread(mode = RUN):
             disp.from_raw(tx_raw)
             print("TX:", disp.to_ascii())
 
+            '''
+            # DEMO - Enable Power-Save every minute, at 10s on TC
+            if (eng.tc.to_raw() & 0x0000FF00) == 0x00000A00:
+                print("Entering powersave")
+
+                # Stop the RX StateMachines, as don't want to power them
+                eng.sm[4].active(0)
+                eng.sm[5].active(0)
+
+                # disable Flash IRQ
+                #eng.sm[1].irq(handler=None, hard=True)
+
+                eng.set_powersave(True)
+
+                while eng.get_powersave():
+                    utime.sleep(0.1)
+
+                print("Exited powersave")
+            '''
+
         if eng.mode == HALTED:
+            eng.set_powersave(False)
             print("Underflow Error")
             break
 

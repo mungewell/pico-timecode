@@ -733,7 +733,6 @@ def OLED_display_thread(mode=pt.RUN):
                 # Figure out what TX frame to display
                 while True:
                     t1 = pt.tx_ticks_us
-                    offset = pt.tx_offset
                     raw = pt.tx_raw
                     t2 = pt.tx_ticks_us
 
@@ -754,13 +753,9 @@ def OLED_display_thread(mode=pt.RUN):
                         if r1==r2 and rf1==rf2:
                             break
 
-                # correct read TC value, allow for frames queued in FIFO
-                for i in range(offset):
-                    dc.prev_frame()
-                asc = dc.to_ascii(False)
-
                 # Draw the main TC counter
                 # check which characters of the TC have changed
+                asc = dc.to_ascii(False)
                 if tx_asc != asc:
                     for c in range(len(asc)):
                         if asc[c]!=tx_asc[c]:

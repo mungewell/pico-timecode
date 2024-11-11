@@ -20,8 +20,8 @@ VERSION="v2.1+"
 eng = None
 stop = False
 
-tx_offset = 0
 tx_raw = 0
+tx_offset = 0
 tx_ticks_us = 0
 rx_ticks_us = 0
 sl_ticks_us = 0
@@ -36,16 +36,18 @@ JAM     = 64
 
 #---------------------------------------------
 
-@rp2.asm_pio()
+@rp2.asm_pio(autopull=True, autopush=True)
 
 def auto_start():
     irq(clear, 4)                   # just Trigger Sync...
 
     label("halt")
+    out(x, 32)                      # will 'block' waiting for TX timecode
+    in_(x, 32)                      # and then write back into FIFO
     jmp("halt") [31]
 
 
-@rp2.asm_pio()
+@rp2.asm_pio(autopull=True, autopush=True)
 
 def start_from_pin():
     label("high")
@@ -60,6 +62,8 @@ def start_from_pin():
     irq(rel(0))                     # set IRQ for ticks_us monitoring
 
     label("halt")
+    out(x, 32)                      # will 'block' waiting for TX timecode
+    in_(x, 32)                      # and then write back into FIFO
     jmp("halt") [31]
 
 
@@ -206,8 +210,7 @@ def sync_and_read():
 
 def irq_handler(m):
     global eng, stop
-    global tx_offset, tx_raw
-    global tx_ticks_us, rx_ticks_us, sl_ticks_us
+    global tx_raw, tx_ticks_us, rx_ticks_us, sl_ticks_us
     global core_dis
 
     core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
@@ -217,18 +220,8 @@ def irq_handler(m):
         sl_ticks_us = ticks
 
     if m==eng.sm[1]:
-        if eng.offset1 == eng.offset2:
-            tx_offset = eng.offset1
-            tx_raw = eng.raw1
-        elif eng.raw1 == eng.raw2:
-            tx_offset = eng.offset1
-            tx_raw = eng.raw1
-        else:
-            tx_offset = eng.offset2
-            tx_raw = eng.raw2
-
-        eng.offset1 = eng.offset1 - 1
-        eng.offset2 = eng.offset2 - 1
+        if eng.sm[0].rx_fifo() > 0:
+            tx_raw = eng.sm[0].get()
         tx_ticks_us = ticks
 
     if m==eng.sm[5]:
@@ -722,11 +715,6 @@ class engine(object):
         # state of running (ie whether being used for output)
         self.stopped = True
 
-        self.raw1 = 0
-        self.raw2 = 0
-        self.offset1 = 0
-        self.offset2 = 0
-
     def is_stopped(self):
         return self.stopped
 
@@ -755,11 +743,6 @@ class engine(object):
 
             self.duty = 0
             self.next_duty = 0
-
-            self.raw1 = 0
-            self.raw2 = 0
-            self.offset1 = 0
-            self.offset2 = 0
 
     def frig_clocks(self, fps, offset=0):
         # divider computed for CPU clock at 120MHz
@@ -883,7 +866,7 @@ class engine(object):
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
-    global raw, tx_offset
+    global tx_raw
 
     eng.set_stopped(False)
 
@@ -916,7 +899,6 @@ def pico_timecode_thread(eng, stop):
     eng.micro_adjust(eng.duty)
 
     # Loop, increasing frame count each time
-    tx_offset = 0
     while not stop():
 
         # Empty RX FIFO as it fills
@@ -966,6 +948,8 @@ def pico_timecode_thread(eng, stop):
 
         # Wait for TX FIFO to be empty enough to accept more
         while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < 5:
+            if eng.sm[0].tx_fifo() < 3:
+                eng.sm[0].put(eng.tc.to_raw() & 0x7FFFFFFF)     # ??? IRQ issue
             for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[2].put(w)
             eng.tc.release()
@@ -974,12 +958,7 @@ def pico_timecode_thread(eng, stop):
             # Calculate next frame value
             eng.tc.next_frame()
 
-            eng.offset1 = eng.offset1 + 1
-            eng.raw1 = eng.tc.to_raw()
-            eng.raw2 = eng.tc.to_raw()
-            eng.offset2 = eng.offset2 + 1
-
-            # Does the LED flash for this frame?
+            # Does the LED flash for the next frame?
             eng.tc.acquire()
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
@@ -987,7 +966,7 @@ def pico_timecode_thread(eng, stop):
                 else:
                     eng.sm[1].put(509)              # '509' is complete cycle length
             else:
-                if eng.raw1 == eng.flashtime:
+                if eng.tc.to_raw() == eng.flashtime:
                     eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
                 else:
                     eng.sm[1].put(509)              # '509' is complete cycle length
@@ -1071,6 +1050,9 @@ def ascii_display_thread(mode = RUN):
     stop = False
     _thread.start_new_thread(pico_timecode_thread, (eng, lambda: stop))
 
+    disp = timecode()
+    disp.set_fps_df(eng.tc.fps, eng.tc.df)
+
     while True:
         if eng.mode > RUN:
             if eng.mode > MONITOR:
@@ -1078,7 +1060,9 @@ def ascii_display_thread(mode = RUN):
             print("RX:", eng.rc.to_ascii())
 
         if eng.mode == RUN:
-            print("TX:", eng.tc.to_ascii())
+            # display the most recent TX'ed timecode
+            disp.from_raw(tx_raw)
+            print("TX:", disp.to_ascii())
 
         if eng.mode == HALTED:
             print("Underflow Error")
@@ -1093,4 +1077,4 @@ if __name__ == "__main__":
     print("www.github.com/mungewell/pico-timecode")
     utime.sleep(2)
 
-    ascii_display_thread(1)
+    ascii_display_thread(MONITOR)       # Note: DEMO Mode above

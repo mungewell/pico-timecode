@@ -39,7 +39,7 @@ JAM     = 64
 @rp2.asm_pio(autopull=True, autopush=True)
 
 def auto_start():
-    irq(clear, 4)                   # just Trigger Sync...
+    irq(clear, 4)                   # immediately Trigger Sync...
 
     label("halt")
     out(x, 32)                      # will 'block' waiting for TX timecode
@@ -59,7 +59,7 @@ def start_from_pin():
 
     label("start")
     irq(clear, 4)                   # Trigger Sync
-    irq(rel(0))                     # set IRQ for ticks_us monitoring
+    irq(rel(0))                     # set IRQ for sl_ticks_us monitoring
 
     label("halt")
     out(x, 32)                      # will 'block' waiting for TX timecode
@@ -70,13 +70,13 @@ def start_from_pin():
 @rp2.asm_pio(set_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def blink_led():
-    out(x, 16)                      # first cycle lenght may be slightly
+    out(x, 16)                      # first cycle length may be slightly
                                     # different so LED is exactly timed...
     irq(block, 4)                   # Wait for sync'ed start
 
     label("read_new")
     wrap_target()
-    irq(rel(0))                     # set IRQ for ticks_us monitoring
+    irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
     out(y, 16)                      # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
@@ -179,15 +179,14 @@ def sync_and_read():
     irq(block, 5)           # wait for input, databit ready
                             # Note: the following sample is from previous bit
     in_(pins, 2)            # Double clock input (ie duplicate bits)
-    #in_(pins, 1)            # auto-push will NOT trigger...
     mov(x, isr)[10]
 
     jmp(x_not_y, "find_sync")
     set(pins, 0)
 
-    set(x, 31)[8]#[14]           # Read in the next 32 bits
+    set(x, 31)[8]           # Read in the next 32 bits
     mov(isr, null)          # clear ISR
-    irq(rel(0))             # set IRQ for ticks_us monitoring
+    irq(rel(0))             # set IRQ for rx_ticks_us monitoring
     set(pins, 0)            # signal 'data section' start
 
     label("next_bit")
@@ -247,7 +246,7 @@ def timer_re_init(timer):
     # if timer1 exists it means we are dithering
     # between two values
     if timer == eng.timer1:
-        if eng.duty > 0:
+        if eng.calval > 0:
             eng.dec_divider()
         else:
             eng.inc_divider()
@@ -262,7 +261,7 @@ def timer_re_init(timer):
             eng.timer1 = None
 
         eng.timer2 = None
-        eng.micro_adjust(eng.next_duty)
+        eng.micro_adjust(eng.next_calval)
 
     if timer == eng.timer3:
         # This should NEVER occur, it means previous timers were missed.
@@ -274,7 +273,7 @@ def timer_re_init(timer):
 
         eng.timer1 = None
         eng.timer2 = None
-        eng.micro_adjust(eng.next_duty)
+        eng.micro_adjust(eng.next_calval)
 
 #---------------------------------------------
 
@@ -704,8 +703,8 @@ class engine(object):
         self.rc = timecode()
         self.sm = None
 
-        self.duty = 0
-        self.next_duty = 0
+        self.calval = 0
+        self.next_calval = 0
 
         self.period = 10000 # 10s, can be update by client
         self.timer1 = None
@@ -741,10 +740,10 @@ class engine(object):
             stop = False
             self.asserted = False
 
-            self.duty = 0
-            self.next_duty = 0
+            self.calval = 0
+            self.next_calval = 0
 
-    def frig_clocks(self, fps, offset=0):
+    def config_clocks(self, fps, calval=0):
         # divider computed for CPU clock at 120MHz
         if fps == 30.00:
             new_div = 0x061a8000
@@ -761,8 +760,8 @@ class engine(object):
         else:
             return
 
-        # apply offset, from calibration/duty
-        new_div -= int(offset) << 8
+        # apply divider offset, from calibration value
+        new_div -= int(calval) << 8
 
         # Set dividers for all PIO machines
         self.dlock.acquire()
@@ -826,20 +825,20 @@ class engine(object):
 
         self.dlock.release()
 
-    def micro_adjust(self, duty, period=0):
+    def micro_adjust(self, calval, period=0):
         if self.stopped:
             return
 
-        self.next_duty = duty
+        self.next_calval = calval
         if period > 0:
             # in ms, only change if specified
             self.period = period
 
         if self.timer1 == None and self.timer2 == None:
-            self.duty = duty
+            self.calval = calval
 
             # re-init clock dividers
-            self.frig_clocks(self.tc.fps, duty)
+            self.config_clocks(self.tc.fps, calval)
 
             # re-init timers
             self.timer2 = Timer()
@@ -852,7 +851,7 @@ class engine(object):
             self.timer3.init(period=self.period + 2000, mode=Timer.ONE_SHOT, callback=timer_sched)
 
             # are we dithering between two clock values?
-            part = int(self.period * (abs(duty) % 1))
+            part = int(self.period * (abs(calval) % 1))
             if part > 0:
                 self.timer1 = Timer()
                 self.timer1.init(period=self.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
@@ -879,7 +878,7 @@ def pico_timecode_thread(eng, stop):
 
     # Set up Blink/LED timing
     eng.sm[1].put(612)          # 1st cycle includes 'extra sync' correction
-                            # (80 + 16) * 32 = 3072 cycles
+                                # (80 + 16) * 32 = 3072 cycles
 
     # Start the StateMachines (except Sync)
     for m in range(1, len(eng.sm)):
@@ -896,7 +895,7 @@ def pico_timecode_thread(eng, stop):
 
     # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
     # -1 -> +1 : +ve = faster clock, -ve = slower clock
-    eng.micro_adjust(eng.duty)
+    eng.micro_adjust(eng.calval)
 
     # Loop, increasing frame count each time
     while not stop():
@@ -1026,12 +1025,12 @@ def ascii_display_thread(mode = RUN):
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                            jmp_pin=machine.Pin(18),
                            in_base=machine.Pin(18),
-                           set_base=machine.Pin(19)))   # Decoded LTC Input
+                           set_base=machine.Pin(19)))       # Decoded LTC Input
     else:
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=machine.Pin(13),     # DEMO MODE - read from self/tx
-                           in_base=machine.Pin(13),     # DEMO MODE - read from self/tx
-                           set_base=machine.Pin(19)))   # Decoded LTC Input
+                           jmp_pin=machine.Pin(13),         # DEMO MODE - read from self/tx
+                           in_base=machine.Pin(13),         # for real operation change 13 -> 18
+                           set_base=machine.Pin(19)))       # Decoded LTC Input
 
     eng.sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
                            jmp_pin=machine.Pin(19),
@@ -1040,7 +1039,7 @@ def ascii_display_thread(mode = RUN):
                            set_base=machine.Pin(21)))       # 'sync' from RX bitstream
 
     # correct clock dividers for 29.98 and 23.976
-    eng.frig_clocks(eng.tc.fps)
+    eng.config_clocks(eng.tc.fps)
 
     # set up IRQ handler
     for m in eng.sm:

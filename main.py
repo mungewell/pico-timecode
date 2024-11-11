@@ -108,7 +108,7 @@ def add_more_state_machines():
                                set_base=Pin(21)))       # 'sync' from RX bitstream
 
     # correct clock dividers
-    pt.eng.frig_clocks(pt.eng.tc.fps)
+    pt.eng.config_clocks(pt.eng.tc.fps)
 
     # set up IRQ handler
     for m in pt.eng.sm:
@@ -850,7 +850,7 @@ def OLED_display_thread(mode=pt.RUN):
                             # Then update PID every 1s (or so)
                             if sync_after_jam > 0:
                                 if pid.auto_mode == False:
-                                    pid.set_auto_mode(True, last_output=pt.eng.duty)
+                                    pid.set_auto_mode(True, last_output=pt.eng.calval)
 
                                 if jam_started and (now - 400) > jam_started:
                                     phase.purge(now - period)
@@ -862,7 +862,7 @@ def OLED_display_thread(mode=pt.RUN):
                                     adjust = pid(phase.read())
                                     pt.eng.micro_adjust(adjust, 1000)
 
-                                print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
+                                print(dc.to_ascii(), d, phase.read(), pt.eng.calval, \
                                       temp_avg.store_read(sensor.read()), \
                                       adj_avg.store_read(adjust), \
                                       pt.eng.tc.user_to_ascii(), \
@@ -889,7 +889,7 @@ def OLED_display_thread(mode=pt.RUN):
                                     pid.auto_mode = False
 
                             else:
-                                print(dc.to_ascii(), d, phase.read(), pt.eng.duty, \
+                                print(dc.to_ascii(), d, phase.read(), pt.eng.calval, \
                                       temp_avg.store_read(sensor.read()))
 
                             # Current frame + ~1s

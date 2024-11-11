@@ -221,6 +221,7 @@ def irq_handler(m):
     if m==eng.sm[1]:
         if eng.sm[0].rx_fifo() > 0:
             tx_raw = eng.sm[0].get()
+
         tx_ticks_us = ticks
 
     if m==eng.sm[5]:
@@ -366,7 +367,7 @@ class timecode(object):
             self.ss = (time[6]*10) + time[7]
             self.ff = (time[9]*10) + time[10]
 
-            if time[8] == 11:
+            if time[8] != 10:
                 self.df = True
         else:
             self.hh = (time[0]*10) + time[1]
@@ -383,7 +384,8 @@ class timecode(object):
         if sep == True:
             time = [int(self.hh/10), (self.hh % 10), 10,
                     int(self.mm/10), (self.mm % 10), 10,
-                    int(self.ss/10), (self.ss % 10), 10 + self.df,
+                    int(self.ss/10), (self.ss % 10),
+                    (-2 if self.df == True else 10),    # use '.' for DF
                     int(self.ff/10), (self.ff % 10)]
         else:
             time = [int(self.hh/10), (self.hh % 10),

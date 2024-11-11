@@ -621,11 +621,11 @@ def OLED_display_thread(mode=pt.RUN):
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
     while True:
-        dc = pt.timecode()
-        dc.set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
+        disp = pt.timecode()
+        disp.set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
 
-        displayfps = "{:.2f}".format(dc.fps) + ("-DF" if dc.df == True else "")
-        cycle_us = (1000000.0 / dc.fps)
+        displayfps = "{:.2f}".format(disp.fps) + ("-DF" if disp.df == True else "")
+        cycle_us = (1000000.0 / disp.fps)
 
         if menu_hidden == True:
             OLED.fill(0x0000)
@@ -737,7 +737,7 @@ def OLED_display_thread(mode=pt.RUN):
                     t2 = pt.tx_ticks_us
 
                     if t1==t2:
-                        dc.from_raw(raw)
+                        disp.from_raw(raw)
                         break
 
                 # Figure out what RX frame to display
@@ -755,7 +755,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                 # Draw the main TC counter
                 # check which characters of the TC have changed
-                asc = dc.to_ascii(False)
+                asc = disp.to_ascii(False)
                 if tx_asc != asc:
                     for c in range(len(asc)):
                         if asc[c]!=tx_asc[c]:
@@ -764,6 +764,10 @@ def OLED_display_thread(mode=pt.RUN):
                         # blit in reverse order, offsetting to hide ':'
                         OLED.blit(timecode_fb[int(asc[i])],
                             (16*i)-(4 if i&1 else 0), 48)
+
+                    # Drop Frame, convert ":" to "."
+                    if disp.df:
+                        OLED.fill_rect(96,52,4,4,OLED.black)
 
                     # blank left most ':'
                     if c < 2:
@@ -784,12 +788,12 @@ def OLED_display_thread(mode=pt.RUN):
 
                 if pt.eng.mode > pt.RUN:
                     # every code left in FIFO, means that we have outdated TC
-                    dc.from_raw(g)
+                    disp.from_raw(g)
                     for i in range(int(rf1/2)):
-                        dc.next_frame()
+                        disp.next_frame()
 
                     # Show RX Timecode
-                    asc = dc.to_ascii()
+                    asc = disp.to_ascii()
                     if rx_asc != asc:
                         OLED.text(asc,64,22,OLED.white,1,2)
                         if pt.eng.mode == pt.RUN:
@@ -862,7 +866,7 @@ def OLED_display_thread(mode=pt.RUN):
                                     adjust = pid(phase.read())
                                     pt.eng.micro_adjust(adjust, 1000)
 
-                                print(dc.to_ascii(), d, phase.read(), pt.eng.calval, \
+                                print(disp.to_ascii(), d, phase.read(), pt.eng.calval, \
                                       temp_avg.store_read(sensor.read()), \
                                       adj_avg.store_read(adjust), \
                                       pt.eng.tc.user_to_ascii(), \
@@ -889,7 +893,7 @@ def OLED_display_thread(mode=pt.RUN):
                                     pid.auto_mode = False
 
                             else:
-                                print(dc.to_ascii(), d, phase.read(), pt.eng.calval, \
+                                print(disp.to_ascii(), d, phase.read(), pt.eng.calval, \
                                       temp_avg.store_read(sensor.read()))
 
                             # Current frame + ~1s

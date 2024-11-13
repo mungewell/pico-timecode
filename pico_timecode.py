@@ -220,7 +220,12 @@ def irq_handler(m):
 
     if m==eng.sm[1]:
         if eng.sm[0].rx_fifo() > 0:
+            '''
             tx_raw = eng.sm[0].get()
+            '''
+            # bug with '32bit math' in IRQ
+            # https://github.com/micropython/micropython/issues/16221
+            schedule(get_fifo_later, m)
 
         tx_ticks_us = ticks
 
@@ -233,6 +238,13 @@ def irq_handler(m):
         eng.mode = HALTED
 
     machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+
+def get_fifo_later(m):
+    global eng, tx_raw
+
+    if eng.sm[0].rx_fifo() > 0:
+        tx_raw = eng.sm[0].get()
+
 
 def timer_sched(timer):
     schedule(timer_re_init, timer)
@@ -960,7 +972,7 @@ def pico_timecode_thread(eng, stop):
         # Wait for TX FIFO to be empty enough to accept more
         while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < (7 - send_sync):
             if eng.sm[0].tx_fifo() < 3:
-                eng.sm[0].put(eng.tc.to_raw() & 0x7FFFFFFF)     # ??? IRQ issue
+                eng.sm[0].put(eng.tc.to_raw())
             for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[2].put(w)
             eng.tc.release()
@@ -996,7 +1008,7 @@ def pico_timecode_thread(eng, stop):
             CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00001000
             debug.on()
             try:
-                machine.lightsleep(60, CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS)
+                machine.lightsleep(30, CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS)
             except:
                 eng.set_powersave(False)
             debug.off()

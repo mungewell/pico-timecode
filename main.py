@@ -422,10 +422,12 @@ def callback_setting_output(set):
 def callback_setting_powersave(set):
     global powersave
 
-    if set=="Yes":
-        powersave = True
+    if set=="Off":
+        powersave = 0
+    elif set=="Screen":
+        powersave = 1
     else:
-        powersave = False
+        powersave = 2
 
 def callback_setting_zoom(set):
     global zoom
@@ -690,9 +692,11 @@ def OLED_display_thread(mode=pt.RUN):
                 if timerA.debounce_signal(keyA.value()==0):
                     last_button = now
                     if powersave_active == True:
-                        pt.eng.set_powersave(False)
+                        if pt.eng.get_powersave():
+                            pt.eng.set_powersave(False)
                         powersave_active = False
                         OLED.poweron()
+
                         print("Exiting PowerSave")
                     else:
                         # enter the Menu...
@@ -702,9 +706,11 @@ def OLED_display_thread(mode=pt.RUN):
                 if timerB.debounce_signal(keyB.value()==0):
                     last_button = now
                     if powersave_active == True:
-                        pt.eng.set_powersave(False)
+                        if pt.eng.get_powersave():
+                            pt.eng.set_powersave(False)
                         powersave_active = False
                         OLED.poweron()
+
                         print("Exiting PowerSave")
 
                 # Hold B for 3s to (re)start jam
@@ -718,21 +724,28 @@ def OLED_display_thread(mode=pt.RUN):
 
                 # Check whether to enter power save mode
                 if pt.eng.mode == pt.RUN:
-                    if powersave_active == False and powersave == True:
+                    if powersave_active == False and powersave > 0:
                         if (now - 30) > last_button:
-                            pt.eng.set_powersave(True)
+                            print("Entering PowerSave")
+                            utime.sleep(0.1)
+
+                            if powersave > 1:
+                                pt.eng.set_powersave(True)
                             powersave_active = True
                             OLED.poweroff()
 
                             # Stop the RX StateMachines, as don't want to power them
                             pt.eng.sm[4].active(0)
                             pt.eng.sm[5].active(0)
-                            print("Entering PowerSave")
 
                     # If power save is active, we don't update the screen
                     if powersave_active == True:
-                        utime.sleep(1)
-                        powersave_active = pt.eng.get_powersave()
+                        utime.sleep(0.1)
+                        if powersave > 1:
+                            powersave_active = pt.eng.get_powersave()
+                            if not powersave_active:
+                                # hardware exited, turn off powersave
+                                powersave = 0
                         if powersave_active:
                             continue
                         else:

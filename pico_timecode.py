@@ -760,6 +760,9 @@ class engine(object):
             self.next_calval = 0
 
     def set_powersave(self, p=True):
+        if self.powersave == p:
+            return
+
         self.powersave = p
 
     def get_powersave(self):
@@ -1005,19 +1008,35 @@ def pico_timecode_thread(eng, stop):
             # lightsleep for longer than a frame is possible, with FIFOs, but
             # may cause IRQs to merged and thus corrupt reporting.
 
-            CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00001000
+            # RP2040
+            CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00001000
+            CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00002000
+
+            CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS = 0x00000080
+            CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS = 0x00000200
+
+            CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS = 0x00000040
+            CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS = 0x00000100
+
+            '''
+            # RP2350
+            CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00040000
+            CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00080000
+            CLOCKS_SLEEP_EN0_CLK_SYS_PIO2_BITS = 0x00100000
+            '''
+
             debug.on()
             try:
-                machine.lightsleep(30, CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS)
+                machine.lightsleep(30, CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS,
+                                   CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS)
             except:
                 eng.set_powersave(False)
             debug.off()
 
             '''
-            # Demo - automatically exit when TC is 30s
+            # DEMO - automatically exit when TC is 30s
             if (eng.tc.to_raw() & 0x0000FF00) == 0x000001E00:
                 eng.set_powersave(False)
-                print("X")
             '''
 
     # Stop the StateMachines
@@ -1109,13 +1128,7 @@ def ascii_display_thread(mode = RUN):
             # DEMO - Enable Power-Save every minute, at 10s on TC
             if (eng.tc.to_raw() & 0x0000FF00) == 0x00000A00:
                 print("Entering powersave")
-
-                # Stop the RX StateMachines, as don't want to power them
-                eng.sm[4].active(0)
-                eng.sm[5].active(0)
-
-                # disable Flash IRQ
-                #eng.sm[1].irq(handler=None, hard=True)
+                utime.sleep(0.1)
 
                 eng.set_powersave(True)
 

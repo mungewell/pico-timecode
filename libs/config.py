@@ -5,7 +5,7 @@ setting = {
     'output'    : ['Line', ['Mic', 'Line']],
     'flashframe': ['11', ['Off', '0', '11']],
     'userbits'  : ['Name', ['Name', 'Digits', 'Date']],
-    'powersave' : ['No', ['No', 'Yes']],
+    'powersave' : ['Off', ['Off', 'Screen', 'Hardware']],
     'zoom'      : ['No', ['No', 'Yes']],
     'monitor'   : ['No', ['No', 'Yes']],
     'calibrate' : ['No', ['No', 'Once', 'Always']],

@@ -1042,7 +1042,9 @@ def pico_timecode_thread(eng, stop):
     # Stop the StateMachines
     for m in range(len(eng.sm)):
         eng.sm[m].active(0)
-        utime.sleep(0.005)
+
+    rp2.PIO(0).remove_program()
+    rp2.PIO(1).remove_program()
 
     eng.set_stopped(True)
 

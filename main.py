@@ -350,12 +350,19 @@ def callback_monitor():
 
     menu_hidden = True
 
-    if pt.eng.mode == pt.RUN:
-        pt.eng.mode = pt.MONITOR
-        monitor = True
-    elif pt.eng.mode == pt.MONITOR:
-        pt.eng.mode = pt.RUN
+    if pt.eng.is_running():
+        if pt.eng.mode == pt.RUN:
+            pt.eng.mode = pt.MONITOR
+            monitor = True
+        elif pt.eng.mode == pt.MONITOR:
+            pt.eng.mode = pt.RUN
+            monitor = False
+    else:
         callback_setting_monitor(config.setting['monitor'][0])
+        if monitor:
+            pt.eng.mode = pt.MONITOR
+        else:
+            pt.eng.mode = pt.RUN
 
 
 def callback_jam():
@@ -371,6 +378,7 @@ def callback_jam():
     # Force Garbage collection
     gc.collect()
 
+
     # Reconfigure PIOs
     pt.eng.sm = []
     pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
@@ -378,6 +386,7 @@ def callback_jam():
     add_more_state_machines()
 
     pt.eng.mode = pt.JAM
+    callback_setting_monitor(config.setting['monitor'][0])
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
     # apply previously saved calibration value
@@ -527,8 +536,11 @@ def OLED_display_thread(mode=pt.RUN):
     callback_setting_userbits(config.setting['userbits'][0])
     callback_setting_powersave(config.setting['powersave'][0])
     callback_setting_zoom(config.setting['zoom'][0])
-    callback_setting_monitor(config.setting['monitor'][0])
     callback_setting_calibrate(config.setting['calibrate'][0])
+
+    callback_setting_monitor(config.setting['monitor'][0])
+    if monitor:
+        pt.eng.mode = pt.MONITOR
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)

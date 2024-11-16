@@ -653,7 +653,7 @@ def OLED_display_thread(mode=pt.RUN):
         rx_asc="--:--:--:--"
         rx_ub = ""
 
-        sync_after_jam = 0
+        cal_after_jam = 0
         jam_started = False
         powersave_active = False
         last_button = utime.time()
@@ -836,13 +836,7 @@ def OLED_display_thread(mode=pt.RUN):
                     asc = disp.to_ascii()
                     if rx_asc != asc:
                         OLED.text(asc,64,22,OLED.white,1,2)
-                        if pt.eng.mode == pt.RUN:
-                            for c in range(len(asc)):
-                                if asc[c]!=rx_asc[c]:
-                                    break
-                            OLED.show(22,32,98-((12-c)*6),98)
-                        else:
-                            OLED.show(22,32)
+                        OLED.show(22,32)
                         rx_asc = asc
 
                     # Show RX Userbits
@@ -878,7 +872,7 @@ def OLED_display_thread(mode=pt.RUN):
                         if next_mon==None:
                             next_mon = pt.timecode()
 
-                            if sync_after_jam > 0:
+                            if cal_after_jam > 0:
                                 # wait ~1m
                                 next_mon.from_raw(g | 0x0000FFFF)
                                 next_mon.next_frame()
@@ -892,7 +886,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                         elif g & 0xFFFFFF00 == next_mon_raw:
                             # Then update PID every 1s (or so)
-                            if sync_after_jam > 0:
+                            if cal_after_jam > 0:
                                 if pid.auto_mode == False:
                                     pid.set_auto_mode(True, last_output=pt.eng.calval)
 
@@ -928,7 +922,7 @@ def OLED_display_thread(mode=pt.RUN):
                                     if calibrate == 1:
                                         callback_setting_calibrate("No")
 
-                                    sync_after_jam = 0
+                                    cal_after_jam = 0
                                     jam_started = False
                                     pid.auto_mode = False
 
@@ -942,7 +936,7 @@ def OLED_display_thread(mode=pt.RUN):
                             next_mon_raw = next_mon.to_raw() & 0xFFFFFF00
 
 
-                        if pt.eng.mode == pt.MONITOR and sync_after_jam > 0:
+                        if pt.eng.mode == pt.MONITOR and cal_after_jam > 0:
                             # CAL = Sync'ed to RX and calibrating XTAL
                             OLED.text("CAL ",0,22,OLED.white)
                         else:
@@ -976,7 +970,7 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
                         OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
 
-                        sync_after_jam = calibrate
+                        cal_after_jam = calibrate
                         jam_started = utime.time()
 
                     if pt.eng.mode > pt.RUN:
@@ -987,14 +981,14 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.hline(1, 33, 127, OLED.black)
                         OLED.hline(1, 34, 127, OLED.black)
 
-                        if not monitor and not sync_after_jam \
+                        if not monitor and not cal_after_jam \
                                and pt.eng.mode == pt.MONITOR:
-                            OLED.fill_rect(0,12,128,10,OLED.black)
+                            OLED.fill_rect(0,12,128,24,OLED.black)
                             OLED.show()
                             pt.eng.mode = pt.RUN
                     else:
                         # catch if user has cancelled jam/calibrate
-                        sync_after_jam = 0
+                        cal_after_jam = 0
                         jam_started = False
 
                         # Purge everything, to clean up memory!

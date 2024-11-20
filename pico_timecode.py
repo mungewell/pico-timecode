@@ -728,6 +728,8 @@ class engine(object):
         # state of running (ie whether being used for output)
         self.stopped = True
         self.powersave = False
+        self.ps_en0 = 0
+        self.ps_en1 = 0
 
     def is_stopped(self):
         return self.stopped
@@ -759,10 +761,9 @@ class engine(object):
             self.calval = 0
             self.next_calval = 0
 
-    def set_powersave(self, p=True):
-        if self.powersave == p:
-            return
-
+    def set_powersave(self, p=True, ps_en0=0, ps_en1=0):
+        self.ps_en0 = ps_en0
+        self.ps_en1 = ps_en1
         self.powersave = p
 
     def get_powersave(self):
@@ -1027,8 +1028,8 @@ def pico_timecode_thread(eng, stop):
 
             debug.on()
             try:
-                machine.lightsleep(30, CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS,
-                                   CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS)
+                machine.lightsleep(30, eng.ps_en0 | CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS,
+                                   eng.ps_en1 | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS)
             except:
                 eng.set_powersave(False)
             debug.off()

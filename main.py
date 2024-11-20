@@ -544,7 +544,7 @@ def OLED_display_thread(mode=pt.RUN):
     callback_fps_df(config.setting['dropframe'][0])
     callback_tc_start(config.setting['tc_start'])
 
-    callback_setting_output(config.setting['output'][0])
+    callback_setting_output(config.setting['output'][0])
     callback_setting_flashframe(config.setting['flashframe'][0])
     callback_setting_userbits(config.setting['userbits'][0])
     callback_setting_powersave(config.setting['powersave'][0])
@@ -560,6 +560,8 @@ def OLED_display_thread(mode=pt.RUN):
     timerA = Neotimer(50)
     timerB = Neotimer(50)
     timerH = Neotimer(3000)
+    timerP = Neotimer(30000)
+    timerP.start()
 
     # Internal temp sensor
     sensor = Temperature()
@@ -620,8 +622,8 @@ def OLED_display_thread(mode=pt.RUN):
                 alphabet=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"])))
 
         .add(SubMenuItem("Unit Settings")
-            .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
-                selected=config.setting['output'][1].index(config.setting['output'][0])))
+            .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
+                selected=config.setting['output'][1].index(config.setting['output'][0])))
             .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
                 selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
             .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
@@ -717,7 +719,7 @@ def OLED_display_thread(mode=pt.RUN):
                     menu.move(2)        # Requires patched umenu to work
                 if timerB.debounce_signal(keyB.value()==0):
                     menu.click()
-                last_button = now
+                timerP.restart()
                 menu.draw()
 
                 # Clear screen after Menu Exits
@@ -731,28 +733,31 @@ def OLED_display_thread(mode=pt.RUN):
                     tx_ticks = 0
                     tx_ub = ""
                     rx_ub = ""
+                    timerP.start()
             else:
                 if timerA.debounce_signal(keyA.value()==0):
-                    last_button = now
                     if powersave_active == True:
                         if pt.eng.get_powersave():
                             pt.eng.set_powersave(False)
                         powersave_active = False
                         OLED.poweron()
+                        timerP.start()
 
                         print("Exiting PowerSave")
                     else:
                         # enter the Menu...
                         menu.reset()
                         menu_hidden = False
+                        timerP.stop()
 
                 if timerB.debounce_signal(keyB.value()==0):
-                    last_button = now
+                    timerP.restart()
                     if powersave_active == True:
                         if pt.eng.get_powersave():
                             pt.eng.set_powersave(False)
                         powersave_active = False
                         OLED.poweron()
+                        timerP.start()
 
                         print("Exiting PowerSave")
 
@@ -768,7 +773,7 @@ def OLED_display_thread(mode=pt.RUN):
                 # Check whether to enter power save mode
                 if pt.eng.mode == pt.RUN:
                     if powersave_active == False and powersave > 0:
-                        if (now - 30) > last_button:
+                        if timerP.finished():
                             print("Entering PowerSave")
                             utime.sleep(0.1)
 
@@ -776,6 +781,7 @@ def OLED_display_thread(mode=pt.RUN):
                                 pt.eng.set_powersave(True)
                             powersave_active = True
                             OLED.poweroff()
+                            timerP.stop()
 
                             # Stop the RX StateMachines, as don't want to power them
                             pt.eng.sm[4].active(0)
@@ -789,6 +795,7 @@ def OLED_display_thread(mode=pt.RUN):
                             if not powersave_active:
                                 # hardware exited, disable hardware powersave option
                                 powersave = 1
+                                timerP.restart()
 
                         # Low Battery - disable powersave so we can notify on screen
                         if bat_avg.read() < 3.0:
@@ -801,6 +808,8 @@ def OLED_display_thread(mode=pt.RUN):
                             continue
                         else:
                             OLED.poweron()
+                            timerP.restart()
+
                             print("Powersave Exited")
 
                 # Attempt to align display with the TX timing

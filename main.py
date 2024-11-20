@@ -319,6 +319,19 @@ class Temperature:
 
         return(27-(volt-0.706)/0.001721)
 
+#--------------------------------------------- 
+# Class for measuring battery voltage
+# 3v3 to be connected to vREF (pin 35) 
+ 
+class Battery: 
+    def __init__(self, ref=3.3 * 3): 
+        self.ref = ref 
+        self.sensor = ADC(29) 
+ 
+    def read(self): 
+        adc_value = self.sensor.read_u16() 
+        return((self.ref/65536) * adc_value)
+ 
 #---------------------------------------------
 
 def callback_stop_start():
@@ -552,6 +565,12 @@ def OLED_display_thread(mode=pt.RUN):
     sensor = Temperature()
     temp_avg = Rolling()
 
+    # Battery voltage
+    batTimer = Neotimer(1000)
+    bat_raw = Battery()
+    bat_avg = Rolling()
+    bat_avg.store(bat_raw.read())
+
     # automatically Jam if booted with 'B' pressed
     if keyB.value() == 0:
         pt.eng.mode=pt.JAM
@@ -681,6 +700,18 @@ def OLED_display_thread(mode=pt.RUN):
 
         while True:
             now = utime.time()
+
+            # Monitor battery every 1s and eval
+            if batTimer.repeat_execution():
+                if not (powersave_active and powersave > 1):
+                    # ADCs currently 'stall' in hardware powersave
+                    bat_avg.store(bat_raw.read())
+                    #print(disp.to_ascii(), bat_avg.read())
+
+                # Dead Battery
+                if bat_avg.read() < 2.5:
+                    sys.exit("Oh crap...")
+
             if menu_hidden == False:
                 if timerA.debounce_signal(keyA.value()==0):
                     menu.move(2)        # Requires patched umenu to work
@@ -756,8 +787,16 @@ def OLED_display_thread(mode=pt.RUN):
                         if powersave > 1:
                             powersave_active = pt.eng.get_powersave()
                             if not powersave_active:
-                                # hardware exited, turn off powersave
-                                powersave = 0
+                                # hardware exited, disable hardware powersave option
+                                powersave = 1
+
+                        # Low Battery - disable powersave so we can notify on screen
+                        if bat_avg.read() < 3.0:
+                            if pt.eng.get_powersave():
+                                pt.eng.set_powersave(False)
+                            powersave_active = False
+                            powersave = 0
+
                         if powersave_active:
                             continue
                         else:
@@ -996,6 +1035,12 @@ def OLED_display_thread(mode=pt.RUN):
                         adj_avg.purge(1)
                         gc.collect()
 
+            if bat_avg.read() < 3.0:
+                OLED.fill_rect(0,38,128,10, \
+                        (OLED.white if not pt.tx_raw & 0x00000100 else OLED.black))
+                OLED.text("Battery Low",64,38, \
+                        (OLED.white if pt.tx_raw & 0x00000100 else OLED.black),1,2)
+                OLED.show(38, 46)
 
             if pt.eng.mode == pt.HALTED:
                 OLED.fill_rect(0,51,128,10,OLED.black)

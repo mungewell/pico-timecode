@@ -55,6 +55,7 @@ from libs import config
 from libs.pid import *
 from libs.umenu import *
 from libs.neotimer import *
+from libs.lowpower import *
 
 # Requires modified lib
 # https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
@@ -67,7 +68,7 @@ from framebuf import FrameBuffer, MONO_HMSB
 
 import pico_timecode as pt
 
-from machine import Pin,SPI,ADC,freq
+from machine import Pin,SPI,ADC,freq,reset
 import _thread
 import utime
 import rp2
@@ -722,9 +723,21 @@ def OLED_display_thread(mode=pt.RUN):
                     if not batWarn.started:
                         batWarn.start()
 
-                # Dead Battery
+                # Dead Battery - turn off as much as possible
                 if bat_avg.read() < 2.5:
-                    sys.exit("Oh crap...")
+                    pt.stop = True
+                    while pt.eng.is_running():
+                        utime.sleep(0.1)
+
+                    OLED.poweroff()
+                    outamp.powerdown()
+                    Pin(23, Pin.OUT, value=0)
+                    Pin(25, Pin.OUT, value=0)
+                    Pin(26, Pin.OUT, value=0)
+
+                    # do deepsleep() for minumum current, wake with either Key
+                    dormant_until_pins([15,17], False, False)
+                    reset()
 
             if menu_hidden == False:
                 if timerA.debounce_signal(keyA.value()==0):

@@ -572,6 +572,7 @@ def OLED_display_thread(mode=pt.RUN):
     bat_raw = Battery()
     bat_avg = Rolling(6)            # avergage over 1min
     bat_avg.store(bat_raw.read())
+    batWarn = Neotimer(1000)
 
     # automatically Jam if booted with 'B' pressed
     if keyB.value() == 0:
@@ -717,6 +718,10 @@ def OLED_display_thread(mode=pt.RUN):
 
                 #print(disp.to_ascii(), bat_avg.read())
 
+                if bat_avg.read() < 3.0:
+                    if not batWarn.started:
+                        batWarn.start()
+
                 # Dead Battery
                 if bat_avg.read() < 2.5:
                     sys.exit("Oh crap...")
@@ -726,7 +731,7 @@ def OLED_display_thread(mode=pt.RUN):
                     menu.move(2)        # Requires patched umenu to work
                 if timerB.debounce_signal(keyB.value()==0):
                     menu.click()
-                timerP.restart()
+                timerP.start()
                 menu.draw()
 
                 # Clear screen after Menu Exits
@@ -758,7 +763,7 @@ def OLED_display_thread(mode=pt.RUN):
                         timerP.stop()
 
                 if timerB.debounce_signal(keyB.value()==0):
-                    timerP.restart()
+                    timerP.start()
                     if powersave_active == True:
                         if pt.eng.get_powersave():
                             pt.eng.set_powersave(False)
@@ -802,7 +807,7 @@ def OLED_display_thread(mode=pt.RUN):
                             if not powersave_active:
                                 # hardware exited, disable hardware powersave option
                                 powersave = 1
-                                timerP.restart()
+                                timerP.start()
 
                         # Low Battery - disable powersave so we can notify on screen
                         if bat_avg.read() < 3.0:
@@ -815,7 +820,7 @@ def OLED_display_thread(mode=pt.RUN):
                             continue
                         else:
                             OLED.poweron()
-                            timerP.restart()
+                            timerP.start()
 
                             print("Powersave Exited")
 
@@ -1051,12 +1056,17 @@ def OLED_display_thread(mode=pt.RUN):
                         adj_avg.purge(1)
                         gc.collect()
 
-            if bat_avg.read() < 3.0:
-                OLED.fill_rect(0,38,128,10, \
-                        (OLED.white if not pt.tx_raw & 0x00000100 else OLED.black))
-                OLED.text("Battery Low",64,38, \
-                        (OLED.white if pt.tx_raw & 0x00000100 else OLED.black),1,2)
-                OLED.show(38, 46)
+            if batWarn.finished():
+                if bat_avg.read() < 3.0:
+                    OLED.fill_rect(0,38,128,10, \
+                            (OLED.white if not pt.tx_raw & 0x00000100 else OLED.black))
+                    OLED.text("Battery Low",64,38, \
+                            (OLED.white if pt.tx_raw & 0x00000100 else OLED.black),1,2)
+                    OLED.show(38, 46)
+                    batWarn.start()
+                else:
+                    batWarn.stop()
+                    tx_ub = ""
 
             if pt.eng.mode == pt.HALTED:
                 OLED.fill_rect(0,51,128,10,OLED.black)

@@ -568,9 +568,9 @@ def OLED_display_thread(mode=pt.RUN):
     temp_avg = Rolling()
 
     # Battery voltage
-    batTimer = Neotimer(1000)
+    batTimer = Neotimer(10000)      # 10s period
     bat_raw = Battery()
-    bat_avg = Rolling()
+    bat_avg = Rolling(6)            # avergage over 1min
     bat_avg.store(bat_raw.read())
 
     # automatically Jam if booted with 'B' pressed
@@ -705,10 +705,17 @@ def OLED_display_thread(mode=pt.RUN):
 
             # Monitor battery every 1s and eval
             if batTimer.repeat_execution():
-                if not (powersave_active and powersave > 1):
+                if (powersave_active and powersave > 1):
                     # ADCs currently 'stall' in hardware powersave
+                    # temporarily exit to make reading
+                    pt.eng.set_powersave(False)
+                    utime.sleep(0.1)
                     bat_avg.store(bat_raw.read())
-                    #print(disp.to_ascii(), bat_avg.read())
+                    pt.eng.set_powersave(True)
+                else:
+                    bat_avg.store(bat_raw.read())
+
+                #print(disp.to_ascii(), bat_avg.read())
 
                 # Dead Battery
                 if bat_avg.read() < 2.5:

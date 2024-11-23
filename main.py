@@ -515,6 +515,29 @@ def callback_setting_save():
         except AttributeError:
             pass
 
+def callback_power_off():
+    global keyA, keyB
+    global OLED, outamp
+
+    # Power off everything
+    pt.stop = True
+    while pt.eng.is_running():
+        utime.sleep(0.1)
+
+    OLED.poweroff()
+    outamp.powerdown()
+    Pin(23, Pin.OUT, value=0)
+    Pin(25, Pin.OUT, value=0)
+    Pin(26, Pin.OUT, value=0)
+    print("Power Off")
+
+    # Ensure buttons are not currently pressed
+    while keyA.value()==0 or keyB.value()==0:
+        utime.sleep(0.1)
+
+    # do deepsleep() for minumum current, wake with either Key
+    dormant_until_pins([15,17], False, False)
+    reset()
 
 def callback_exit():
     global menu_hidden
@@ -524,8 +547,9 @@ def callback_exit():
 #---------------------------------------------
 
 def OLED_display_thread(mode=pt.RUN):
-    global menu, menu_hidden, displayfps
+    global OLED, menu, menu_hidden, displayfps
     global powersave, zoom, calibrate
+    global keyA, keyB
     global outamp
 
     pt.eng = pt.engine()
@@ -639,6 +663,9 @@ def OLED_display_thread(mode=pt.RUN):
             .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
                 selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
+
+        .add(ConfirmItem("Power Off", callback_power_off, "Confirm?", ('Yes', 'No'), \
+                          visible=pt.eng.is_stopped))
     )
 
     # Reduce the CPU clock, for better computation of PIO freqs
@@ -719,25 +746,14 @@ def OLED_display_thread(mode=pt.RUN):
 
                 #print(disp.to_ascii(), bat_avg.read())
 
-                if bat_avg.read() < 3.0:
+                # Dead Battery - turn off Pico, wake with buttons
+                if bat_avg.read() < 2.5 and batWarn.started:
+                    callback_power_off()
+
+                # Warn user battery is low
+                if bat_avg.read() < 3.2:
                     if not batWarn.started:
                         batWarn.start()
-
-                # Dead Battery - turn off as much as possible
-                if bat_avg.read() < 2.5:
-                    pt.stop = True
-                    while pt.eng.is_running():
-                        utime.sleep(0.1)
-
-                    OLED.poweroff()
-                    outamp.powerdown()
-                    Pin(23, Pin.OUT, value=0)
-                    Pin(25, Pin.OUT, value=0)
-                    Pin(26, Pin.OUT, value=0)
-
-                    # do deepsleep() for minumum current, wake with either Key
-                    dormant_until_pins([15,17], False, False)
-                    reset()
 
             if menu_hidden == False:
                 if timerA.debounce_signal(keyA.value()==0):
@@ -1070,7 +1086,7 @@ def OLED_display_thread(mode=pt.RUN):
                         gc.collect()
 
             if batWarn.finished():
-                if bat_avg.read() < 3.0:
+                if bat_avg.read() < 3.2:
                     OLED.fill_rect(0,38,128,10, \
                             (OLED.white if not pt.tx_raw & 0x00000100 else OLED.black))
                     OLED.text("Battery Low",64,38, \

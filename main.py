@@ -488,23 +488,23 @@ def callback_setting_flashframe(set):
         pt.eng.flashframe = int(set)
 
 
-def callback_setting_userbits(set):
+def callback_userbits_userbits(set):
     if set=="Name":
-        pt.eng.tc.user_from_ascii(config.setting['ub_name'])
+        pt.eng.tc.user_from_ascii(config.userbits['ub_name'])
     elif set=="Digits":
-        pt.eng.tc.user_from_bcd_hex(config.setting['ub_digits'])
+        pt.eng.tc.user_from_bcd_hex(config.userbits['ub_digits'])
     else:
-        pt.eng.tc.user_from_date(config.setting['ub_date'])
+        pt.eng.tc.user_from_date(config.userbits['ub_date'])
 
-def callback_setting_ub_name(set):
-    if set != config.setting['ub_name']:
-        config.set('setting', 'ub_name', set)
-        callback_setting_userbits(config.setting['userbits'][0])
+def callback_userbits_ub_name(set):
+    if set != config.userbits['ub_name']:
+        config.set('userbits', 'ub_name', set)
+        callback_userbits_userbits(config.userbits['userbits'][0])
 
-def callback_setting_ub_digits(set):
-    if set != config.setting['ub_digits']:
-        config.set('setting', 'ub_digits', set)
-        callback_setting_userbits(config.setting['userbits'][0])
+def callback_userbits_ub_digits(set):
+    if set != config.userbits['ub_digits']:
+        config.set('userbits', 'ub_digits', set)
+        callback_userbits_userbits(config.userbits['userbits'][0])
 
 def callback_setting_save():
     global menu
@@ -524,6 +524,8 @@ def callback_power_off():
     while pt.eng.is_running():
         utime.sleep(0.1)
 
+    OLED.fill(0x0000)
+    OLED.show()
     OLED.poweroff()
     outamp.powerdown()
     Pin(23, Pin.OUT, value=0)
@@ -567,14 +569,15 @@ def OLED_display_thread(mode=pt.RUN):
     # apply saved settings
     callback_fps_df(config.setting['framerate'][0])
     callback_fps_df(config.setting['dropframe'][0])
-    callback_tc_start(config.setting['tc_start'])
 
     callback_setting_output(config.setting['output'][0])
     callback_setting_flashframe(config.setting['flashframe'][0])
-    callback_setting_userbits(config.setting['userbits'][0])
+    callback_tc_start(config.setting['tc_start'])
     callback_setting_powersave(config.setting['powersave'][0])
     callback_setting_zoom(config.setting['zoom'][0])
     callback_setting_calibrate(config.setting['calibrate'][0])
+
+    callback_userbits_userbits(config.userbits['userbits'][0])
 
     callback_setting_monitor(config.setting['monitor'][0])
     if monitor:
@@ -638,13 +641,13 @@ def OLED_display_thread(mode=pt.RUN):
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
 
         .add(SubMenuItem("User Bits")
-            .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
-                selected=config.setting['userbits'][1].index(config.setting['userbits'][0])))
-            .add(EditString('ub_name', config.setting['ub_name'], callback_setting_ub_name, \
+            .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \
+                selected=config.userbits['userbits'][1].index(config.userbits['userbits'][0])))
+            .add(EditString('ub_name', config.userbits['ub_name'], callback_userbits_ub_name, \
                 alphabet=[" ", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", \
                     "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", \
                     "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "_"]))
-            .add(EditString('ub_digits', config.setting['ub_digits'], callback_setting_ub_digits, \
+            .add(EditString('ub_digits', config.userbits['ub_digits'], callback_userbits_ub_digits, \
                 alphabet=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"])))
 
         .add(SubMenuItem("Unit Settings")
@@ -652,8 +655,8 @@ def OLED_display_thread(mode=pt.RUN):
                 selected=config.setting['output'][1].index(config.setting['output'][0])))
             .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
                 selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
-            .add(EnumItem("userbits", config.setting['userbits'][1], callback_setting_userbits, \
-                selected=config.setting['userbits'][1].index(config.setting['userbits'][0])))
+            .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \
+                selected=config.userbits['userbits'][1].index(config.userbits['userbits'][0])))
             .add(EnumItem("powersave", config.setting['powersave'][1], callback_setting_powersave, \
                 selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
             .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \

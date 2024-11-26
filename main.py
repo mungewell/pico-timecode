@@ -504,8 +504,9 @@ def callback_userbits_ub_digits(set):
         callback_userbits_userbits(config.userbits['userbits'][0])
 
 def callback_setting_save():
-    global menu
+    global menu, menu_hidden
 
+    menu_hidden = True
     for j in menu.current_screen._visible_items[0].parent._visible_items:
         try:
             config.set('setting', j.name, [j.items[j.selected], j.items])
@@ -599,7 +600,6 @@ def OLED_display_thread(mode=pt.RUN):
 
     # Check which mode we start in
     startmode = config.hwconfig['startmode'][0]
-    monitor = False
     if startmode == 'Jam':
         pt.eng.mode = pt.JAM
     elif startmode == 'Monitor':
@@ -639,18 +639,33 @@ def OLED_display_thread(mode=pt.RUN):
         menu = MenuLoop(OLED, 5, 10)
         menu.set_screen(MenuScreen('A=Skip, B=Select')
             .add(CallbackItem("Exit", callback_exit, return_parent=True))
-            .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
             .add(CallbackItem("Start/Stop Monitor", callback_monitor, visible=pt.eng.is_running))
             .add(CallbackItem("Jam/Sync RX", callback_jam))
+
             .add(ConfirmItem("Stop TX", callback_stop_start, "Confirm?", ('Yes', 'No'), \
                               visible=pt.eng.is_running))
-
+            .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
             .add(SubMenuItem("TC Settings", visible=pt.eng.is_stopped)
                 .add(EnumItem("framerate", config.setting['framerate'][1], callback_fps_df, \
                     selected=config.setting['framerate'][1].index(config.setting['framerate'][0])))
                 .add(EnumItem("dropframe", config.setting['dropframe'][1], callback_fps_df, \
                     selected=config.setting['dropframe'][1].index(config.setting['dropframe'][0])))
                 .add(EditString('tc_start', config.setting['tc_start'], callback_tc_start))
+                .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
+
+            .add(SubMenuItem("Unit Settings")
+                .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
+                    selected=config.setting['output'][1].index(config.setting['output'][0])))
+                .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
+                    selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
+                .add(EnumItem("powersave", config.setting['powersave'][1], callback_setting_powersave, \
+                    selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
+                .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
+                    selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
+                .add(EnumItem("automon", config.setting['automon'][1], callback_setting_monitor, \
+                    selected=config.setting['automon'][1].index(config.setting['automon'][0])))
+                .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
+                    selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
                 .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
 
             .add(SubMenuItem("User Bits")
@@ -662,23 +677,6 @@ def OLED_display_thread(mode=pt.RUN):
                         "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "_"]))
                 .add(EditString('ub_digits', config.userbits['ub_digits'], callback_userbits_ub_digits, \
                     alphabet=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"])))
-
-            .add(SubMenuItem("Unit Settings")
-                .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
-                    selected=config.setting['output'][1].index(config.setting['output'][0])))
-                .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
-                    selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
-                .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \
-                    selected=config.userbits['userbits'][1].index(config.userbits['userbits'][0])))
-                .add(EnumItem("powersave", config.setting['powersave'][1], callback_setting_powersave, \
-                    selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
-                .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
-                    selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
-                .add(EnumItem("automon", config.setting['automon'][1], callback_setting_monitor, \
-                    selected=config.setting['automon'][1].index(config.setting['automon'][0])))
-                .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
-                    selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
-                .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
 
             .add(ConfirmItem("Power Off", callback_power_off, "Confirm?", ('Yes', 'No'), \
                               visible=pt.eng.is_stopped))

@@ -39,7 +39,11 @@ JAM     = 64
 @rp2.asm_pio(autopull=True, autopush=True)
 
 def auto_start():
+    nop()
+    nop()
+
     irq(clear, 4)                   # immediately Trigger Sync...
+    irq(rel(0))                     # set IRQ for sl_ticks_us monitoring
 
     label("halt")
     out(x, 32)                      # will 'block' waiting for TX timecode

@@ -400,7 +400,7 @@ def callback_jam():
     add_more_state_machines()
 
     pt.eng.mode = pt.JAM
-    callback_setting_monitor(config.setting['monitor'][0])
+    callback_setting_monitor(config.setting['automon'][0])
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
     # apply previously saved calibration value
@@ -549,7 +549,7 @@ def callback_exit():
 #---------------------------------------------
 
 def OLED_display_thread(mode=pt.RUN):
-    global OLED, menu, menu_hidden, displayfps
+    global OLED, menu, menu_hidden, monitor, displayfps
     global powersave, zoom, calibrate
     global keyA, keyB
     global outamp
@@ -575,13 +575,10 @@ def OLED_display_thread(mode=pt.RUN):
     callback_tc_start(config.setting['tc_start'])
     callback_setting_powersave(config.setting['powersave'][0])
     callback_setting_zoom(config.setting['zoom'][0])
+    callback_setting_monitor(config.setting['automon'][0])      # Monitor after Jam
     callback_setting_calibrate(config.setting['calibrate'][0])
 
     callback_userbits_userbits(config.userbits['userbits'][0])
-
-    callback_setting_monitor(config.setting['monitor'][0])
-    if monitor:
-        pt.eng.mode = pt.MONITOR
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
@@ -602,9 +599,20 @@ def OLED_display_thread(mode=pt.RUN):
     bat_avg.store(bat_raw.read())
     batWarn = Neotimer(1000)
 
-    # automatically Jam if booted with 'B' pressed
+    # Check which mode we start in
+    startmode = config.hwconfig['startmode'][0]
+    monitor = False
+    if startmode == 'Jam':
+        pt.eng.mode = pt.JAM
+    elif startmode == 'Monitor':
+        pt.eng.mode = pt.MONITOR
+        monitor = True
+    else:
+        pt.eng.mode = pt.RUN
+
+    # alternatively, automatically Jam if booted with 'B' pressed
     if keyB.value() == 0:
-        pt.eng.mode=pt.JAM
+        pt.eng.mode = pt.JAM
 
     # load font into FB
     timecode_fb = []
@@ -661,8 +669,8 @@ def OLED_display_thread(mode=pt.RUN):
                 selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
             .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
                 selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
-            .add(EnumItem("monitor", config.setting['monitor'][1], callback_setting_monitor, \
-                selected=config.setting['monitor'][1].index(config.setting['monitor'][0])))
+            .add(EnumItem("automon", config.setting['automon'][1], callback_setting_monitor, \
+                selected=config.setting['automon'][1].index(config.setting['automon'][0])))
             .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
                 selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
             .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
@@ -1073,12 +1081,14 @@ def OLED_display_thread(mode=pt.RUN):
                         OLED.hline(1, 33, 127, OLED.black)
                         OLED.hline(1, 34, 127, OLED.black)
 
-                        if not monitor and not cal_after_jam \
+                        if not (monitor or cal_after_jam) \
                                and pt.eng.mode == pt.MONITOR:
                             OLED.fill_rect(0,12,128,24,OLED.black)
                             OLED.show()
                             pt.eng.mode = pt.RUN
                     else:
+                        monitor = False
+
                         # catch if user has cancelled jam/calibrate
                         cal_after_jam = 0
                         jam_started = False

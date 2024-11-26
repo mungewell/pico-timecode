@@ -6,7 +6,7 @@ setting = {
     'tc_start'  : "01000000",
     'powersave' : ['Off', ['Off', 'Screen', 'Hardware']],
     'zoom'      : ['No', ['No', 'Yes']],
-    'monitor'   : ['No', ['No', 'Yes']],
+    'automon'   : ['No', ['No', 'Yes']],
     'calibrate' : ['No', ['No', 'Once', 'Always']],
 }
 

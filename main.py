@@ -828,10 +828,6 @@ def OLED_display_thread(mode=pt.RUN):
                                 OLED.poweroff()
                             timerP.stop()
 
-                            # Stop the RX StateMachines, as don't want to power them
-                            pt.eng.sm[4].active(0)
-                            pt.eng.sm[5].active(0)
-
                     # If power save is active, we don't update the screen
                     if powersave_active == True:
                         utime.sleep(0.1)

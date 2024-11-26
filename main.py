@@ -369,7 +369,7 @@ def callback_monitor():
             pt.eng.mode = pt.RUN
             monitor = False
     else:
-        callback_setting_monitor(config.setting['monitor'][0])
+        callback_setting_monitor(config.setting['automon'][0])
         if monitor:
             pt.eng.mode = pt.MONITOR
         else:
@@ -521,9 +521,10 @@ def callback_power_off():
     while pt.eng.is_running():
         utime.sleep(0.1)
 
-    OLED.fill(0x0000)
-    OLED.show()
-    OLED.poweroff()
+    if OLED:
+        OLED.fill(0x0000)
+        OLED.show()
+        OLED.poweroff()
     outamp.powerdown()
     Pin(23, Pin.OUT, value=0)
     Pin(25, Pin.OUT, value=0)
@@ -611,70 +612,77 @@ def OLED_display_thread(mode=pt.RUN):
     if keyB.value() == 0:
         pt.eng.mode = pt.JAM
 
-    # load font into FB
+    # Initilize the display and menu
+    display = config.hwconfig['display'][0]
+    OLED = False
     timecode_fb = []
-    for i in range(len(TimecodeFont)):
-        timecode_fb.append(FrameBuffer(TimecodeFont[i], 16, 16, MONO_HMSB))
+    if display != "None":
+        # load font into FB
+        for i in range(len(TimecodeFont)):
+            timecode_fb.append(FrameBuffer(TimecodeFont[i], 16, 16, MONO_HMSB))
 
-    OLED = OLED_1inch3_SPI()
-    OLED.fill(0x0000)
-    OLED.text("Pico-Timecode " + pt.VERSION,64,0,OLED.white,0,2)
-    OLED.text("www.github.com/",0,24,OLED.white,0,0)
-    OLED.text("mungewell/",64,36,OLED.white,0,2)
-    OLED.text("pico-timecode",128,48,OLED.white,0,1)
-    OLED.show()
+    if display == 'Pico1.3':
+        OLED = OLED_1inch3_SPI()
 
-    utime.sleep(2)
-    OLED.fill(0x0000)
-    OLED.show()
+    if OLED:
+        OLED.fill(0x0000)
+        OLED.text("Pico-Timecode " + pt.VERSION,64,0,OLED.white,0,2)
+        OLED.text("www.github.com/",0,24,OLED.white,0,0)
+        OLED.text("mungewell/",64,36,OLED.white,0,2)
+        OLED.text("pico-timecode",128,48,OLED.white,0,1)
+        OLED.show()
 
-    menu = MenuLoop(OLED, 5, 10)
-    menu.set_screen(MenuScreen('A=Skip, B=Select')
-        .add(CallbackItem("Exit", callback_exit, return_parent=True))
-        .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
-        .add(CallbackItem("Start/Stop Monitor", callback_monitor, visible=pt.eng.is_running))
-        .add(CallbackItem("Jam/Sync RX", callback_jam))
-        .add(ConfirmItem("Stop TX", callback_stop_start, "Confirm?", ('Yes', 'No'), \
-                          visible=pt.eng.is_running))
+        utime.sleep(2)
+        OLED.fill(0x0000)
+        OLED.show()
 
-        .add(SubMenuItem("TC Settings", visible=pt.eng.is_stopped)
-            .add(EnumItem("framerate", config.setting['framerate'][1], callback_fps_df, \
-                selected=config.setting['framerate'][1].index(config.setting['framerate'][0])))
-            .add(EnumItem("dropframe", config.setting['dropframe'][1], callback_fps_df, \
-                selected=config.setting['dropframe'][1].index(config.setting['dropframe'][0])))
-            .add(EditString('tc_start', config.setting['tc_start'], callback_tc_start))
-            .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
+        menu = MenuLoop(OLED, 5, 10)
+        menu.set_screen(MenuScreen('A=Skip, B=Select')
+            .add(CallbackItem("Exit", callback_exit, return_parent=True))
+            .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
+            .add(CallbackItem("Start/Stop Monitor", callback_monitor, visible=pt.eng.is_running))
+            .add(CallbackItem("Jam/Sync RX", callback_jam))
+            .add(ConfirmItem("Stop TX", callback_stop_start, "Confirm?", ('Yes', 'No'), \
+                              visible=pt.eng.is_running))
 
-        .add(SubMenuItem("User Bits")
-            .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \
-                selected=config.userbits['userbits'][1].index(config.userbits['userbits'][0])))
-            .add(EditString('ub_name', config.userbits['ub_name'], callback_userbits_ub_name, \
-                alphabet=[" ", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", \
-                    "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", \
-                    "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "_"]))
-            .add(EditString('ub_digits', config.userbits['ub_digits'], callback_userbits_ub_digits, \
-                alphabet=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"])))
+            .add(SubMenuItem("TC Settings", visible=pt.eng.is_stopped)
+                .add(EnumItem("framerate", config.setting['framerate'][1], callback_fps_df, \
+                    selected=config.setting['framerate'][1].index(config.setting['framerate'][0])))
+                .add(EnumItem("dropframe", config.setting['dropframe'][1], callback_fps_df, \
+                    selected=config.setting['dropframe'][1].index(config.setting['dropframe'][0])))
+                .add(EditString('tc_start', config.setting['tc_start'], callback_tc_start))
+                .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
 
-        .add(SubMenuItem("Unit Settings")
-            .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
-                selected=config.setting['output'][1].index(config.setting['output'][0])))
-            .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
-                selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
-            .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \
-                selected=config.userbits['userbits'][1].index(config.userbits['userbits'][0])))
-            .add(EnumItem("powersave", config.setting['powersave'][1], callback_setting_powersave, \
-                selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
-            .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
-                selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
-            .add(EnumItem("automon", config.setting['automon'][1], callback_setting_monitor, \
-                selected=config.setting['automon'][1].index(config.setting['automon'][0])))
-            .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
-                selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
-            .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
+            .add(SubMenuItem("User Bits")
+                .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \
+                    selected=config.userbits['userbits'][1].index(config.userbits['userbits'][0])))
+                .add(EditString('ub_name', config.userbits['ub_name'], callback_userbits_ub_name, \
+                    alphabet=[" ", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", \
+                        "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", \
+                        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "+", "-", "*", "_"]))
+                .add(EditString('ub_digits', config.userbits['ub_digits'], callback_userbits_ub_digits, \
+                    alphabet=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"])))
 
-        .add(ConfirmItem("Power Off", callback_power_off, "Confirm?", ('Yes', 'No'), \
-                          visible=pt.eng.is_stopped))
-    )
+            .add(SubMenuItem("Unit Settings")
+                .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
+                    selected=config.setting['output'][1].index(config.setting['output'][0])))
+                .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
+                    selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
+                .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \
+                    selected=config.userbits['userbits'][1].index(config.userbits['userbits'][0])))
+                .add(EnumItem("powersave", config.setting['powersave'][1], callback_setting_powersave, \
+                    selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
+                .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
+                    selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
+                .add(EnumItem("automon", config.setting['automon'][1], callback_setting_monitor, \
+                    selected=config.setting['automon'][1].index(config.setting['automon'][0])))
+                .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
+                    selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
+                .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
+
+            .add(ConfirmItem("Power Off", callback_power_off, "Confirm?", ('Yes', 'No'), \
+                              visible=pt.eng.is_stopped))
+        )
 
     # Reduce the CPU clock, for better computation of PIO freqs
     if freq() != 120000000:
@@ -700,10 +708,13 @@ def OLED_display_thread(mode=pt.RUN):
         cycle_us = (1000000.0 / disp.fps)
 
         if menu_hidden == True:
-            OLED.fill(0x0000)
-            OLED.text("A=Menu" ,0,2,OLED.white)
-            OLED.text(displayfps,128,2,OLED.white,1,1)
-            OLED.show()
+            if OLED:
+                OLED.fill(0x0000)
+                OLED.text("A=Menu" ,0,2,OLED.white)
+                OLED.text(displayfps,128,2,OLED.white,1,1)
+                OLED.show()
+            else:
+                print("Format:", displayfps)
 
         tx_asc="--------"
         tx_ticks = 0
@@ -763,7 +774,7 @@ def OLED_display_thread(mode=pt.RUN):
                     if not batWarn.started:
                         batWarn.start()
 
-            if menu_hidden == False:
+            if OLED and menu_hidden == False:
                 if timerA.debounce_signal(keyA.value()==0):
                     menu.move(2)        # Requires patched umenu to work
                 if timerB.debounce_signal(keyB.value()==0):
@@ -784,40 +795,28 @@ def OLED_display_thread(mode=pt.RUN):
                     rx_ub = ""
                     timerP.start()
             else:
-                if timerA.debounce_signal(keyA.value()==0):
+                if timerA.debounce_signal(keyA.value()==0) or \
+                        timerB.debounce_signal(keyB.value()==0):
                     if powersave_active == True:
                         if pt.eng.get_powersave():
                             pt.eng.set_powersave(False)
                         powersave_active = False
-                        OLED.poweron()
+                        if OLED:
+                            OLED.poweron()
                         timerP.start()
 
                         print("Exiting PowerSave")
-                    else:
+
+                    elif OLED and keyA.value()==0:
                         # enter the Menu...
                         menu.reset()
                         menu_hidden = False
                         timerP.stop()
 
-                if timerB.debounce_signal(keyB.value()==0):
-                    timerP.start()
-                    if powersave_active == True:
-                        if pt.eng.get_powersave():
-                            pt.eng.set_powersave(False)
-                        powersave_active = False
-                        OLED.poweron()
-                        timerP.start()
-
-                        print("Exiting PowerSave")
-
                 # Hold B for 3s to (re)start jam
                 if pt.eng.mode <= pt.MONITOR and timerH.hold_signal(keyB.value()==0) and \
                         not powersave_active and detIn.value() == 0:
                     callback_jam()
-
-                # Debug - freeze screen
-                while pt.eng.mode == pt.MONITOR and timerB.debounce_signal(keyB.value()==0):
-                    utime.sleep(1)
 
                 # Check whether to enter power save mode
                 if pt.eng.mode == pt.RUN:
@@ -829,7 +828,8 @@ def OLED_display_thread(mode=pt.RUN):
                             if powersave > 1:
                                 pt.eng.set_powersave(True)
                             powersave_active = True
-                            OLED.poweroff()
+                            if OLED:
+                                OLED.poweroff()
                             timerP.stop()
 
                             # Stop the RX StateMachines, as don't want to power them
@@ -856,7 +856,8 @@ def OLED_display_thread(mode=pt.RUN):
                         if powersave_active:
                             continue
                         else:
-                            OLED.poweron()
+                            if OLED:
+                                OLED.poweron()
                             timerP.start()
 
                             print("Powersave Exited")
@@ -894,32 +895,37 @@ def OLED_display_thread(mode=pt.RUN):
                 # check which characters of the TC have changed
                 asc = disp.to_ascii(False)
                 if tx_asc != asc:
-                    for c in range(len(asc)):
-                        if asc[c]!=tx_asc[c]:
-                            break
-                    for i in range(7,(c&6)-1,-1):
-                        # blit in reverse order, offsetting to hide ':'
-                        OLED.blit(timecode_fb[int(asc[i])],
-                            (16*i)-(4 if i&1 else 0), 48)
+                    if OLED:
+                        for c in range(len(asc)):
+                            if asc[c]!=tx_asc[c]:
+                                break
+                        for i in range(7,(c&6)-1,-1):
+                            # blit in reverse order, offsetting to hide ':'
+                            OLED.blit(timecode_fb[int(asc[i])],
+                                (16*i)-(4 if i&1 else 0), 48)
 
-                    # Drop Frame, convert ":" to "."
-                    if disp.df:
-                        OLED.fill_rect(96,52,4,4,OLED.black)
+                        # Drop Frame, convert ":" to "."
+                        if disp.df:
+                            OLED.fill_rect(96,52,4,4,OLED.black)
 
-                    # blank left most ':'
-                    if c < 2:
-                        OLED.fill_rect(0,48,4,16,OLED.black)
+                        # blank left most ':'
+                        if c < 2:
+                            OLED.fill_rect(0,48,4,16,OLED.black)
+
+                        OLED.show(49 ,64, c*16)
+                    elif pt.eng.mode == pt.RUN:     # don't flood monitor/calibration prints
+                        print(disp.to_ascii())
 
                     tx_asc = asc
                     tx_ticks = t1
-                    OLED.show(49 ,64, c*16)
 
                     # update Userbits display
                     ub = pt.eng.tc.user_to_ascii()
                     if tx_ub != ub:
-                        OLED.fill_rect(0,38,128,8,OLED.black)
-                        OLED.text(ub,64,38,OLED.white,1,2)
-                        OLED.show(38,46)
+                        if OLED:
+                            OLED.fill_rect(0,38,128,8,OLED.black)
+                            OLED.text(ub,64,38,OLED.white,1,2)
+                            OLED.show(38,46)
                         tx_ub = ub
 
 
@@ -932,16 +938,18 @@ def OLED_display_thread(mode=pt.RUN):
                     # Show RX Timecode
                     asc = disp.to_ascii()
                     if rx_asc != asc:
-                        OLED.text(asc,64,22,OLED.white,1,2)
-                        OLED.show(22,32)
+                        if OLED:
+                            OLED.text(asc,64,22,OLED.white,1,2)
+                            OLED.show(22,32)
                         rx_asc = asc
 
                     # Show RX Userbits
                     ub = pt.eng.rc.user_to_ascii()
                     if rx_ub != ub:
-                        OLED.fill_rect(0,12,128,8,OLED.black)
-                        OLED.text(ub,64,12,OLED.white,1,2)
-                        OLED.show(12,20)
+                        if OLED:
+                            OLED.fill_rect(0,12,128,8,OLED.black)
+                            OLED.text(ub,64,12,OLED.white,1,2)
+                            OLED.show(12,20)
                         rx_ub = ub
 
                     # Draw an error bar to represent timing phase between TX and RX
@@ -1033,55 +1041,59 @@ def OLED_display_thread(mode=pt.RUN):
                             next_mon_raw = next_mon.to_raw() & 0xFFFFFF00
 
 
-                        if pt.eng.mode == pt.MONITOR and cal_after_jam > 0:
-                            # CAL = Sync'ed to RX and calibrating XTAL
-                            OLED.text("CAL ",0,22,OLED.white)
-                        else:
-                            OLED.text("RX  ",0,22,OLED.white)
+                        if OLED:
+                            if pt.eng.mode == pt.MONITOR and cal_after_jam > 0:
+                                # CAL = Sync'ed to RX and calibrating XTAL
+                                OLED.text("CAL ",0,22,OLED.white)
+                            else:
+                                OLED.text("RX  ",0,22,OLED.white)
 
-                        OLED.vline(64, 33, 2, OLED.white)
-                        if zoom == True:
-                            length = int(1280 * d)
-                            OLED.vline(0, 32, 4, OLED.black)
-                            OLED.vline(127, 32, 4, OLED.black)
-                        else:
-                            length = int(128 * d)
+                            OLED.vline(64, 33, 2, OLED.white)
+                            if zoom == True:
+                                length = int(1280 * d)
+                                OLED.vline(0, 32, 4, OLED.black)
+                                OLED.vline(127, 32, 4, OLED.black)
+                            else:
+                                length = int(128 * d)
 
-                            # markers at side to indicate full view
-                            # -1/2 to +1/2 a frame is displayed
-                            OLED.vline(0, 32, 4, OLED.white)
-                            OLED.vline(127, 32, 4, OLED.white)
+                                # markers at side to indicate full view
+                                # -1/2 to +1/2 a frame is displayed
+                                OLED.vline(0, 32, 4, OLED.white)
+                                OLED.vline(127, 32, 4, OLED.white)
 
-                        if d > 0:
-                            OLED.hline(64, 33, length, OLED.white)
-                            OLED.hline(64, 34, length, OLED.white)
-                        else:
-                            OLED.hline(64+length, 33, -length, OLED.white)
-                            OLED.hline(64+length, 34, -length, OLED.white)
+                            if d > 0:
+                                OLED.hline(64, 33, length, OLED.white)
+                                OLED.hline(64, 34, length, OLED.white)
+                            else:
+                                OLED.hline(64+length, 33, -length, OLED.white)
+                                OLED.hline(64+length, 34, -length, OLED.white)
 
                     if pt.eng.mode > pt.MONITOR:
-                        OLED.text("Jam ",0,22,OLED.white)
+                        if OLED:
+                            OLED.text("Jam ",0,22,OLED.white)
 
-                        # Draw a line representing time until Jam complete
-                        OLED.vline(0, 32, 4, OLED.white)
-                        OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
-                        OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
+                            # Draw a line representing time until Jam complete
+                            OLED.vline(0, 32, 4, OLED.white)
+                            OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
+                            OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
 
                         cal_after_jam = calibrate
                         jam_started = utime.time()
 
                     if pt.eng.mode > pt.RUN:
-                        # Show RX bar
-                        OLED.show(33,36)
+                        if OLED:
+                            # Show RX bar
+                            OLED.show(33,36)
 
-                        # clear bar ready for next frame
-                        OLED.hline(1, 33, 127, OLED.black)
-                        OLED.hline(1, 34, 127, OLED.black)
+                            # clear bar ready for next frame
+                            OLED.hline(1, 33, 127, OLED.black)
+                            OLED.hline(1, 34, 127, OLED.black)
 
                         if not (monitor or cal_after_jam) \
                                and pt.eng.mode == pt.MONITOR:
-                            OLED.fill_rect(0,12,128,24,OLED.black)
-                            OLED.show()
+                            if OLED:
+                                OLED.fill_rect(0,12,128,24,OLED.black)
+                                OLED.show()
                             pt.eng.mode = pt.RUN
                     else:
                         monitor = False
@@ -1097,20 +1109,26 @@ def OLED_display_thread(mode=pt.RUN):
 
             if batWarn.finished():
                 if bat_avg.read() < 3.2:
-                    OLED.fill_rect(0,38,128,10, \
-                            (OLED.white if not pt.tx_raw & 0x00000100 else OLED.black))
-                    OLED.text("Battery Low",64,38, \
-                            (OLED.white if pt.tx_raw & 0x00000100 else OLED.black),1,2)
-                    OLED.show(38, 46)
+                    if OLED:
+                        OLED.fill_rect(0,38,128,10, \
+                                (OLED.white if not pt.tx_raw & 0x00000100 else OLED.black))
+                        OLED.text("Battery Low",64,38, \
+                                (OLED.white if pt.tx_raw & 0x00000100 else OLED.black),1,2)
+                        OLED.show(38, 46)
+                    else:
+                        print("Battery Low")
                     batWarn.start()
                 else:
                     batWarn.stop()
                     tx_ub = ""
 
             if pt.eng.mode == pt.HALTED:
-                OLED.fill_rect(0,51,128,10,OLED.black)
-                OLED.text("Underflow Error",64,53,OLED.white,1,2)
-                OLED.show(49 ,64)
+                if OLED:
+                    OLED.fill_rect(0,51,128,10,OLED.black)
+                    OLED.text("Underflow Error",64,53,OLED.white,1,2)
+                    OLED.show(49 ,64)
+                else:
+                    print("HALTED")
                 pt.stop = True
 
             if pt.eng.is_stopped():

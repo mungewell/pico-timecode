@@ -307,7 +307,6 @@ class Rolling:
 
 #---------------------------------------------
 # Class for using the internal temp sensor
-# 3v3 to be connected to vREF (pin 35)
 
 class Temperature:
     def __init__(self, ref=3.3):
@@ -321,8 +320,7 @@ class Temperature:
         return(27-(volt-0.706)/0.001721)
 
 #--------------------------------------------- 
-# Class for measuring battery voltage
-# 3v3 to be connected to vREF (pin 35) 
+# Class for measuring VSYS voltage
  
 class Battery: 
     def __init__(self, ref=3.3 * 3): 
@@ -336,7 +334,6 @@ class Battery:
 #---------------------------------------------
 
 def callback_stop_start():
-    #global eng, stop
     global menu_hidden
 
     if pt.eng.is_running():

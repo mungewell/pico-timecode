@@ -722,13 +722,9 @@ def OLED_display_thread(mode=pt.RUN):
         rx_asc="--:--:--:--"
         rx_ub = ""
 
+        monTimer = None
         cal_after_jam = 0
-        jam_started = False
         powersave_active = False
-        last_button = utime.time()
-
-        next_mon = None
-        next_mon_raw = 0
 
         pid = PID(500, 20, 0.0, setpoint=0)
         pid.auto_mode = False
@@ -973,37 +969,33 @@ def OLED_display_thread(mode=pt.RUN):
                         if d >= -0.5 and d <= 0.5:
                             phase.store(d, now)
 
-                        # Check if first received frame
-                        if next_mon==None:
-                            next_mon = pt.timecode()
-
+                        # Check if it's the first received frame
+                        if monTimer == None:
                             if cal_after_jam > 0:
-                                # wait ~1m
-                                next_mon.from_raw(g | 0x0000FFFF)
-                                next_mon.next_frame()
-                                next_mon.from_raw(next_mon.to_raw() + (g & 0x0000FF00))
+                                # wait 1m
+                                monTimer = Neotimer(60000)
+                                monTimer.start()
                             else:
-                                # wait ~1s
-                                next_mon.from_raw(g | 0x000000FF)
-                                next_mon.next_frame()
+                                # wait 1s
+                                monTimer = Neotimer(1000)
+                                monTimer.start()
 
-                            next_mon_raw = next_mon.to_raw() & 0xFFFFFF00
-
-                        elif g & 0xFFFFFF00 == next_mon_raw:
-                            # Then update PID every 1s (or so)
+                        elif monTimer.finished():
                             if cal_after_jam > 0:
                                 if pid.auto_mode == False:
                                     pid.set_auto_mode(True, last_output=pt.eng.calval)
+                                    monTimer = Neotimer(1000)
 
-                                if jam_started and (now - 400) > jam_started:
-                                    phase.purge(now - period)
-                                    adjust = pid(phase.read())
-                                    pt.eng.micro_adjust(adjust, period * 1000)
-                                else:
-                                    # start calibration with 1s period
+                                # we'll start calibration with 1s period for 400s, then 
+                                # switch to specified period for more accurate calibration
+                                if cal_after_jam < 400:
                                     phase.purge(now - 1)
                                     adjust = pid(phase.read())
                                     pt.eng.micro_adjust(adjust, 1000)
+                                else:
+                                    phase.purge(now - period)
+                                    adjust = pid(phase.read())
+                                    pt.eng.micro_adjust(adjust, period * 1000)
 
                                 print(disp.to_ascii(), d, phase.read(), pt.eng.calval, \
                                       temp_avg.store_read(sensor.read()), \
@@ -1012,7 +1004,8 @@ def OLED_display_thread(mode=pt.RUN):
                                       pid.components)
 
                                 # stop calibration after 10mins and save calculated value
-                                if jam_started and (now - 600) > jam_started:
+                                cal_after_jam += 1
+                                if cal_after_jam > 600:
                                     new_cal_value = adj_avg.read()
                                     pt.eng.micro_adjust(new_cal_value, period * 1000)
 
@@ -1028,18 +1021,13 @@ def OLED_display_thread(mode=pt.RUN):
                                         callback_setting_calibrate("No")
 
                                     cal_after_jam = 0
-                                    jam_started = False
                                     pid.auto_mode = False
 
                             else:
                                 print(disp.to_ascii(), d, phase.read(), pt.eng.calval, \
                                       temp_avg.store_read(sensor.read()))
 
-                            # Current frame + ~1s
-                            next_mon.from_raw(g | 0x000000FF)
-                            next_mon.next_frame()
-                            next_mon_raw = next_mon.to_raw() & 0xFFFFFF00
-
+                            monTimer.start()
 
                         if OLED:
                             if pt.eng.mode == pt.MONITOR and cal_after_jam > 0:
@@ -1078,7 +1066,6 @@ def OLED_display_thread(mode=pt.RUN):
                             OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
 
                         cal_after_jam = calibrate
-                        jam_started = utime.time()
 
                     if pt.eng.mode > pt.RUN:
                         if OLED:
@@ -1100,7 +1087,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                         # catch if user has cancelled jam/calibrate
                         cal_after_jam = 0
-                        jam_started = False
+                        pid.auto_mode = False
 
                         # Purge everything, to clean up memory!
                         phase.purge(now)

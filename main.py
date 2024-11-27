@@ -743,8 +743,6 @@ def OLED_display_thread(mode=pt.RUN):
         adj_avg = Rolling(120)          # average over 2 minutes
 
         while True:
-            now = utime.time()
-
             # Monitor battery every 1s and eval
             if batTimer.repeat_execution():
                 if (powersave_active and powersave > 1):
@@ -853,10 +851,21 @@ def OLED_display_thread(mode=pt.RUN):
                             print("Powersave Exited")
 
                 # Attempt to align display with the TX timing
-                t1 = pt.tx_ticks_us
                 if pt.eng.mode == pt.RUN:
+                    t1 = pt.tx_ticks_us
+
                     if tx_ticks == t1:
-                        continue
+                        ticks = utime.ticks_us()
+
+                        # we will stall if < 5ms until next expected frame
+                        d = cycle_us - utime.ticks_diff(ticks, t1)
+                        if d > 0 and d < 5000:
+                            while d > 0:
+                                ticks = utime.ticks_us()
+                                d = cycle_us - utime.ticks_diff(ticks, t1)
+                        else:
+                            utime.sleep(0.001)
+                            continue
 
                 # Figure out what TX frame to display
                 while True:
@@ -904,7 +913,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                         OLED.show(49 ,64, c*16)
                     elif pt.eng.mode == pt.RUN:     # don't flood monitor/calibration prints
-                        print(disp.to_ascii())
+                        print(disp.to_ascii()) #, utime.ticks_diff(t1, tx_ticks))
 
                     tx_asc = asc
                     tx_ticks = t1
@@ -945,6 +954,7 @@ def OLED_display_thread(mode=pt.RUN):
                     # Draw an error bar to represent timing phase between TX and RX
                     # Positive Delta = TX is ahead of RX, bar is shown to the right
                     # and should increase 'duty' to slow down it's bit-clock
+                    now = utime.time()
                     if pt.eng.mode == pt.MONITOR:
                         d = utime.ticks_diff(r1, t2) / cycle_us
 
@@ -982,7 +992,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                                 # we'll start calibration with 1s period for 400s, then 
                                 # switch to specified period for more accurate calibration
-                                if cal_after_jam < 400:
+                                if cal_after_jam < 340:
                                     phase.purge(now - 1)
                                     adjust = pid(phase.read())
                                     pt.eng.micro_adjust(adjust, 1000)
@@ -999,7 +1009,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                                 # stop calibration after 10mins and save calculated value
                                 cal_after_jam += 1
-                                if cal_after_jam > 600:
+                                if cal_after_jam > 540:
                                     new_cal_value = adj_avg.read()
                                     pt.eng.micro_adjust(new_cal_value, period * 1000)
 

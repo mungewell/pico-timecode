@@ -1051,6 +1051,9 @@ def pico_timecode_thread(eng, stop):
     rp2.PIO(0).remove_program()
     rp2.PIO(1).remove_program()
 
+    machine.Pin(25, machine.Pin.OUT, value=0)
+    machine.Pin(26, machine.Pin.OUT, value=0)
+
     eng.set_stopped(True)
 
 #-------------------------------------------------------

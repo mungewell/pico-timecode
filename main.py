@@ -526,10 +526,10 @@ def callback_power_off():
         OLED.fill(0x0000)
         OLED.show()
         OLED.poweroff()
+
     outamp.powerdown()
     Pin(23, Pin.OUT, value=0)
-    Pin(25, Pin.OUT, value=0)
-    Pin(26, Pin.OUT, value=0)
+
     print("Power Off")
 
     # Ensure buttons are not currently pressed

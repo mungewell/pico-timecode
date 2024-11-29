@@ -532,6 +532,9 @@ def callback_power_off():
 
     print("Power Off")
 
+    # Set minimal CPU/USB freq to save power
+    freq(18000000, 18000000)
+
     # Ensure buttons are not currently pressed
     while keyA.value()==0 or keyB.value()==0:
         utime.sleep(0.1)

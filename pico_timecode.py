@@ -224,12 +224,7 @@ def irq_handler(m):
 
     if m==eng.sm[1]:
         if eng.sm[0].rx_fifo() > 0:
-            '''
             tx_raw = eng.sm[0].get()
-            '''
-            # bug with '32bit math' in IRQ
-            # https://github.com/micropython/micropython/issues/16221
-            schedule(get_fifo_later, m)
 
         tx_ticks_us = ticks
 
@@ -242,12 +237,6 @@ def irq_handler(m):
         eng.mode = HALTED
 
     machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
-
-def get_fifo_later(m):
-    global eng, tx_raw
-
-    if eng.sm[0].rx_fifo() > 0:
-        tx_raw = eng.sm[0].get()
 
 
 def timer_sched(timer):
@@ -417,16 +406,16 @@ class timecode(object):
 
     def from_raw(self, raw=0):
         self.acquire()
-        self.df = (raw & 0x80000000) >> 31
-        self.hh = (raw & 0x7F000000) >> 24
-        self.mm = (raw & 0x00FF0000) >> 16
-        self.ss = (raw & 0x0000FF00) >> 8
-        self.ff = (raw & 0x000000FF)
+        self.df = (raw & 0x00000080) >> 7
+        self.hh = (raw & 0x1F000000) >> 24
+        self.mm = (raw & 0x003F0000) >> 16
+        self.ss = (raw & 0x00003F00) >> 8
+        self.ff = (raw & 0x0000001F)
         self.release()
 
     def to_raw(self):
         self.acquire()
-        raw = (self.df << 31) + (self.hh << 24) + (self.mm << 16) + (self.ss << 8) + self.ff
+        raw = (self.df << 7) + (self.hh << 24) + (self.mm << 16) + (self.ss << 8) + self.ff
         self.release()
 
         return raw
@@ -889,7 +878,7 @@ class engine(object):
 
     def set_flashtime(self, ft):
         self.dlock.acquire()
-        self.flashtime = (ft.df << 31) + (ft.hh << 24) + (ft.mm << 16) + (ft.ss << 8) + ft.ff
+        self.flashtime = (ft.df << 7) + (ft.hh << 24) + (ft.mm << 16) + (ft.ss << 8) + ft.ff
         self.dlock.release()
 
 #-------------------------------------------------------
@@ -948,7 +937,7 @@ def pico_timecode_thread(eng, stop):
                 fail = False
 
                 # check DF flags match
-                if (r >> 31) != df:
+                if ((r & 0x00000080) >> 7) != df:
                     fail = True
 
                 # check packets are counting correctly
@@ -1040,7 +1029,7 @@ def pico_timecode_thread(eng, stop):
 
             '''
             # DEMO - automatically exit when TC is 30s
-            if (eng.tc.to_raw() & 0x0000FF00) == 0x000001E00:
+            if (eng.tc.to_raw() & 0x00003F00) == 0x000001E00:
                 eng.set_powersave(False)
             '''
 
@@ -1136,7 +1125,7 @@ def ascii_display_thread(mode = RUN):
 
             '''
             # DEMO - Enable Power-Save every minute, at 10s on TC
-            if (eng.tc.to_raw() & 0x0000FF00) == 0x00000A00:
+            if (eng.tc.to_raw() & 0x00003F00) == 0x00000A00:
                 print("Entering powersave")
                 utime.sleep(0.1)
 

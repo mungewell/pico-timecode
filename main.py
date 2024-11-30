@@ -82,7 +82,9 @@ zoom = False
 monitor = False
 calibrate = False
 menu_hidden = True
+
 displayfps = None
+calibration = None
 
 def add_more_state_machines():
     sm_freq = int(pt.eng.tc.fps * 80 * 32)
@@ -116,7 +118,7 @@ def add_more_state_machines():
         m.irq(handler=pt.irq_handler, hard=True)
 
 def apply_calibration():
-    global displayfps
+    global displayfps, calibration
 
     period = None
     try:
@@ -125,7 +127,8 @@ def apply_calibration():
         pass
     if period != None:
         try:
-            pt.eng.micro_adjust(config.calibration[displayfps], period * 1000) # in ms
+            calibration = config.calibration[displayfps]
+            pt.eng.micro_adjust(calibration, period * 1000) # in ms
         except:
             pass
 
@@ -551,7 +554,8 @@ def callback_exit():
 #---------------------------------------------
 
 def OLED_display_thread(mode=pt.RUN):
-    global OLED, menu, menu_hidden, monitor, displayfps
+    global OLED, menu, menu_hidden, monitor
+    global displayfps, calibration
     global powersave, zoom, calibrate
     global keyA, keyB
     global outamp
@@ -708,11 +712,16 @@ def OLED_display_thread(mode=pt.RUN):
         displayfps = "{:.2f}".format(disp.fps) + ("-DF" if disp.df == True else "")
         cycle_us = (1000000.0 / disp.fps)
 
+        # apply previously saved calibration value
+        calibration = None
+        apply_calibration()
+
         if menu_hidden == True:
             if OLED:
                 OLED.fill(0x0000)
                 OLED.text("A=Menu" ,0,2,OLED.white)
-                OLED.text(displayfps,128,2,OLED.white,1,1)
+                OLED.text(displayfps + ("*" if calibration != None else ""), \
+                        128,2,OLED.white,1,1)
                 OLED.show()
             else:
                 print("Format:", displayfps)
@@ -732,9 +741,6 @@ def OLED_display_thread(mode=pt.RUN):
         pid.auto_mode = False
         pid.sample_time = 1
         pid.output_limits = (-50.0, 50.0)
-
-        # apply previously saved calibration value
-        apply_calibration()
 
         period = 10
         try:
@@ -782,7 +788,8 @@ def OLED_display_thread(mode=pt.RUN):
                 if menu_hidden == True:
                     OLED.fill(0x0000)
                     OLED.text("A=Menu" ,0,2,OLED.white)
-                    OLED.text(displayfps,128,2,OLED.white,1,1)
+                    OLED.text(displayfps + ("*" if calibration != None else ""), \
+                            128,2,OLED.white,1,1)
                     OLED.show()
 
                     tx_asc="--------"
@@ -1031,6 +1038,14 @@ def OLED_display_thread(mode=pt.RUN):
 
                                     config.set('calibration', displayfps, new_cal_value)
                                     config.set('calibration', 'period', period)
+                                    calibration = new_cal_value
+
+                                    if OLED and  menu_hidden == True:
+                                        OLED.fill_rect(0,0,128,10, OLED.black)
+                                        OLED.text("A=Menu" ,0,2,OLED.white)
+                                        OLED.text(displayfps + ("*" if calibration != None else ""), \
+                                                128,2,OLED.white,1,1)
+                                        OLED.show(0,10)
 
                                     if calibrate == 1:
                                         callback_setting_calibrate("No")

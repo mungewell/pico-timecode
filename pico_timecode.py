@@ -7,6 +7,7 @@ import machine
 import _thread
 import utime
 import rp2
+import gc
 
 import micropython
 micropython.alloc_emergency_exception_buf(100)
@@ -1080,7 +1081,7 @@ def ascii_display_thread(mode = RUN):
                            in_base=machine.Pin(13),         # same as pin as out
                            out_base=machine.Pin(13)))       # Encoded LTC Output
 
-    # RX State Machines
+    # RX State Machines - note DEMO Mode
     if eng.mode > MONITOR:
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
                            jmp_pin=machine.Pin(18),
@@ -1111,17 +1112,59 @@ def ascii_display_thread(mode = RUN):
 
     disp = timecode()
     disp.set_fps_df(eng.tc.fps, eng.tc.df)
+    cycle_us = (1000000.0 / disp.fps)
+
+    disp_asc="--:--:--:--"
+    disp_ticks = 0
+    disp_loop = 0
 
     while True:
         if eng.mode > RUN:
             if eng.mode > MONITOR:
                 print("Jamming:", eng.mode)
+            else:
+                # Fall back to RUN if we previously initiated JAM
+                if mode == JAM:
+                    eng.mode = RUN
+
             print("RX:", eng.rc.to_ascii())
+            utime.sleep(0.1)
 
         if eng.mode == RUN:
-            # display the most recent TX'ed timecode
-            disp.from_raw(tx_raw)
-            print("TX:", disp.to_ascii())
+            t1 = tx_ticks_us
+            if disp_ticks == t1:
+                # 5ms before next expected frame arrives we will stall
+                # intently looking for the moment it happens...
+                d = cycle_us - utime.ticks_diff(utime.ticks_us(), t1)
+                if d > -1000 and d < 5000:
+                    while d > -1000:
+                        d = cycle_us - utime.ticks_diff(utime.ticks_us(), t1)
+                        if disp_ticks != tx_ticks_us:
+                            break
+                else:
+                    if disp_loop == 0:
+                        # Force garbage collection at a time that's not busy
+                        gc.collect()
+                    disp_loop += 1
+                    utime.sleep(0.001)
+                    continue
+
+            # Figure out what TX frame to display
+            while True:
+                t1 = tx_ticks_us
+                raw = tx_raw
+                t2 = tx_ticks_us
+
+                if t1==t2:
+                    disp.from_raw(raw)
+                    break
+
+            asc = disp.to_ascii()
+            if disp_asc != asc:
+                print(asc)
+                disp_asc = asc
+                disp_ticks = t1
+                disp_loop = 0
 
             '''
             # DEMO - Enable Power-Save every minute, at 10s on TC
@@ -1142,8 +1185,6 @@ def ascii_display_thread(mode = RUN):
             print("Underflow Error")
             break
 
-        utime.sleep(0.1)
-
 #---------------------------------------------
 
 if __name__ == "__main__":
@@ -1151,4 +1192,4 @@ if __name__ == "__main__":
     print("www.github.com/mungewell/pico-timecode")
     utime.sleep(2)
 
-    ascii_display_thread(MONITOR)       # Note: DEMO Mode above
+    ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

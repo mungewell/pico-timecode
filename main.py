@@ -719,6 +719,7 @@ def OLED_display_thread(mode=pt.RUN):
 
         tx_asc="--------"
         tx_ticks = 0
+        tx_loop = 0
         tx_ub = ""
         rx_asc="--:--:--:--"
         rx_ub = ""
@@ -786,6 +787,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                     tx_asc="--------"
                     tx_ticks = 0
+                    tx_loop = 0
                     tx_ub = ""
                     rx_ub = ""
                     timerP.start()
@@ -856,17 +858,22 @@ def OLED_display_thread(mode=pt.RUN):
                 # Attempt to align display with the TX timing
                 if pt.eng.mode == pt.RUN:
                     t1 = pt.tx_ticks_us
-
                     if tx_ticks == t1:
+                        # 5ms before next expected frame arrives we will stall
+                        # intently looking for the moment it happens...
                         ticks = utime.ticks_us()
-
-                        # we will stall if < 5ms until next expected frame
                         d = cycle_us - utime.ticks_diff(ticks, t1)
-                        if d > 0 and d < 5000:
-                            while d > 0:
+                        if d > -1000 and d < 5000:
+                            while d > -1000:
                                 ticks = utime.ticks_us()
                                 d = cycle_us - utime.ticks_diff(ticks, t1)
+                                if tx_ticks != pt.tx_ticks_us:
+                                    break
                         else:
+                            if tx_loop == 0:
+                                # Force garbage collection at a time that's not busy
+                                gc.collect()
+                            tx_loop += 1
                             utime.sleep(0.001)
                             continue
 
@@ -920,6 +927,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                     tx_asc = asc
                     tx_ticks = t1
+                    tx_loop = 0
 
                     # update Userbits display
                     ub = pt.eng.tc.user_to_ascii()

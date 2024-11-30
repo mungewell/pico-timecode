@@ -1055,6 +1055,11 @@ def ascii_display_thread(mode = RUN):
     eng.mode = mode
     eng.set_stopped(True)
 
+    # alternatively, automatically Jam if booted with 'B' pressed
+    keyB = machine.Pin(17,machine.Pin.IN,machine.Pin.PULL_UP)
+    if keyB.value() == 0:
+        eng.mode = JAM
+
     # Reduce the CPU clock, for better computation of PIO freqs
     if machine.freq() != 120000000:
         machine.freq(120000000)

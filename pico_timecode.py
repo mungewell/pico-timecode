@@ -14,6 +14,7 @@ micropython.alloc_emergency_exception_buf(100)
 
 from machine import Timer
 from micropython import schedule
+from os import uname
 
 VERSION="v2.1+"
 
@@ -1003,27 +1004,37 @@ def pico_timecode_thread(eng, stop):
             # lightsleep for longer than a frame is possible, with FIFOs, but
             # may cause IRQs to merged and thus corrupt reporting.
 
-            # RP2040
-            CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00001000
-            CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00002000
+            if uname().machine[23:] == 'RP2040':
+                # RP2040
+                CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00001000
+                CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00002000
 
-            CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS = 0x00000080
-            CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS = 0x00000200
+                CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS = 0x00000080
+                CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS = 0x00000200
 
-            CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS = 0x00000040
-            CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS = 0x00000100
+                CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS = 0x00000040
+                CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS = 0x00000100
 
-            '''
-            # RP2350
-            CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00040000
-            CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00080000
-            CLOCKS_SLEEP_EN0_CLK_SYS_PIO2_BITS = 0x00100000
-            '''
+                CLOCKS_SLEEP_EN0 = CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS
+                CLOCKS_SLEEP_EN1 = CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
+            else:
+                # RP2350 - to be tested...
+                CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00040000
+                CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00080000
+                CLOCKS_SLEEP_EN0_CLK_SYS_PIO2_BITS = 0x00100000
+
+                CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS = 0x00800000
+                CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS = 0x02000000
+
+                CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS = 0x00400000
+                CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS = 0x01000000
+
+                CLOCKS_SLEEP_EN0 = None
+                CLOCKS_SLEEP_EN1 = None
 
             debug.on()
             try:
-                machine.lightsleep(30, eng.ps_en0 | CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS,
-                                   eng.ps_en1 | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS)
+                machine.lightsleep(30, eng.ps_en0 | CLOCKS_SLEEP_EN0, eng.ps_en1 | CLOCKS_SLEEP_EN1)
             except:
                 eng.set_powersave(False)
             debug.off()

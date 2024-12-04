@@ -484,43 +484,49 @@ class timecode(object):
 
         return True
 
-    def next_frame(self):
-        self.acquire()
-        self.ff += 1
-        if self.ff >= int(self.fps + 0.1):
-            self.ff = 0
-            self.ss += 1
-            if self.ss >= 60:
-                self.ss = 0
-                self.mm += 1
-                if self.mm >= 60:
-                    self.mm = 0
-                    self.hh += 1
-                    if self.hh >= 24:
-                        self.hh = 0
-        self.release()
+    def next_frame(self, repeats=1):
+        while repeats:
+            repeats -= 1
 
-        if self.df:
-            self.validate_for_drop_frame()
+            self.acquire()
+            self.ff += 1
+            if self.ff >= int(self.fps + 0.1):
+                self.ff = 0
+                self.ss += 1
+                if self.ss >= 60:
+                    self.ss = 0
+                    self.mm += 1
+                    if self.mm >= 60:
+                        self.mm = 0
+                        self.hh += 1
+                        if self.hh >= 24:
+                            self.hh = 0
+            self.release()
 
-    def prev_frame(self):
-        self.acquire()
-        self.ff -= 1
-        if self.ff < 0:
-            self.ff = int(self.fps + 0.1) - 1
-            self.ss -= 1
-            if self.ss < 0:
-                self.ss = 59
-                self.mm -= 1
-                if self.mm < 0:
-                    self.mm = 59
-                    self.hh -= 1
-                    if self.hh < 0:
-                        self.hh = 23
-        self.release()
+            if self.df:
+                self.validate_for_drop_frame()
 
-        if self.df:
-            self.validate_for_drop_frame(True)
+    def prev_frame(self, repeats=1):
+        while repeats:
+            repeats -= 1
+
+            self.acquire()
+            self.ff -= 1
+            if self.ff < 0:
+                self.ff = int(self.fps + 0.1) - 1
+                self.ss -= 1
+                if self.ss < 0:
+                    self.ss = 59
+                    self.mm -= 1
+                    if self.mm < 0:
+                        self.mm = 59
+                        self.hh -= 1
+                        if self.hh < 0:
+                            self.hh = 23
+            self.release()
+
+            if self.df:
+                self.validate_for_drop_frame(True)
 
     # parity check, count 1's in 32-bit word
     def lp(self, b):
@@ -625,13 +631,9 @@ class timecode(object):
         self.uf7 = ((p[1] >> 20) & 0x0F)
         self.uf8 = ((p[1] >> 28) & 0x0F)
 
-        if self.ff >= int(self.fps):
-            #self.fps = self.ff          # Can we infer fps, which might be float??
-            if acquire:
-                self.release()
-            return False
-
         self.release()
+        if self.ff >= int(self.fps):
+            return False
         return True
 
     def user_to_ascii(self):
@@ -1041,8 +1043,7 @@ def pico_timecode_thread(eng, stop):
                     # Jam to 'next' RX timecode
                     g = eng.rc.to_raw()
                     eng.tc.from_raw(g)
-                    eng.tc.next_frame()
-                    eng.tc.next_frame()
+                    eng.tc.next_frame(2)
 
                     # clone Userbit Clock flag
                     eng.tc.bgf1 = eng.rc.bgf1

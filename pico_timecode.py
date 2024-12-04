@@ -73,9 +73,41 @@ def start_from_pin():
     jmp("halt") [31]
 
 
-@rp2.asm_pio(set_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+@rp2.asm_pio(set_init=rp2.PIO.OUT_HIGH, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def blink_led():
+    out(x, 16)                      # first cycle length may be slightly
+                                    # different so LED is exactly timed...
+    irq(block, 4)                   # Wait for sync'ed start
+
+    label("read_new")
+    wrap_target()
+    irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
+    out(y, 16)                      # Read pulse duration from FIFO
+
+    jmp(not_y, "led_off")           # Do we turn LED on?
+    set(pins, 1)
+    jmp("cont")
+    label("led_off")
+    nop() [1]                       # this section 3 cycles
+
+    label("cont")
+    jmp(y_dec, "still_on")          # Does LED stay on?
+    set(pins, 0) [1]
+    jmp("cont2")
+    label("still_on")
+    nop() [2]                       # this section 4 cycles
+
+    label("cont2")
+    jmp(x_dec, "cont")              # Loop, so it is 80 * 32 =  2560 cycles
+                                    # X = 510 -> 2 + 3 + (510 * (4 +1)) + 5 cycles
+    out(x, 16) [4]
+    wrap()
+
+
+@rp2.asm_pio(set_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+
+def blink_led2():
     out(x, 16)                      # first cycle length may be slightly
                                     # different so LED is exactly timed...
     irq(block, 4)                   # Wait for sync'ed start
@@ -97,7 +129,7 @@ def blink_led():
     jmp("cont2")
     label("still_on")
     nop() [2]                       # this section 4 cycles
-        
+
     label("cont2")
     jmp(x_dec, "cont")              # Loop, so it is 80 * 32 =  2560 cycles
                                     # X = 510 -> 2 + 3 + (510 * (4 +1)) + 5 cycles
@@ -106,10 +138,10 @@ def blink_led():
 
 
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
-    
+
 def encode_dmc():
     irq(block, 4)                   # Wait for Sync'ed start
-    
+
     wrap_target()
     label("toggle-0")
     mov(pins, invert(pins)) [14]    # Always toogle pin at start of cycle, "0" or "1"
@@ -118,7 +150,26 @@ def encode_dmc():
 
     nop() [14]                      # Wait out rest of cycle, "0"
     jmp("toggle-0")
-    
+
+    label("toggle-1")
+    mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
+    wrap()
+
+
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_LOW, rp2.PIO.OUT_HIGH))
+
+def encode_dmc2():
+    irq(block, 4)                   # Wait for Sync'ed start
+
+    wrap_target()
+    label("toggle-0")
+    mov(pins, invert(pins)) [14]    # Always toogle pin at start of cycle, "0" or "1"
+
+    jmp(pin, "toggle-1")            # Check output of SM-1 buffer, jump if 1
+
+    nop() [14]                      # Wait out rest of cycle, "0"
+    jmp("toggle-0")
+
     label("toggle-1")
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
     wrap()
@@ -1088,7 +1139,7 @@ def ascii_display_thread(mode = RUN):
         eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
 
     # TX State Machines
-    eng.sm.append(rp2.StateMachine(1, blink_led, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(1, blink_led2, freq=sm_freq,
                            set_base=machine.Pin(25)))       # LED on Pico board + GPIO26/27/28
     eng.sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
                            out_base=machine.Pin(22)))       # Output of 'raw' bitstream

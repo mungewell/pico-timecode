@@ -90,7 +90,7 @@ def add_more_state_machines():
     sm_freq = int(pt.eng.tc.fps * 80 * 32)
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(1, pt.blink_led, freq=sm_freq,
+    pt.eng.sm.append(rp2.StateMachine(1, pt.blink_led2, freq=sm_freq,
                                set_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
     pt.eng.sm.append(rp2.StateMachine(2, pt.buffer_out, freq=sm_freq,
                                out_base=Pin(22)))       # Output of 'raw' bitstream

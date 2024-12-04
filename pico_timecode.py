@@ -3,18 +3,16 @@
 #
 # https://github.com/mungewell/pico-timecode
 
-import machine
 import _thread
-import utime
 import rp2
-import gc
 
-import micropython
-micropython.alloc_emergency_exception_buf(100)
-
-from machine import Timer
-from micropython import schedule
+from machine import Timer, Pin, mem32, disable_irq, enable_irq, freq, lightsleep
+from micropython import schedule, alloc_emergency_exception_buf
+from utime import sleep, ticks_us, ticks_diff
+from gc import collect
 from os import uname
+
+alloc_emergency_exception_buf(100)
 
 VERSION="v2.1+"
 
@@ -269,8 +267,8 @@ def irq_handler(m):
     global tx_raw, tx_ticks_us, rx_ticks_us, sl_ticks_us
     global core_dis
 
-    core_dis[machine.mem32[0xd0000000]] = machine.disable_irq()
-    ticks = utime.ticks_us()
+    core_dis[mem32[0xd0000000]] = disable_irq()
+    ticks = ticks_us()
 
     if m==eng.sm[0]:
         sl_ticks_us = ticks
@@ -289,7 +287,7 @@ def irq_handler(m):
         stop = 1
         eng.mode = HALTED
 
-    machine.enable_irq(core_dis[machine.mem32[0xd0000000]])
+    enable_irq(core_dis[mem32[0xd0000000]])
 
 
 def timer_sched(timer):
@@ -840,45 +838,45 @@ class engine(object):
         '''
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
-                machine.mem32[base + offset] = new_div
+                mem32[base + offset] = new_div
         '''
-        machine.mem32[0x502000c8] = new_div
-        machine.mem32[0x502000e0] = new_div
-        machine.mem32[0x502000f8] = new_div
-        machine.mem32[0x50200110] = new_div
-        machine.mem32[0x503000c8] = new_div
-        machine.mem32[0x503000e0] = new_div
-        machine.mem32[0x503000f8] = new_div
-        machine.mem32[0x50300110] = new_div
+        mem32[0x502000c8] = new_div
+        mem32[0x502000e0] = new_div
+        mem32[0x502000f8] = new_div
+        mem32[0x50200110] = new_div
+        mem32[0x503000c8] = new_div
+        mem32[0x503000e0] = new_div
+        mem32[0x503000f8] = new_div
+        mem32[0x50300110] = new_div
 
         self.dlock.release()
 
     def inc_divider(self):
         # increasing divider -> slower clock
         self.dlock.acquire()
-        new_div = machine.mem32[0x502000c8] + 0x0100
+        new_div = mem32[0x502000c8] + 0x0100
 
         # Set dividers for all PIO machines
         '''
         for base in [0x50200000, 0x50300000]:
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
-                machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
+                mem32[base + offset] = (integer << 16) + (fraction << 8)
         '''
-        machine.mem32[0x502000c8] = new_div
-        machine.mem32[0x502000e0] = new_div
-        machine.mem32[0x502000f8] = new_div
-        machine.mem32[0x50200110] = new_div
-        machine.mem32[0x503000c8] = new_div
-        machine.mem32[0x503000e0] = new_div
-        machine.mem32[0x503000f8] = new_div
-        machine.mem32[0x50300110] = new_div
+        mem32[0x502000c8] = new_div
+        mem32[0x502000e0] = new_div
+        mem32[0x502000f8] = new_div
+        mem32[0x50200110] = new_div
+        mem32[0x503000c8] = new_div
+        mem32[0x503000e0] = new_div
+        mem32[0x503000f8] = new_div
+        mem32[0x50300110] = new_div
 
         self.dlock.release()
 
     def dec_divider(self):
         # decreasing divider -> faster clock
         self.dlock.acquire()
-        new_div = machine.mem32[0x502000c8] - 0x0100
+        new_div = mem32[0x502000c8] - 0x0100
 
         # Set dividers for all PIO machines
         '''
@@ -886,14 +884,14 @@ class engine(object):
             for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
                 machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
         '''
-        machine.mem32[0x502000c8] = new_div
-        machine.mem32[0x502000e0] = new_div
-        machine.mem32[0x502000f8] = new_div
-        machine.mem32[0x50200110] = new_div
-        machine.mem32[0x503000c8] = new_div
-        machine.mem32[0x503000e0] = new_div
-        machine.mem32[0x503000f8] = new_div
-        machine.mem32[0x50300110] = new_div
+        mem32[0x502000c8] = new_div
+        mem32[0x502000e0] = new_div
+        mem32[0x502000f8] = new_div
+        mem32[0x50200110] = new_div
+        mem32[0x503000c8] = new_div
+        mem32[0x503000e0] = new_div
+        mem32[0x503000f8] = new_div
+        mem32[0x50300110] = new_div
 
         self.dlock.release()
 
@@ -939,7 +937,7 @@ class engine(object):
 def pico_timecode_thread(eng, stop):
     global tx_raw
 
-    debug = machine.Pin(28,machine.Pin.OUT)
+    debug = Pin(28,Pin.OUT)
     debug.off()
 
     eng.set_stopped(False)
@@ -958,7 +956,7 @@ def pico_timecode_thread(eng, stop):
     # Start the StateMachines (except Sync)
     for m in range(1, len(eng.sm)):
         eng.sm[m].active(1)
-        utime.sleep(0.005)
+        sleep(0.005)
 
     eng.tc.acquire()
     fps = eng.tc.fps
@@ -972,7 +970,37 @@ def pico_timecode_thread(eng, stop):
     # -1 -> +1 : +ve = faster clock, -ve = slower clock
     eng.micro_adjust(eng.calval)
 
-    # Loop, increasing frame count each time
+    # Defines used later in 'lightsleep()'
+    if uname().machine[23:] == 'RP2040':
+        # RP2040
+        CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00001000
+        CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00002000
+
+        CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS = 0x00000080
+        CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS = 0x00000200
+
+        CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS = 0x00000040
+        CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS = 0x00000100
+
+        CLOCKS_SLEEP_EN0 = CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS
+        CLOCKS_SLEEP_EN1 = CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
+    else:
+        # RP2350 - to be tested...
+        CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00040000
+        CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00080000
+        CLOCKS_SLEEP_EN0_CLK_SYS_PIO2_BITS = 0x00100000
+
+        CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS = 0x00800000
+        CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS = 0x02000000
+
+        CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS = 0x00400000
+        CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS = 0x01000000
+
+        CLOCKS_SLEEP_EN0 = None
+        CLOCKS_SLEEP_EN1 = None
+
+
+    # Loop, increasing frame counter each time
     while not stop():
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
@@ -1055,37 +1083,9 @@ def pico_timecode_thread(eng, stop):
             # lightsleep for longer than a frame is possible, with FIFOs, but
             # may cause IRQs to merged and thus corrupt reporting.
 
-            if uname().machine[23:] == 'RP2040':
-                # RP2040
-                CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00001000
-                CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00002000
-
-                CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS = 0x00000080
-                CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS = 0x00000200
-
-                CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS = 0x00000040
-                CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS = 0x00000100
-
-                CLOCKS_SLEEP_EN0 = CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS | CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS
-                CLOCKS_SLEEP_EN1 = CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
-            else:
-                # RP2350 - to be tested...
-                CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00040000
-                CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00080000
-                CLOCKS_SLEEP_EN0_CLK_SYS_PIO2_BITS = 0x00100000
-
-                CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS = 0x00800000
-                CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS = 0x02000000
-
-                CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS = 0x00400000
-                CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS = 0x01000000
-
-                CLOCKS_SLEEP_EN0 = None
-                CLOCKS_SLEEP_EN1 = None
-
             debug.on()
             try:
-                machine.lightsleep(30, eng.ps_en0 | CLOCKS_SLEEP_EN0, eng.ps_en1 | CLOCKS_SLEEP_EN1)
+                lightsleep(30, eng.ps_en0 | CLOCKS_SLEEP_EN0, eng.ps_en1 | CLOCKS_SLEEP_EN1)
             except:
                 eng.set_powersave(False)
             debug.off()
@@ -1103,8 +1103,8 @@ def pico_timecode_thread(eng, stop):
     rp2.PIO(0).remove_program()
     rp2.PIO(1).remove_program()
 
-    machine.Pin(25, machine.Pin.OUT, value=0)
-    machine.Pin(26, machine.Pin.OUT, value=0)
+    Pin(25, Pin.OUT, value=0)
+    Pin(26, Pin.OUT, value=0)
 
     eng.set_stopped(True)
 
@@ -1118,13 +1118,14 @@ def ascii_display_thread(mode = RUN):
     eng.set_stopped(True)
 
     # alternatively, automatically Jam if booted with 'B' pressed
-    keyB = machine.Pin(17,machine.Pin.IN,machine.Pin.PULL_UP)
+    keyA = Pin(15,Pin.IN,Pin.PULL_UP)
+    keyB = Pin(17,Pin.IN,Pin.PULL_UP)
     if keyB.value() == 0:
         eng.mode = JAM
 
     # Reduce the CPU clock, for better computation of PIO freqs
-    if machine.freq() != 120000000:
-        machine.freq(120000000)
+    if freq() != 120000000:
+        freq(120000000)
 
     # Allocate appropriate StateMachines, and their pins
     eng.sm = []
@@ -1134,39 +1135,39 @@ def ascii_display_thread(mode = RUN):
     if eng.mode > MONITOR:
         # We will only start after a trigger pin goes high
         eng.sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
-                           jmp_pin=machine.Pin(21)))        # RX Decoding
+                           jmp_pin=Pin(21)))        # RX Decoding
     else:
         eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
 
     # TX State Machines
     eng.sm.append(rp2.StateMachine(1, blink_led2, freq=sm_freq,
-                           set_base=machine.Pin(25)))       # LED on Pico board + GPIO26/27/28
+                           set_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
     eng.sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
-                           out_base=machine.Pin(22)))       # Output of 'raw' bitstream
+                           out_base=Pin(22)))       # Output of 'raw' bitstream
     eng.sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
-                           jmp_pin=machine.Pin(22),
-                           in_base=machine.Pin(13),         # same as pin as out
-                           out_base=machine.Pin(13)))       # Encoded LTC Output
+                           jmp_pin=Pin(22),
+                           in_base=Pin(13),         # same as pin as out
+                           out_base=Pin(13)))       # Encoded LTC Output
 
     # RX State Machines - note DEMO Mode
     if eng.mode > MONITOR:
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=machine.Pin(18),
-                           in_base=machine.Pin(18),
-                           set_base=machine.Pin(19)))       # Decoded LTC Input
+                           jmp_pin=Pin(18),
+                           in_base=Pin(18),
+                           set_base=Pin(19)))       # Decoded LTC Input
     else:
         eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=machine.Pin(13),         # DEMO MODE - read from self/tx
-                           in_base=machine.Pin(13),         # for real operation change 13 -> 18
-                           set_base=machine.Pin(19)))       # Decoded LTC Input
+                           jmp_pin=Pin(13),         # DEMO MODE - read from self/tx
+                           in_base=Pin(13),         # for real operation change 13 -> 18
+                           set_base=Pin(19)))       # Decoded LTC Input
 
     eng.sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
-                           jmp_pin=machine.Pin(19),
-                           in_base=machine.Pin(19),
-                           out_base=machine.Pin(21),
-                           set_base=machine.Pin(21)))       # 'sync' from RX bitstream
+                           jmp_pin=Pin(19),
+                           in_base=Pin(19),
+                           out_base=Pin(21),
+                           set_base=Pin(21)))       # 'sync' from RX bitstream
 
-    # correct clock dividers for 29.98 and 23.976
+    # correct clock dividers
     eng.config_clocks(eng.tc.fps)
 
     # set up IRQ handler
@@ -1195,25 +1196,25 @@ def ascii_display_thread(mode = RUN):
                     eng.mode = RUN
 
             print("RX:", eng.rc.to_ascii())
-            utime.sleep(0.1)
+            sleep(0.1)
 
         if eng.mode == RUN:
             t1 = tx_ticks_us
             if disp_ticks == t1:
                 # 5ms before next expected frame arrives we will stall
                 # intently looking for the moment it happens...
-                d = cycle_us - utime.ticks_diff(utime.ticks_us(), t1)
+                d = cycle_us - ticks_diff(ticks_us(), t1)
                 if d > -1000 and d < 5000:
                     while d > -1000:
-                        d = cycle_us - utime.ticks_diff(utime.ticks_us(), t1)
+                        d = cycle_us - ticks_diff(ticks_us(), t1)
                         if disp_ticks != tx_ticks_us:
                             break
                 else:
                     if disp_loop == 0:
                         # Force garbage collection at a time that's not busy
-                        gc.collect()
+                        collect()
                     disp_loop += 1
-                    utime.sleep(0.001)
+                    sleep(0.001)
                     continue
 
             # Figure out what TX frame to display
@@ -1237,12 +1238,12 @@ def ascii_display_thread(mode = RUN):
             # DEMO - Enable Power-Save every minute, at 10s on TC
             if (eng.tc.to_raw() & 0x00003F00) == 0x00000A00:
                 print("Entering powersave")
-                utime.sleep(0.1)
+                sleep(0.1)
 
                 eng.set_powersave(True)
 
                 while eng.get_powersave():
-                    utime.sleep(0.1)
+                    sleep(0.1)
 
                 print("Exited powersave")
             '''
@@ -1257,6 +1258,6 @@ def ascii_display_thread(mode = RUN):
 if __name__ == "__main__":
     print("Pico-Timecode " + VERSION)
     print("www.github.com/mungewell/pico-timecode")
-    utime.sleep(2)
+    sleep(2)
 
     ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

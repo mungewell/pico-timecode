@@ -46,8 +46,8 @@ def auto_start():
     irq(rel(0))                     # set IRQ for sl_ticks_us monitoring
 
     label("halt")
-    out(x, 32)                      # will 'block' waiting for TX timecode
-    in_(x, 32)                      # and then write back into FIFO
+    #out(x, 32)                      # will 'block' waiting for TX timecode
+    #in_(x, 32)                      # and then write back into FIFO
     jmp("halt") [31]
 
 
@@ -66,8 +66,8 @@ def start_from_pin():
     irq(rel(0))                     # set IRQ for sl_ticks_us monitoring
 
     label("halt")
-    out(x, 32)                      # will 'block' waiting for TX timecode
-    in_(x, 32)                      # and then write back into FIFO
+    #out(x, 32)                      # will 'block' waiting for TX timecode
+    #in_(x, 32)                      # and then write back into FIFO
     jmp("halt") [31]
 
 
@@ -146,8 +146,8 @@ def encode_dmc():
 
     jmp(pin, "toggle-1")            # Check output of SM-1 buffer, jump if 1
 
-    nop() [14]                      # Wait out rest of cycle, "0"
-    jmp("toggle-0")
+    #nop() [14]                      # Wait out rest of cycle, "0"
+    jmp("toggle-0") [15]
 
     label("toggle-1")
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
@@ -165,8 +165,8 @@ def encode_dmc2():
 
     jmp(pin, "toggle-1")            # Check output of SM-1 buffer, jump if 1
 
-    nop() [14]                      # Wait out rest of cycle, "0"
-    jmp("toggle-0")
+    #nop() [14]                      # Wait out rest of cycle, "0"
+    jmp("toggle-0") [15]
 
     label("toggle-1")
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
@@ -195,8 +195,8 @@ def buffer_out():
 def decode_dmc():
     label("previously_low")
     wait(1, pin, 0)         # Line going high
-    irq(clear, 5)           # trigger sync engine, and wait til 3/4s mark
-    nop()[18]
+    irq(clear, 5) [19]      # trigger sync engine, and wait til 3/4s mark
+    #nop()[18]
 
     jmp(pin, "staying_high")
     set(pins, 3)            # Second transition detected (data is `1`)
@@ -210,8 +210,8 @@ def decode_dmc():
     wrap_target()
     label("previously_high")
     wait(0, pin, 0)         # Line going Low
-    irq(clear, 5)           # trigger sync engine, and wait til 3/4s mark
-    nop()[18]
+    irq(clear, 5) [19]      # trigger sync engine, and wait til 3/4s mark
+    #nop()[18]
 
     jmp(pin, "going_high")
     set(pins, 0)            # Line still low, no centre transition (data is `0`)
@@ -258,6 +258,13 @@ def sync_and_read():
     in_(pins, 1)			# Read last bit
     wrap()
 
+@rp2.asm_pio(autopull=True, autopush=True)
+
+def tx_raw_value():
+    wrap_target()
+    out(x, 32)                      # will 'block' waiting for TX timecode
+    in_(x, 32)                      # and then write back into FIFO
+    wrap()
 
 #-------------------------------------------------------
 # handler for IRQs
@@ -274,9 +281,8 @@ def irq_handler(m):
         sl_ticks_us = ticks
 
     if m==eng.sm[1]:
-        if eng.sm[0].rx_fifo() > 0:
-            tx_raw = eng.sm[0].get()
-
+        if eng.sm[6].rx_fifo() > 0:
+            tx_raw = eng.sm[6].get()
         tx_ticks_us = ticks
 
     if m==eng.sm[5]:
@@ -949,7 +955,7 @@ def pico_timecode_thread(eng, stop):
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
-    eng.sm[5].put(3489660912)
+    eng.sm[5].put(0xCFFFFFF0)
 
     # Set up Blink/LED timing
     eng.sm[1].put(612)          # 1st cycle includes 'extra sync' correction
@@ -1050,8 +1056,8 @@ def pico_timecode_thread(eng, stop):
 
         # Wait for TX FIFO to be empty enough to accept more
         while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < (7 - send_sync):
-            if eng.sm[0].tx_fifo() < 3:
-                eng.sm[0].put(eng.tc.to_raw())
+            if eng.sm[6].tx_fifo() < 3:
+                eng.sm[6].put(eng.tc.to_raw())
             for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[2].put(w)
             eng.tc.release()
@@ -1168,6 +1174,15 @@ def ascii_display_thread(mode = RUN):
                            out_base=Pin(21),
                            set_base=Pin(21)))       # 'sync' from RX bitstream
 
+    eng.sm.append(rp2.StateMachine(6, tx_raw_value, freq=sm_freq))
+
+    '''
+    # double check the PIO code space/addresses
+    '''
+    for base in [0x50200000, 0x50300000]:
+        for offset in [0x0d4, 0x0ec, 0x104, 0x11c]:
+            print("0x%8.8x : 0x%2.2x" % (base + offset, mem32[base + offset]))
+
     # correct clock dividers
     eng.config_clocks(eng.tc.fps)
 
@@ -1261,4 +1276,4 @@ if __name__ == "__main__":
     print("www.github.com/mungewell/pico-timecode")
     sleep(2)
 
-    ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above
+    ascii_display_thread(1)#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

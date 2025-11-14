@@ -21,6 +21,7 @@ eng = None
 stop = False
 
 tx_raw = 0
+rx_ticks = 0
 tx_offset = 0
 tx_ticks_us = 0
 rx_ticks_us = 0
@@ -39,37 +40,54 @@ JAM     = 64
 @rp2.asm_pio(autopull=True, autopush=True)
 
 def auto_start():
-    nop()
-    nop()
+    nop()                           # padding so same size as 'start_from_sync'
 
-    irq(clear, 4)                   # immediately Trigger Sync...
-    irq(rel(0))                     # set IRQ for sl_ticks_us monitoring
-
-    label("halt")
-    #out(x, 32)                      # will 'block' waiting for TX timecode
-    #in_(x, 32)                      # and then write back into FIFO
-    jmp("halt") [31]
+    irq(clear, 4)                   # immediately trigger Sync
+                                    # --
+    label("wait_for_low")           # loop length 4 clocks
+    jmp(x_dec, "null1")
+    label("null1")
+    jmp(pin, "wait_for_low") [2]
+                                    # --
+    label("triggered")              # section length 4 clocks
+                                    # capture count when pin goes low
+    mov(isr, x)                     # mov X into ISR
+    push()
+    jmp(x_dec, "wait_for_high") [1]
+                                    # --
+    label("wait_for_high")          # loop length 4 clocks
+    jmp(x_dec, "null2")
+    label("null2")
+    jmp(pin, "wait_for_low") [1]
+    jmp("wait_for_high")
 
 
 @rp2.asm_pio(autopull=True, autopush=True)
 
-def start_from_pin():
-    label("high")
-    jmp(pin, "high")                # Wait for pin to go low first...
-
-    wrap_target()
-    jmp(pin, "start")               # Check pin, jump if 1
+def start_from_sync():
+    wrap_target()                   # sync pin is known to start low
+    jmp(pin, "start")               # Wait for pin to go high
     wrap()
 
     label("start")
     irq(clear, 4)                   # Trigger Sync
-    irq(rel(0))                     # set IRQ for sl_ticks_us monitoring
-
-    label("halt")
-    #out(x, 32)                      # will 'block' waiting for TX timecode
-    #in_(x, 32)                      # and then write back into FIFO
-    jmp("halt") [31]
-
+                                    # --
+    label("wait_for_low")           # loop length 4 clocks
+    jmp(x_dec, "null1")
+    label("null1")
+    jmp(pin, "wait_for_low") [2]
+                                    # --
+    label("triggered")              # section length 4 clocks
+                                    # capture count when pin goes low
+    mov(isr, x)                     # mov X into ISR
+    push()
+    jmp(x_dec, "wait_for_high") [1]
+                                    # --
+    label("wait_for_high")          # loop length 4 clocks
+    jmp(x_dec, "null2")
+    label("null2")
+    jmp(pin, "wait_for_low") [1]
+    jmp("wait_for_high")
 
 @rp2.asm_pio(set_init=rp2.PIO.OUT_HIGH, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
@@ -80,8 +98,8 @@ def blink_led():
 
     label("read_new")
     wrap_target()
-    irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
-    out(y, 16)                      # Read pulse duration from FIFO
+    #irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
+    out(y, 16) [1]                  # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
     set(pins, 1)
@@ -112,8 +130,8 @@ def blink_led2():
 
     label("read_new")
     wrap_target()
-    irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
-    out(y, 16)                      # Read pulse duration from FIFO
+    #irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
+    out(y, 16) [1]                  # Read pulse duration from FIFO
 
     jmp(not_y, "led_off")           # Do we turn LED on?
     set(pins, 0b11)
@@ -184,7 +202,7 @@ def buffer_out():
     
     jmp(not_osre, "start")
                                     # UNDERFLOW - when Python fails to fill FIFOs
-    irq(rel(0))                     # set IRQ to warn other StateMachines
+    #irq(rel(0))                     # set IRQ to warn other StateMachines
     wrap_target()
     set(pins, 0)
     wrap()
@@ -1010,6 +1028,10 @@ def pico_timecode_thread(eng, stop):
 
     # Loop, increasing frame counter each time
     while not stop():
+        # Timestamp of RX packets
+        if eng.mode > 0 and eng.sm[0].rx_fifo():
+            rx_ticks = eng.sm[0].get()
+
         # Empty RX FIFO as it fills
         if eng.sm[5].rx_fifo() >= 2:
             p = []
@@ -1141,7 +1163,7 @@ def ascii_display_thread(mode = RUN):
     # Note: we always want the 'sync' SM to be first in the list.
     if eng.mode > MONITOR:
         # We will only start after a trigger pin goes high
-        eng.sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
+        eng.sm.append(rp2.StateMachine(0, start_from_sync, freq=sm_freq,
                            jmp_pin=Pin(21)))        # RX Decoding
     else:
         eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
@@ -1276,4 +1298,4 @@ if __name__ == "__main__":
     print("www.github.com/mungewell/pico-timecode")
     sleep(2)
 
-    ascii_display_thread(1)#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above
+    ascii_display_thread(20)#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

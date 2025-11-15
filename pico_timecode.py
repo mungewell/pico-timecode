@@ -50,6 +50,7 @@ SM_DECODE   = 6
 def auto_start():
     set(x, 0)
     nop()
+    nop()
     irq(clear, 4)                   # immediately trigger Sync
                                     # --
     label("wait_for_low")           # loop length 4 clocks
@@ -75,8 +76,9 @@ def auto_start():
 
 def start_from_sync():
     set(x, 0)
+    wait(0, pin, 0)                 # Wait for pin to go low
     wait(1, pin, 0)                 # Wait for pin to go high
-                                    # note: sync pin is known to start low
+
     irq(clear, 4)                   # Trigger Sync
                                     # --
     label("wait_for_low")           # loop length 4 clocks
@@ -1031,9 +1033,6 @@ def pico_timecode_thread(eng, stop):
                     eng.mode -= 1
 
                 if eng.mode == MONITOR:
-                    # hack to play it safe, delay so Sync input is low
-                    sleep(0.005)
-
                     # Jam to 'next' RX timecode
                     g = eng.rc.to_raw()
                     eng.tc.from_raw(g)

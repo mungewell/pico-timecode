@@ -97,67 +97,27 @@ def start_from_sync():
     jmp(pin, "wait_for_low") [2]
     wrap()
 
-@rp2.asm_pio(set_init=rp2.PIO.OUT_HIGH, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2,
+        autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
-def blink_led():
-    out(x, 16)                      # first cycle length may be slightly
-                                    # different so LED is exactly timed...
+def shift_led2():
+    out(x, 5)                       # X = count of how many bytes
     irq(block, 4)                   # Wait for sync'ed start
-
-    label("read_new")
+                                    # ---
     wrap_target()
-    out(y, 16) [1]                  # Read pulse duration from FIFO
+    out(pins, 2)                    # LEDs are bit-shifted pattern
+                                    # each loop should be 256 cycles
+                                    # representing each of the bytes in packet
+    set(y, 7) [5]
+    jmp(x_dec, "delay")
 
-    jmp(not_y, "led_off")           # Do we turn LED on?
-    set(pins, 1)
-    jmp("cont")
-    label("led_off")
-    nop() [1]                       # this section 3 cycles
+    pull()
+    out(x, 5) [28]
+    jmp(y_dec, "delay")
 
-    label("cont")
-    jmp(y_dec, "still_on")          # Does LED stay on?
-    set(pins, 0) [1]
-    jmp("cont2")
-    label("still_on")
-    nop() [2]                       # this section 4 cycles
-
-    label("cont2")
-    jmp(x_dec, "cont")              # Loop, so it is 80 * 32 =  2560 cycles
-                                    # X = 510 -> 2 + 3 + (510 * (4 +1)) + 5 cycles
-    out(x, 16) [4]
+    label("delay")
+    jmp(y_dec, "delay") [30]        # 8 * 31 = 248 + 8 = 256 cycles
     wrap()
-
-
-@rp2.asm_pio(set_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
-
-def blink_led2():
-    out(x, 16)                      # first cycle length may be slightly
-                                    # different so LED is exactly timed...
-    irq(block, 4)                   # Wait for sync'ed start
-
-    label("read_new")
-    wrap_target()
-    out(y, 16) [1]                  # Read pulse duration from FIFO
-
-    jmp(not_y, "led_off")           # Do we turn LED on?
-    set(pins, 0b11)
-    jmp("cont")
-    label("led_off")
-    nop() [1]                       # this section 3 cycles
-
-    label("cont")
-    jmp(y_dec, "still_on")          # Does LED stay on?
-    set(pins, 0) [1]
-    jmp("cont2")
-    label("still_on")
-    nop() [2]                       # this section 4 cycles
-
-    label("cont2")
-    jmp(x_dec, "cont")              # Loop, so it is 80 * 32 =  2560 cycles
-                                    # X = 510 -> 2 + 3 + (510 * (4 +1)) + 5 cycles
-    out(x, 16) [4]
-    wrap()
-
 
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
 
@@ -969,9 +929,8 @@ def pico_timecode_thread(eng, stop):
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
     eng.sm[SM_SYNC].put(0xCFFFFFF0)
 
-    # Set up Blink/LED timing
-    eng.sm[SM_BLINK].put(612)   # 1st cycle includes 'extra sync' correction
-                                # (80 + 16) * 32 = 3072 cycles
+    # Set up Blink/LED timing, includes 'extra sync' correction
+    eng.sm[SM_BLINK].put((0b1111 << 5) + 11)
 
     # Start StateMachines (except Sync)
     #for m in range(1, len(eng.sm)):
@@ -1100,14 +1059,14 @@ def pico_timecode_thread(eng, stop):
             eng.tc.acquire()
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
-                    eng.sm[SM_BLINK].put((210 << 16)+ 509) # '209' duration of flash
+                    eng.sm[SM_BLINK].put((0b111111 << 5) + 9)
                 else:
-                    eng.sm[SM_BLINK].put(509)              # '509' is complete cycle length
+                    eng.sm[SM_BLINK].put(9)                 # '9' is complete cycle length
             else:
                 if eng.tc.to_raw() == eng.flashtime:
-                    eng.sm[SM_BLINK].put((210 << 16)+ 509) # '209' duration of flash
+                    eng.sm[SM_BLINK].put((0b111111 << 5) + 9)
                 else:
-                    eng.sm[SM_BLINK].put(509)              # '509' is complete cycle length
+                    eng.sm[SM_BLINK].put(9)                 # '9' is complete cycle length
             eng.tc.release()
 
             # Complete start-up sequence
@@ -1182,8 +1141,8 @@ def ascii_display_thread(mode = RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    eng.sm.append(rp2.StateMachine(SM_BLINK, blink_led2, freq=sm_freq,
-                           set_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+    eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led2, freq=sm_freq,
+                           out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
     eng.sm.append(rp2.StateMachine(SM_BUFFER, buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
     eng.sm.append(rp2.StateMachine(SM_ENCODE, encode_dmc, freq=sm_freq,

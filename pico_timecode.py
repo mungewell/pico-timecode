@@ -23,6 +23,7 @@ stop = False
 tx_raw = 0
 rx_ticks = 0
 rx_ticks_us = 0
+tx_ticks_us = 0
 
 core_dis = [0, 0]
 
@@ -103,22 +104,25 @@ def start_from_sync():
         autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def shift_led2():
-    out(x, 5)                       # X = count of how many bytes
     irq(block, 4)                   # Wait for sync'ed start
                                     # ---
     wrap_target()
+    irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
+    out(x, 5)
+
+    label("next")
     out(pins, 2)                    # LEDs are bit-shifted pattern
                                     # each loop should be 256 cycles
                                     # representing each of the bytes in packet
-    set(y, 7) [5]
+    set(y, 7) [4]
     jmp(x_dec, "delay")
 
-    pull()
-    out(x, 5) [28]
+    pull() [27]
     jmp(y_dec, "delay")
 
     label("delay")
     jmp(y_dec, "delay") [30]        # 8 * 31 = 248 + 8 = 256 cycles
+    jmp(x_not_y, "next")
     wrap()
 
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
@@ -253,11 +257,16 @@ def tx_raw_value():
 
 def irq_handler(m):
     global eng, stop
-    global rx_ticks_us
+    global tx_raw, rx_ticks_us, tx_ticks_us
     global core_dis
 
     core_dis[mem32[0xd0000000]] = disable_irq()
     ticks = ticks_us()
+
+    if m==eng.sm[SM_BLINK]:
+        if eng.sm[SM_TX_RAW].rx_fifo():
+            tx_raw = eng.sm[SM_TX_RAW].get()
+        tx_ticks_us = ticks
 
     if m==eng.sm[SM_SYNC]:
         rx_ticks_us = ticks
@@ -917,7 +926,7 @@ class engine(object):
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
-    global tx_raw, rx_ticks, rx_ticks_us
+    global tx_raw, rx_ticks, rx_ticks_us, tx_ticks_us
 
     debug = Pin(28,Pin.OUT)
     debug.off()
@@ -990,10 +999,6 @@ def pico_timecode_thread(eng, stop):
 
     # Main Loop, service FIFOs and increasing counter
     while not stop():
-        # Last seen TX value
-        while eng.sm[SM_TX_RAW].rx_fifo():
-            tx_raw = eng.sm[SM_TX_RAW].get()
-
         # Empty RX FIFOs as they fill
         # wait for both to be available
         while eng.sm[SM_SYNC].rx_fifo() >= 2:

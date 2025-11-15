@@ -32,6 +32,17 @@ RUN     = 0
 MONITOR = 1
 JAM     = 64
 
+# Constants for StateMachines
+# PIO block 1
+SM_START    = 0
+SM_BLINK    = 1
+SM_BUFFER   = 2
+SM_ENCODE   = 3
+# PIO block 2
+SM_TX_RAW   = 4
+SM_SYNC     = 5
+SM_DECODE   = 6
+
 #---------------------------------------------
 
 @rp2.asm_pio(autopull=True, autopush=True)
@@ -286,10 +297,10 @@ def irq_handler(m):
     core_dis[mem32[0xd0000000]] = disable_irq()
     ticks = ticks_us()
 
-    if m==eng.sm[5]:
+    if m==eng.sm[SM_SYNC]:
         rx_ticks_us = ticks
 
-    if m==eng.sm[2]:
+    if m==eng.sm[SM_BUFFER]:
         # Buffer Underflow
         stop = 1
         eng.mode = HALTED
@@ -951,22 +962,28 @@ def pico_timecode_thread(eng, stop):
 
     eng.set_stopped(False)
 
-    send_sync = True        # send 1st packet with sync
+    send_sync = True        # send 1st packet with sync header
     start_sent = False
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
-    eng.sm[5].put(0xCFFFFFF0)
+    eng.sm[SM_SYNC].put(0xCFFFFFF0)
 
     # Set up Blink/LED timing
-    eng.sm[1].put(612)          # 1st cycle includes 'extra sync' correction
+    eng.sm[SM_BLINK].put(612)   # 1st cycle includes 'extra sync' correction
                                 # (80 + 16) * 32 = 3072 cycles
 
-    # Start the StateMachines (except Sync)
+    # Start StateMachines (except Sync)
     #for m in range(1, len(eng.sm)):
-    for m in range(1, 4):
+    #for m in range(SM_BLINK, len(eng.sm)):
+    for m in range(SM_BLINK, SM_TX_RAW + 1):
         eng.sm[m].active(1)
         sleep(0.005)
+
+    if eng.mode >= MONITOR:
+        eng.sm[SM_SYNC].active(1)
+        sleep(0.005)
+        eng.sm[SM_DECODE].active(1)
 
     eng.tc.acquire()
     fps = eng.tc.fps
@@ -1010,21 +1027,22 @@ def pico_timecode_thread(eng, stop):
         CLOCKS_SLEEP_EN1 = None
 
 
-    # Loop, increasing frame counter each time
+    # Main Loop, service FIFOs and increasing counter
     while not stop():
-        # Last sent TX value
-        if eng.sm[6].rx_fifo():
-            tx_raw = eng.sm[6].get()
+        # Last seen TX value
+        while eng.sm[SM_TX_RAW].rx_fifo():
+            tx_raw = eng.sm[SM_TX_RAW].get()
 
         # Empty RX FIFOs as they fill
         # wait for both to be available
-        while eng.sm[5].rx_fifo() >= 2 and eng.sm[0].rx_fifo():
-            rx_ticks = eng.sm[0].get()
+        while eng.sm[SM_SYNC].rx_fifo() >= 2:
+            if eng.sm[SM_START].rx_fifo():
+                rx_ticks = eng.sm[SM_START].get()
 
             p = []
             eng.rc.acquire()
-            p.append(eng.sm[5].get())
-            p.append(eng.sm[5].get())
+            p.append(eng.sm[SM_SYNC].get())
+            p.append(eng.sm[SM_SYNC].get())
             eng.rc.from_ltc_packet(p, False)
 
             if eng.mode > MONITOR:
@@ -1054,6 +1072,9 @@ def pico_timecode_thread(eng, stop):
                     eng.mode -= 1
 
                 if eng.mode == MONITOR:
+                    # hack to play it safe, delay so Sync input is low
+                    sleep(0.005)
+
                     # Jam to 'next' RX timecode
                     g = eng.rc.to_raw()
                     eng.tc.from_raw(g)
@@ -1064,11 +1085,11 @@ def pico_timecode_thread(eng, stop):
 
         # Wait for TX FIFO to be empty enough to accept more
         #while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < (7 - send_sync):
-        while eng.sm[2].tx_fifo() < (7 - send_sync):
-            if eng.sm[6].tx_fifo() < 3:
-                eng.sm[6].put(eng.tc.to_raw())
+        while eng.mode <= MONITOR and eng.sm[SM_BUFFER].tx_fifo() < (7 - send_sync):
+            eng.sm[SM_TX_RAW].put(eng.tc.to_raw())
+
             for w in eng.tc.to_ltc_packet(send_sync, False):
-                eng.sm[2].put(w)
+                eng.sm[SM_BUFFER].put(w)
             eng.tc.release()
             send_sync = (send_sync + 1) & 1
 
@@ -1079,24 +1100,24 @@ def pico_timecode_thread(eng, stop):
             eng.tc.acquire()
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
-                    eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
+                    eng.sm[SM_BLINK].put((210 << 16)+ 509) # '209' duration of flash
                 else:
-                    eng.sm[1].put(509)              # '509' is complete cycle length
+                    eng.sm[SM_BLINK].put(509)              # '509' is complete cycle length
             else:
                 if eng.tc.to_raw() == eng.flashtime:
-                    eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
+                    eng.sm[SM_BLINK].put((210 << 16)+ 509) # '209' duration of flash
                 else:
-                    eng.sm[1].put(509)              # '509' is complete cycle length
+                    eng.sm[SM_BLINK].put(509)              # '509' is complete cycle length
             eng.tc.release()
 
+            # Complete start-up sequence
             if not start_sent:
-                # enable 'Start' machine last, so others can synchronise to it
-                eng.sm[0].active(1)
-                eng.sm[4].active(1)
-                eng.sm[5].active(1)
+                # enable 'Start' machine last, so it can synchronise others...
+                eng.sm[SM_START].active(1)
                 start_sent = True
 
-        if eng.powersave and eng.sm[2].tx_fifo() > 5:
+
+        if eng.powersave and eng.sm[SM_BUFFER].tx_fifo() > 5:
             # requires special build microPython with ability to control CLKs
             # lightsleep for longer than a frame is possible, with FIFOs, but
             # may cause IRQs to merged and thus corrupt reporting.
@@ -1114,7 +1135,7 @@ def pico_timecode_thread(eng, stop):
                 eng.set_powersave(False)
             '''
 
-    # Stop the StateMachines
+    # Stop all StateMachines
     for m in range(len(eng.sm)):
         eng.sm[m].active(0)
 
@@ -1153,42 +1174,43 @@ def ascii_display_thread(mode = RUN):
     # Note: we always want the 'sync' SM to be first in the list.
     if eng.mode > MONITOR:
         # We will only start after a trigger pin goes high
-        eng.sm.append(rp2.StateMachine(0, start_from_sync, freq=sm_freq,
+        eng.sm.append(rp2.StateMachine(SM_START, start_from_sync, freq=sm_freq,
                            in_base=Pin(21),
                            jmp_pin=Pin(21)))        # RX Decoding
     else:
-        eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq,
+        eng.sm.append(rp2.StateMachine(SM_START, auto_start, freq=sm_freq,
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    eng.sm.append(rp2.StateMachine(1, blink_led2, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(SM_BLINK, blink_led2, freq=sm_freq,
                            set_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
-    eng.sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(SM_BUFFER, buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
-    eng.sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(SM_ENCODE, encode_dmc, freq=sm_freq,
                            jmp_pin=Pin(22),
                            in_base=Pin(13),         # same as pin as out
                            out_base=Pin(13)))       # Encoded LTC Output
 
-    # RX State Machines - note DEMO Mode
-    if eng.mode > MONITOR:
-        eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=Pin(18),
-                           in_base=Pin(18),
-                           set_base=Pin(19)))       # Decoded LTC Input
-    else:
-        eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=Pin(13),         # DEMO MODE - read from self/tx
-                           in_base=Pin(13),         # for real operation change 13 -> 18
-                           set_base=Pin(19)))       # Decoded LTC Input
+    eng.sm.append(rp2.StateMachine(SM_TX_RAW, tx_raw_value, freq=sm_freq))
 
-    eng.sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
+    # RX State Machines - note DEMO Mode
+    eng.sm.append(rp2.StateMachine(SM_SYNC, sync_and_read, freq=sm_freq,
                            jmp_pin=Pin(19),
                            in_base=Pin(19),
                            out_base=Pin(21),
                            set_base=Pin(21)))       # 'sync' from RX bitstream
 
-    eng.sm.append(rp2.StateMachine(6, tx_raw_value, freq=sm_freq))
+    if eng.mode > MONITOR:
+        eng.sm.append(rp2.StateMachine(SM_DECODE, decode_dmc, freq=sm_freq,
+                           jmp_pin=Pin(18),
+                           in_base=Pin(18),
+                           set_base=Pin(19)))       # Decoded LTC Input
+    else:
+        eng.sm.append(rp2.StateMachine(SM_DECODE, decode_dmc, freq=sm_freq,
+                           jmp_pin=Pin(13),         # DEMO MODE - read from self/tx
+                           in_base=Pin(13),         # for real operation change 13 -> 18
+                           set_base=Pin(19)))       # Decoded LTC Input
+
 
     '''
     # double check the PIO code space/addresses
@@ -1214,47 +1236,41 @@ def ascii_display_thread(mode = RUN):
 
     disp_asc="--:--:--:--"
     disp_ticks = 0
-    disp_loop = 0
 
     rx_ticks_prev = 0
     rx_ticks_us_prev = 0
 
     while True:
+        sleep(0.01)
+
         if eng.mode > RUN:
             if eng.mode > MONITOR:
                 print("Jamming:", eng.mode)
-            else:
-                # Fall back to RUN if we previously initiated JAM
-                if mode == JAM:
-                    eng.mode = RUN
 
-            '''
-            print("RX: %s" % eng.rc.to_ascii())
-            '''
-            if True: #rx_ticks_prev != rx_ticks:
-                phase = ((4294967295 - rx_ticks + 128) % 640) - 320
-                if phase > 32:
+            asc = eng.rc.to_ascii()
+            if disp_asc != asc:
+                phase = ((4294967295 - rx_ticks + 188) % 640) - 320
+                if phase < -32:
+                    # RX is ahead/earlier than TX
                     phases = ((" "*10) + ":" + ("+"*int(abs(phase/32))) + (" "*10)) [:21]
-                elif phase < -32:
+                elif phase > 32:
+                    # RX is behind/later than TX
                     phases = ((" "*10) + ("-"*int(abs(phase/32))) + ":" + (" "*10)) [-21:]
                 else:
                     phases = "          :          "
 
-                print("RX: %s (%4d %21s)" % (eng.rc.to_ascii(), phase, phases))
+                print("RX: %s (%4d %21s)" % (asc, phase, phases))
+                disp_asc = asc
                 rx_ticks_prev = rx_ticks
                 rx_ticks_us_prev = rx_ticks_us
-            sleep(0.02)
 
         if eng.mode == RUN:
             # Figure out what TX frame to display
             disp.from_raw(tx_raw)
-
             asc = disp.to_ascii()
             if disp_asc != asc:
-                print(asc)
+                print("TX: %s" % asc)
                 disp_asc = asc
-                #disp_ticks = t1
-                disp_loop = 0
 
             '''
             # DEMO - Enable Power-Save every minute, at 10s on TC
@@ -1282,4 +1298,4 @@ if __name__ == "__main__":
     print("www.github.com/mungewell/pico-timecode")
     sleep(2)
 
-    ascii_display_thread(30)#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above
+    ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

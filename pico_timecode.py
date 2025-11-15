@@ -44,6 +44,8 @@ SM_TX_RAW   = 4
 SM_SYNC     = 5
 SM_DECODE   = 6
 
+irq_callbacks = [None]*8
+
 #---------------------------------------------
 
 @rp2.asm_pio(autopull=True, autopush=True)
@@ -275,6 +277,11 @@ def irq_handler(m):
         # Buffer Underflow
         stop = 1
         eng.mode = HALTED
+
+    # check if any callbacks are registered
+    for i in range(len(eng.sm)):
+        if irq_callbacks[i] and m==eng.sm[i]:
+            schedule(irq_callbacks[i], i)
 
     enable_irq(core_dis[mem32[0xd0000000]])
 
@@ -1115,6 +1122,8 @@ def pico_timecode_thread(eng, stop):
 def ascii_display_thread(mode = RUN):
     global eng, stop
     global tx_raw, rx_ticks, rx_ticks_us
+    global irq_callbacks
+    global disp, disp_asc
 
     eng = engine()
     eng.mode = mode
@@ -1203,8 +1212,16 @@ def ascii_display_thread(mode = RUN):
     rx_ticks_prev = 0
     rx_ticks_us_prev = 0
 
+    # register callbacks, functions to display data ASAP
+    irq_callbacks[SM_BLINK] = ascii_display_callback
+
     while True:
         sleep(0.01)
+
+        if eng.mode == HALTED:
+            eng.set_powersave(False)
+            print("Underflow Error")
+            break
 
         if eng.mode > RUN:
             if eng.mode > MONITOR:
@@ -1227,6 +1244,13 @@ def ascii_display_thread(mode = RUN):
                 rx_ticks_prev = rx_ticks
                 rx_ticks_us_prev = rx_ticks_us
 
+
+def ascii_display_callback(sm=None):
+    global eng, stop
+    global tx_raw, rx_ticks, rx_ticks_us
+    global disp, disp_asc
+
+    if sm == SM_BLINK:
         if eng.mode == RUN:
             # Figure out what TX frame to display
             disp.from_raw(tx_raw)
@@ -1248,11 +1272,6 @@ def ascii_display_thread(mode = RUN):
 
                 print("Exited powersave")
             '''
-
-        if eng.mode == HALTED:
-            eng.set_powersave(False)
-            print("Underflow Error")
-            break
 
 #---------------------------------------------
 

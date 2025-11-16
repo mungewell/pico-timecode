@@ -8,7 +8,7 @@ import rp2
 
 from machine import Timer, Pin, mem32, disable_irq, enable_irq, freq, lightsleep
 from micropython import schedule, alloc_emergency_exception_buf
-from utime import sleep, ticks_us, ticks_diff
+from utime import sleep, ticks_us
 from gc import collect
 from os import uname
 
@@ -144,7 +144,7 @@ def encode_dmc():
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
     wrap()
 
-
+# 'how-to' example for differential output
 @rp2.asm_pio(out_init=(rp2.PIO.OUT_LOW, rp2.PIO.OUT_HIGH))
 
 def encode_dmc2():
@@ -176,7 +176,7 @@ def buffer_out():
                                     # UNDERFLOW - when Python fails to fill FIFOs
     irq(rel(0))                     # set IRQ to warn other StateMachines
     wrap_target()
-    #set(pins, 0)
+    set(pins, 0)
     wrap()
 
 
@@ -278,7 +278,7 @@ def irq_handler(m):
         stop = 1
         eng.mode = HALTED
 
-    # check if any callbacks are registered
+    # check/schedule any registered callbacks
     for i in range(len(eng.sm)):
         if irq_callbacks[i] and m==eng.sm[i]:
             schedule(irq_callbacks[i], i)
@@ -812,7 +812,7 @@ class engine(object):
         return self.powersave
 
     def config_clocks(self, fps, calval=0):
-        # divider computed for CPU clock at 120MHz
+        # optimal divider computed for CPU clock at 120MHz
         if fps == 30.00:
             new_div = 0x061a8000
         elif fps == 29.97:
@@ -933,26 +933,34 @@ class engine(object):
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
-    global tx_raw, rx_ticks, rx_ticks_us, tx_ticks_us
+    global tx_raw, rx_ticks
 
     debug = Pin(28,Pin.OUT)
     debug.off()
 
     eng.set_stopped(False)
-
-    send_sync = True        # send 1st packet with sync header
-    start_sent = False
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
     eng.sm[SM_SYNC].put(0xCFFFFFF0)
 
-    # Set up Blink/LED timing, includes 'extra sync' correction
+    # Set up Blink/LED timing, plus 2 bytes 'extra sync'
     eng.sm[SM_BLINK].put((0b1111 << 5) + 11)
+    send_sync = True        # send 1st packet with sync header
 
-    # Start StateMachines (except Sync)
-    #for m in range(1, len(eng.sm)):
-    #for m in range(SM_BLINK, len(eng.sm)):
+    # Ensure Timecodes are using same fps/df settings
+    eng.tc.acquire()
+    fps = eng.tc.fps
+    df = eng.tc.df
+    eng.tc.release()
+
+    eng.rc.set_fps_df(fps, df)
+
+    scratch = timecode()
+    scratch.set_fps_df(fps, df)
+
+    # Start StateMachines (except 'SM_START')
+    startup_complete = False
     for m in range(SM_BLINK, SM_TX_RAW + 1):
         eng.sm[m].active(1)
         sleep(0.005)
@@ -961,14 +969,6 @@ def pico_timecode_thread(eng, stop):
         eng.sm[SM_SYNC].active(1)
         sleep(0.005)
         eng.sm[SM_DECODE].active(1)
-
-    eng.tc.acquire()
-    fps = eng.tc.fps
-    df = eng.tc.df
-    eng.tc.release()
-
-    gc = timecode()
-    gc.set_fps_df(fps, df)
 
     # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
     # -1 -> +1 : +ve = faster clock, -ve = slower clock
@@ -1020,7 +1020,7 @@ def pico_timecode_thread(eng, stop):
 
             if eng.mode > MONITOR:
                 # should perform some basic validation:
-                g = gc.to_raw()
+                s = scratch.to_raw()
                 r = eng.rc.to_raw()
                 fail = False
 
@@ -1029,13 +1029,13 @@ def pico_timecode_thread(eng, stop):
                     fail = True
 
                 # check packets are counting correctly
-                if g!=0:
-                    if g!=r:
+                if s!=0:
+                    if s!=r:
                         fail = True
 
                 if r!=0:
-                    gc.from_raw(r)
-                    gc.next_frame()
+                    scratch.from_raw(r)
+                    scratch.next_frame()
                 else:
                     fail = True
 
@@ -1046,8 +1046,8 @@ def pico_timecode_thread(eng, stop):
 
                 if eng.mode == MONITOR:
                     # Jam to 'next' RX timecode
-                    g = eng.rc.to_raw()
-                    eng.tc.from_raw(g)
+                    s = eng.rc.to_raw()
+                    eng.tc.from_raw(s)
                     eng.tc.next_frame(2)
 
                     # clone Userbit Clock flag
@@ -1067,24 +1067,25 @@ def pico_timecode_thread(eng, stop):
             eng.tc.next_frame()
 
             # Does the LED flash for the next frame?
+            # LED on for 3bytes (~99ms), period 10bytes
             eng.tc.acquire()
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
                     eng.sm[SM_BLINK].put((0b111111 << 5) + 9)
                 else:
-                    eng.sm[SM_BLINK].put(9)                 # '9' is complete cycle length
+                    eng.sm[SM_BLINK].put(9)
             else:
                 if eng.tc.to_raw() == eng.flashtime:
                     eng.sm[SM_BLINK].put((0b111111 << 5) + 9)
                 else:
-                    eng.sm[SM_BLINK].put(9)                 # '9' is complete cycle length
+                    eng.sm[SM_BLINK].put(9)
             eng.tc.release()
 
             # Complete start-up sequence
-            if not start_sent:
+            if not startup_complete:
                 # enable 'Start' machine last, so it can synchronise others...
                 eng.sm[SM_START].active(1)
-                start_sent = True
+                startup_complete = True
 
 
         if eng.powersave and eng.sm[SM_BUFFER].tx_fifo() > 5:
@@ -1121,7 +1122,7 @@ def pico_timecode_thread(eng, stop):
 
 def ascii_display_thread(mode = RUN):
     global eng, stop
-    global tx_raw, rx_ticks, rx_ticks_us
+    global tx_raw, rx_ticks
     global irq_callbacks
     global disp, disp_asc
 
@@ -1141,7 +1142,7 @@ def ascii_display_thread(mode = RUN):
 
     # Allocate appropriate StateMachines, and their pins
     eng.sm = []
-    sm_freq = int(eng.tc.fps * 80 * 32)
+    sm_freq = int(eng.tc.fps + 0.1) * 80 * 32
 
     # Note: we always want the 'sync' SM to be first in the list.
     if eng.mode > MONITOR:
@@ -1185,7 +1186,7 @@ def ascii_display_thread(mode = RUN):
 
 
     '''
-    # double check the PIO code space/addresses
+    # DEBUG: check the PIO code space/addresses
     for base in [0x50200000, 0x50300000]:
         for offset in [0x0d4, 0x0ec, 0x104, 0x11c]:
             print("0x%8.8x : 0x%2.2x" % (base + offset, mem32[base + offset]))
@@ -1204,15 +1205,10 @@ def ascii_display_thread(mode = RUN):
 
     disp = timecode()
     disp.set_fps_df(eng.tc.fps, eng.tc.df)
-    cycle_us = (1000000.0 / disp.fps)
 
     disp_asc="--:--:--:--"
-    disp_ticks = 0
 
-    rx_ticks_prev = 0
-    rx_ticks_us_prev = 0
-
-    # register callbacks, functions to display data ASAP
+    # register callbacks, functions to display TX data ASAP
     irq_callbacks[SM_BLINK] = ascii_display_callback
 
     while True:
@@ -1227,6 +1223,7 @@ def ascii_display_thread(mode = RUN):
             if eng.mode > MONITOR:
                 print("Jamming:", eng.mode)
 
+            # Async - display RX whenever we notice value has changed
             asc = eng.rc.to_ascii()
             if disp_asc != asc:
                 phase = ((4294967295 - rx_ticks + 188) % 640) - 320
@@ -1241,25 +1238,9 @@ def ascii_display_thread(mode = RUN):
 
                 print("RX: %s (%4d %21s)" % (asc, phase, phases))
                 disp_asc = asc
-                rx_ticks_prev = rx_ticks
-                rx_ticks_us_prev = rx_ticks_us
 
-
-def ascii_display_callback(sm=None):
-    global eng, stop
-    global tx_raw, rx_ticks, rx_ticks_us
-    global disp, disp_asc
-
-    if sm == SM_BLINK:
-        if eng.mode == RUN:
-            # Figure out what TX frame to display
-            disp.from_raw(tx_raw)
-            asc = disp.to_ascii()
-            if disp_asc != asc:
-                print("TX: %s" % asc)
-                disp_asc = asc
-
-            '''
+        '''
+        if eng.mode > RUN:
             # DEMO - Enable Power-Save every minute, at 10s on TC
             if (eng.tc.to_raw() & 0x00003F00) == 0x00000A00:
                 print("Entering powersave")
@@ -1271,7 +1252,22 @@ def ascii_display_callback(sm=None):
                     sleep(0.1)
 
                 print("Exited powersave")
-            '''
+        '''
+
+def ascii_display_callback(sm=None):
+    global eng
+    global tx_raw
+    global disp, disp_asc
+
+    if sm == SM_BLINK:
+        if eng.mode == RUN:
+            # Figure out what TX frame to display
+            disp.from_raw(tx_raw)
+            asc = disp.to_ascii()
+            if disp_asc != asc:
+                print("TX: %s" % asc)
+                disp_asc = asc
+
 
 #---------------------------------------------
 

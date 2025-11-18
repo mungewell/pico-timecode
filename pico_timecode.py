@@ -1101,7 +1101,7 @@ def pico_timecode_thread(eng, stop):
             debug.off()
 
             '''
-            # DEMO - automatically exit when TC is 30s
+            # DEMO - automatically exit powersave when TC is 30s
             if (eng.tc.to_raw() & 0x00003F00) == 0x000001E00:
                 eng.set_powersave(False)
             '''
@@ -1120,14 +1120,14 @@ def pico_timecode_thread(eng, stop):
 
 #-------------------------------------------------------
 
-def ascii_display_thread(mode = RUN):
+def ascii_display_thread(init_mode = RUN):
     global eng, stop
     global tx_raw, rx_ticks
     global irq_callbacks
     global disp, disp_asc
 
     eng = engine()
-    eng.mode = mode
+    eng.mode = init_mode
     eng.set_stopped(True)
 
     # alternatively, automatically Jam if booted with 'B' pressed
@@ -1222,6 +1222,7 @@ def ascii_display_thread(mode = RUN):
         if eng.mode > RUN:
             if eng.mode > MONITOR:
                 print("Jamming:", eng.mode)
+                sleep(0.01)
 
             # Async - display RX whenever we notice value has changed
             asc = eng.rc.to_ascii()
@@ -1239,9 +1240,15 @@ def ascii_display_thread(mode = RUN):
                 print("RX: %s (%4d %21s)" % (asc, phase, phases))
                 disp_asc = asc
 
-        '''
-        if eng.mode > RUN:
-            # DEMO - Enable Power-Save every minute, at 10s on TC
+            # Fall back to 'RUN' mode (outputing TX value) after 'JAM'
+            # unless we initially requested 'MONITOR'
+            # note: you can force JAM by holding key-B whilst booting
+            if eng.mode == MONITOR and init_mode != MONITOR:
+                eng.mode = RUN
+
+            '''
+            # DEMO - Enter Power-Save every minute, at 10s on TX
+            # note: USB coms will be interrupted, but you can use UART
             if (eng.tc.to_raw() & 0x00003F00) == 0x00000A00:
                 print("Entering powersave")
                 sleep(0.1)
@@ -1252,7 +1259,7 @@ def ascii_display_thread(mode = RUN):
                     sleep(0.1)
 
                 print("Exited powersave")
-        '''
+            '''
 
 def ascii_display_callback(sm=None):
     global eng

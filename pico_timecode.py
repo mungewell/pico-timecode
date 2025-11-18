@@ -1206,7 +1206,7 @@ def ascii_display_thread(init_mode = RUN):
     disp = timecode()
     disp.set_fps_df(eng.tc.fps, eng.tc.df)
 
-    disp_asc="--:--:--:--"
+    disp_asc = "--:--:--:--"
 
     # register callbacks, functions to display TX data ASAP
     irq_callbacks[SM_BLINK] = ascii_display_callback
@@ -1246,10 +1246,14 @@ def ascii_display_thread(init_mode = RUN):
             if eng.mode == MONITOR and init_mode != MONITOR:
                 eng.mode = RUN
 
-            '''
-            # DEMO - Enter Power-Save every minute, at 10s on TX
-            # note: USB coms will be interrupted, but you can use UART
+
+        '''
+        # DEMO - Enter Power-Save every minute, at 10s on TX
+        # note: Timecode generator is still running, but
+        #       USB coms may be interrupted (you can use UART)
+        if eng.mode == RUN:
             if (eng.tc.to_raw() & 0x00003F00) == 0x00000A00:
+                irq_callbacks[SM_BLINK] = None
                 print("Entering powersave")
                 sleep(0.1)
 
@@ -1259,7 +1263,8 @@ def ascii_display_thread(init_mode = RUN):
                     sleep(0.1)
 
                 print("Exited powersave")
-            '''
+                irq_callbacks[SM_BLINK] = ascii_display_callback
+        '''
 
 def ascii_display_callback(sm=None):
     global eng

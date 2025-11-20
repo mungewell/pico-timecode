@@ -71,9 +71,11 @@ def start_state_machines(mode=pt.RUN):
     # Force Garbage collection
     gc.collect()
 
-    # Turn off Jam if already enabled
+    # restart...
+    pt.eng.tc.from_ascii("00:00:00:00")
     pt.eng.sm = []
     sm_freq = int(pt.eng.tc.fps + 0.1) * 80 * 32
+
     pt.eng.mode = mode
     if mode > pt.RUN:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, freq=sm_freq,
@@ -81,7 +83,6 @@ def start_state_machines(mode=pt.RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
     else:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.auto_start, freq=sm_freq,
-                           in_base=Pin(21),
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
@@ -186,6 +187,7 @@ def slate_show_fps_df(fps_df):
     slate_HM.draw()
     slate_SF.set_colon(False)
     slate_SF.draw()
+
     return fps_df
 
 
@@ -228,11 +230,13 @@ def slate_display_thread(init_mode=pt.RUN):
             i2c_address=0x71)
 
     slate_HM = slate_L
-    slate_HM.set_brightness(15)
-
     slate_SF = slate_R
-    slate_SF.set_brightness(15)
     slate_SF.rotate()
+
+    '''
+    slate_HM.set_brightness(1)
+    slate_SF.set_brightness(1)
+    '''
 
     disp_asc = "--------"
     for i in range(4):
@@ -311,10 +315,8 @@ def slate_display_thread(init_mode=pt.RUN):
 
         # Once clapper has closed and timer expired, enter powersave
         if not slate_open and timerS.finished() and not powersave:
-            slate_HM.clear()
-            slate_SF.clear()
-            slate_HM.draw()
-            slate_SF.draw()
+            slate_HM.power_off()
+            slate_SF.power_off()
 
             pt.irq_callbacks[pt.SM_BLINK] = None
             print("Entering powersave")
@@ -331,6 +333,9 @@ def slate_display_thread(init_mode=pt.RUN):
 
                 pt.irq_callbacks[pt.SM_BLINK] = slate_display_callback
                 powersave = False
+
+                slate_HM.power_on()
+                slate_SF.power_on()
 
             slate_open = True
             timerS.start()
@@ -362,7 +367,8 @@ def slate_display_thread(init_mode=pt.RUN):
             slate_SF.rotate()
             slate_rotated = False
 
-        # Menu: Display FPS/DF and Select...
+        # Menu: Changing FPS/DF
+        # note: cancel by closing clapper
         if menu_active:
             slate_new_fps_df = slate_show_fps_df(slate_new_fps_df)
 
@@ -390,9 +396,8 @@ def slate_display_thread(init_mode=pt.RUN):
                             sleep(0.1)
 
                     slate_set_fps_df(index=slate_new_fps_df)
-                    pt.eng.tc.from_ascii("00:00:00:00")
                 
-                    print("starting", pt.eng.tc.fps)
+                    print("restarting", pt.eng.tc.fps)
                     start_state_machines(init_mode)
 
         # Active menu prevents function below...
@@ -415,11 +420,11 @@ def slate_display_thread(init_mode=pt.RUN):
                 slate_HM.set_glyph(0x6E, 1)
                 slate_HM.set_glyph(0x54, 2)
                 slate_HM.set_glyph(0x58, 3)
+                slate_HM.draw()
 
                 # only display the SS:FF digits
                 for i in range(4):
                     slate_SF.set_character(asc[4+i], i)
-                slate_HM.draw()
                 slate_SF.set_colon(True)
                 slate_SF.draw()
 
@@ -435,11 +440,10 @@ def slate_display_thread(init_mode=pt.RUN):
                     phases = "          :          "
 
                 if pt.eng.mode > pt.MONITOR:
-                    print("Jamming:", pt.eng.mode, pt.eng.tc.fps)
+                    print("Jamming:", pt.eng.mode)
 
                 print("RX: %s (%4d %21s)" % (pt.eng.rc.to_ascii(), phase, phases))
                 disp_asc = asc
-
 
         # Hold A for 3s select a different FPS/DF
         # note: cancel by closing clapper
@@ -473,15 +477,13 @@ def slate_display_callback(sm=None):
                         slate_SF.set_character(asc[4+i], i)
 
                     # draw SF first, as most likely to have changed
-                    slate_SF.draw()
-                    #slate_SF.set_blink_rate(0)
-                    slate_HM.draw()
-                    #slate_HM.set_blink_rate(0)
                     slate_SF.set_colon(True)
+                    slate_SF.draw()
+                    slate_HM.draw()
+                disp_asc = asc
 
                 # print to console (except in powersave)
-                #print("TX: %s" % disp.to_ascii())
-                disp_asc = asc
+                print("TX: %s" % disp.to_ascii())
 
 
 #---------------------------------------------

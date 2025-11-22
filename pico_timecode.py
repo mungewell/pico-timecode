@@ -12,6 +12,11 @@ from utime import sleep, ticks_us
 from gc import collect
 from os import uname
 
+# remember to do install lib to device
+# 'mpremote mip install usb-device-midi'
+import usb.device
+from usb.device.midi import MIDIInterface
+
 alloc_emergency_exception_buf(100)
 
 VERSION="v2.1+"
@@ -1198,11 +1203,141 @@ def pico_timecode_thread(eng, stop):
 
 #-------------------------------------------------------
 
+class MTC(MIDIInterface):
+    count = 0
+
+    def send_sysex(self, p):
+        # start of SysEx packet
+        if len(p) > 3:
+            w = self._tx.pend_write()
+            if len(w) < 4:
+                return False  # TX buffer is full. TODO: block here?
+
+            w[0] = 0x4  # _CIN_SYSEX_START
+            w[1] = p[0]
+            w[2] = p[1]
+            w[3] = p[2]
+            self._tx.finish_write(4)
+            self._tx_xfer()
+
+            p = p[3:]
+
+        '''
+        # add some checks/code for really short packets???
+        # _CIN_SYSEX_END_3BYTE
+        # _CIN_SYSEX_END_2BYTE
+        '''
+
+        # play out til end
+        while p:
+            if len(p) > 2:
+                w = self._tx.pend_write()
+                if len(w) < 4:
+                    return False  # TX buffer is full. TODO: block here?
+
+                w[0] = 0x7  # _CIN_SYSEX_END_3BYTE
+                w[1] = p[0]
+                w[2] = p[1]
+                w[3] = p[2]
+                self._tx.finish_write(4)
+                self._tx_xfer()
+
+                p = p[3:]
+            elif len(p) > 1:
+                w = self._tx.pend_write()
+                if len(w) < 4:
+                    return False  # TX buffer is full. TODO: block here?
+
+                w[0] = 0x6  # _CIN_SYSEX_END_2BYTE
+                w[1] = p[0]
+                w[2] = p[1]
+                w[3] = 0
+                self._tx.finish_write(4)
+                self._tx_xfer()
+
+                p = p[2:]
+            else:
+                w = self._tx.pend_write()
+                if len(w) < 4:
+                    return False  # TX buffer is full. TODO: block here?
+
+                w[0] = 0x5  # _CIN_SYSEX_END_1BYTE
+                w[1] = p[0]
+                w[2] = 0
+                w[3] = 0
+                self._tx.finish_write(4)
+                self._tx_xfer()
+
+                p = p[1:]
+
+        return True
+
+
+    def send_long_mtc(self):
+        global tx_raw
+
+        p = bytearray(b"\xF0\x7F\x7F\x01\x01")
+        p.append(((tx_raw & 0x1F000000) >> 24) + (0b11 << 5))     # hour + '30fps'
+        p.append(( tx_raw & 0x003F0000) >> 16)                    # minutes
+        p.append(( tx_raw & 0x00003F00) >> 8)                     # seconds
+        p.append(  tx_raw & 0x0000003F)                           # frames
+        p.append(0xF7)
+
+        return self.send_sysex(p)
+
+
+    def send_quarter_mtc(self):
+        global tx_raw
+
+        # send directly as time critical
+        w = self._tx.pend_write()
+        if len(w) < 4:
+            return False  # TX buffer is full. TODO: block here?
+
+        # assemble packet
+        w[0] = 0x6 # _CIN_SYSEX_END_2BYTE
+        w[1] = 0xF1
+
+        # figure the right packet to send
+        if not self.count & 0x4:
+            if not self.count & 0x2:
+                if not self.count & 0x1:
+                    w[2] = (tx_raw & 0x0000000F)                              # 0x0_ low frame
+                else:
+                    w[2] = (((tx_raw & 0x00000010) >> 4) + 0x10)              # 0x1_ high frame
+            else:
+                if not self.count & 0x1:
+                    w[2] = (((tx_raw & 0x00000F00) >> 8) + 0x20)              # 0x2_ low second
+                else:
+                    w[2] = (((tx_raw & 0x00003000) >> 12) + 0x30)             # 0x3_ high second
+        else:
+            if not self.count & 0x2:
+                if not self.count & 0x1:
+                    w[2] = (((tx_raw & 0x000F0000) >> 16) + 0x40)             # 0x4_ low minute
+                else:
+                    w[2] = (((tx_raw & 0x00300000) >> 20) + 0x50)             # 0x5_ high minute
+            else:
+                if not self.count & 0x1:
+                    w[2] = (((tx_raw & 0x0F000000) >> 24) + 0x60)             # 0x6_ low hour
+                else:
+                    w[2] = (((tx_raw & 0x10000000) >> 28) + 0x70 + 0b0110)    # 0x7_ high hour + '30fps'
+
+        # finish assembling and send
+        w[3] = 0
+        self._tx.finish_write(4)
+        self._tx_xfer()
+
+        self.count += 1
+        return True
+
+#-------------------------------------------------------
+
 def ascii_display_thread(init_mode = RUN):
     global eng, stop
     global tx_raw, rx_ticks
     global irq_callbacks
     global disp, disp_asc
+    global mtc
 
     eng = engine()
     eng.mode = init_mode
@@ -1278,6 +1413,12 @@ def ascii_display_thread(init_mode = RUN):
     for m in eng.sm:
         m.irq(handler=irq_handler, hard=True)
 
+    # set up MTC engine
+    mtc = MTC()
+
+    # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.
+    usb.device.get().init(mtc, builtin_driver=True)
+
     # Start up threads
     stop = False
     _thread.start_new_thread(pico_timecode_thread, (eng, lambda: stop))
@@ -1350,6 +1491,7 @@ def ascii_display_callback(sm=None):
     global tx_raw
     global disp, disp_asc
     global debug
+    global mtc
 
     if sm == SM_BLINK:
         if eng.mode == RUN:
@@ -1359,11 +1501,18 @@ def ascii_display_callback(sm=None):
 
             if disp_asc == "--:--:--:--":
                 # MTC long packet, first frame only
+                if mtc.is_open():
+                    mtc.send_long_mtc()           # 'seek' to position
+
                 print("TX: %s" % asc)
-                disp_asc = asc
             else:
                 # MTC quarter packets
+                if mtc.is_open():
+                    mtc.send_quarter_mtc()
+
                 debug.toggle()
+
+            disp_asc = asc
 
 
 #---------------------------------------------
@@ -1371,6 +1520,7 @@ def ascii_display_callback(sm=None):
 if __name__ == "__main__":
     print("Pico-Timecode " + VERSION)
     print("www.github.com/mungewell/pico-timecode")
+    print("MTC enabled (will loose USB-UART connection)")
     sleep(2)
 
     ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

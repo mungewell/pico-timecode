@@ -1418,6 +1418,7 @@ def ascii_display_thread(init_mode = RUN):
 
     # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.
     usb.device.get().init(mtc, builtin_driver=True)
+    sleep(2)
 
     # Start up threads
     stop = False

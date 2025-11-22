@@ -110,7 +110,7 @@ def shift_led2():
                                     # ---
     wrap_target()
     irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
-    out(x, 5)
+    out(x, 6)
 
     label("next")
     out(pins, 2)                    # LEDs are bit-shifted pattern
@@ -945,7 +945,7 @@ def pico_timecode_thread(eng, stop):
     eng.sm[SM_SYNC].put(0xCFFFFFF0)
 
     # Set up Blink/LED timing, plus 2 bytes 'extra sync'
-    eng.sm[SM_BLINK].put((0b1111 << 5) + 11)
+    eng.sm[SM_BLINK].put((0b1111 << 6) + 11)
     send_sync = True        # send 1st packet with sync header
 
     # Ensure Timecodes are using same fps/df settings
@@ -1071,12 +1071,12 @@ def pico_timecode_thread(eng, stop):
             eng.tc.acquire()
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
-                    eng.sm[SM_BLINK].put((0b111111 << 5) + 9)
+                    eng.sm[SM_BLINK].put((0b111111 << 6) + 9)
                 else:
                     eng.sm[SM_BLINK].put(9)
             else:
                 if eng.tc.to_raw() == eng.flashtime:
-                    eng.sm[SM_BLINK].put((0b111111 << 5) + 9)
+                    eng.sm[SM_BLINK].put((0b111111 << 6) + 9)
                 else:
                     eng.sm[SM_BLINK].put(9)
             eng.tc.release()

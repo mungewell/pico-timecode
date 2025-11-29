@@ -145,7 +145,7 @@ def encode_dmc():
     wrap()
 
 # 'how-to' example for differential output
-@rp2.asm_pio(out_init=(rp2.PIO.OUT_LOW, rp2.PIO.OUT_HIGH))
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH, rp2.PIO.OUT_LOW))
 
 def encode_dmc2():
     irq(block, 4)                   # Wait for Sync'ed start
@@ -304,6 +304,7 @@ def timer_re_init(timer):
         else:
             eng.inc_divider()
 
+        eng.timer1.deinit()
         eng.timer1 = None
 
     if timer == eng.timer2:
@@ -313,6 +314,7 @@ def timer_re_init(timer):
             eng.timer1.deinit()
             eng.timer1 = None
 
+        eng.timer2.deinit()
         eng.timer2 = None
         eng.micro_adjust(eng.next_calval)
 
@@ -812,6 +814,9 @@ class engine(object):
         return self.powersave
 
     def config_clocks(self, fps, calval=0):
+        if calval == 0:
+            calval = self.calval
+
         # optimal divider computed for CPU clock at 120MHz
         if fps == 30.00:
             new_div = 0x061a8000
@@ -895,6 +900,15 @@ class engine(object):
 
     def micro_adjust(self, calval, period=0):
         if self.stopped:
+            if eng.timer1:
+                eng.timer1.deinit()
+                eng.timer1 = None
+            if eng.timer2:
+                eng.timer2.deinit()
+                eng.timer2 = None
+            if eng.timer3:
+                eng.timer3.deinit()
+                eng.timer3 = None
             return
 
         self.next_calval = calval
@@ -909,6 +923,8 @@ class engine(object):
             self.config_clocks(self.tc.fps, calval)
 
             # re-init timers
+            if eng.timer2:
+                eng.timer2.deinit()
             self.timer2 = Timer()
             self.timer2.init(period=self.period, mode=Timer.ONE_SHOT, callback=timer_sched)
 
@@ -921,6 +937,8 @@ class engine(object):
             # are we dithering between two clock values?
             part = int(self.period * (abs(calval) % 1))
             if part > 0:
+                if eng.timer1:
+                    eng.timer1.deinit()
                 self.timer1 = Timer()
                 self.timer1.init(period=self.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
 
@@ -1117,6 +1135,12 @@ def pico_timecode_thread(eng, stop):
     Pin(26, Pin.OUT, value=0)
 
     eng.set_stopped(True)
+
+    # Ensure timers are cleared
+    eng.micro_adjust(eng.calval)
+
+    # Force Garbage collection
+    collect()
 
 #-------------------------------------------------------
 

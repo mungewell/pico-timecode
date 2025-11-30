@@ -33,6 +33,8 @@
 # https://github.com/jrullan/micropython_neotimer
 # https://github.com/jrullan/micropython_statemachine
 
+from libs import config
+from libs.pid import *
 from libs.neotimer import *
 from libs.statemachine import *
 
@@ -54,7 +56,7 @@ high_output_level = True
 
 thrifty_new_fps = 0
 thrifty_current_fps = 0
-thrifty_calibration = -109.5
+thrifty_calibration = 0.0
 
 thrifty_available_fps_df = [
         [30,     False,  (0, 255, 0),   0b11],      # Red
@@ -212,6 +214,8 @@ def timerH_hold():
 menu = StateMachine()
 
 def menu_run_logic():
+    global calTimer
+
     if menu.execute_once:
         #print("menu run")
         RGB[0] = (0, 0, 0)
@@ -227,6 +231,8 @@ def menu_run_logic():
         amp_cs.value(1)
 
         timerH.start()
+
+        calTimer = None
 
     if pt.eng.mode == pt.MONITOR:
         pt.eng.mode = pt.RUN
@@ -349,14 +355,17 @@ def menu_cal_logic():
     # at the correct rate - calibrate individually for each FPS.
 
     global thrifty_current_fps, thrifty_new_fps
-    global thrifty_calibration
+    global thrifty_calibration, calTimer
 
     if menu.execute_once:
         #print("menu calibrate")
         timerC.start()
 
         # erase existing calibration
-        thrifty_calibration = 0.0
+        #thrifty_calibration = 0.0
+
+        calTimer = Neotimer(5 * 60 * 1000) # 5mins
+        calTimer.start()
 
     # 1/8sec ticks to flash LED
     now = ticks_ms() >> 7
@@ -376,7 +385,8 @@ def menu_cal_logic():
     '''
 
 def menu_init():
-    global menu, menu_run_state, menu_jam_state, menu_complete_state
+    global menu, menu_run_state, menu_jam_state
+    global menu_complete_state, menu_follow_state
 
     # Initilize states
     menu_info_state = menu.add_state(menu_info_logic)       # created first, entry point
@@ -414,6 +424,7 @@ def thrifty_display_thread():
     global disp_asc, slate_open
     global powersave, menu_active
     global amp_cs, high_output_level
+    global thrifty_calibration, calTimer
 
     pt.eng = pt.engine()
     pt.eng.mode = pt.RUN
@@ -438,6 +449,18 @@ def thrifty_display_thread():
     disp = pt.timecode()
     disp_asc = "--:--:--:--"
 
+    monTimer = None
+    calTimer = None
+
+    period = 10
+    '''
+    try:
+        period = config.calibration['period']
+    except:
+        pass
+    '''
+    pt.eng.micro_adjust(thrifty_calibration, 10000) # period in ms
+
     # register callbacks, functions to display TX data ASAP
     pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
 
@@ -450,9 +473,6 @@ def thrifty_display_thread():
             break
         '''
 
-        # apply calibration value
-        pt.eng.micro_adjust(thrifty_calibration, 10000) # period in ms
-
         menu.run()
 
         # Async display of external LTC during jam/monitoring
@@ -460,22 +480,58 @@ def thrifty_display_thread():
             asc = pt.eng.rc.to_ascii(False)
 
             if disp_asc != asc:
-                # also print to console
-                phase = ((4294967295 - pt.rx_ticks + 188) % 640) - 320
-                if phase < -32:
-                    # RX is ahead/earlier than TX
-                    phases = ((" "*10) + ":" + ("+"*int(abs(phase/32))) + (" "*10)) [:21]
-                elif phase > 32:
-                    # RX is behind/later than TX
-                    phases = ((" "*10) + ("-"*int(abs(phase/32))) + ":" + (" "*10)) [-21:]
-                else:
-                    phases = "          :          "
+                disp_asc = asc
 
                 if pt.eng.mode > pt.MONITOR:
                     print("Jamming:", pt.eng.mode)
 
-                print("RX: %s (%4d %21s)" % (pt.eng.rc.to_ascii(), phase, phases))
-                disp_asc = asc
+                if monTimer == None:
+                    # Display data every second
+                    monTimer = Neotimer(1000)
+                    monTimer.start()
+                    pid = None
+                elif monTimer.repeat_execution():
+                    phase = ((4294967295 - pt.rx_ticks + 188) % 640) - 320
+                    if phase < -32:
+                        # RX is ahead/earlier than TX
+                        phases = ((" "*10) + ":" + ("+"*int(abs(phase/32))) + (" "*10)) [:21]
+                    elif phase > 32:
+                        # RX is behind/later than TX
+                        phases = ((" "*10) + ("-"*int(abs(phase/32))) + ":" + (" "*10)) [-21:]
+                    else:
+                        phases = "          :          "
+
+                    if menu.state_list[menu.active_state_index] == menu_follow_state \
+                            or calTimer:
+
+                        if not pid:
+                            #pid = PID(25, 0.0, 0.0, setpoint=0)
+                            #pid = PID(12.5, 0.25, 0.0, setpoint=0)
+                            pid = PID(12.5, 0.25, 0.1, setpoint=0)
+                            pid.sample_time = 1
+                            pid.output_limits = (-500.0, 500.0)
+                            pid.set_auto_mode(True, last_output=pt.eng.calval)
+
+                        print("RX: %s (%4d %21s)" % (pt.eng.rc.to_ascii(), phase, phases),
+                                pid.components)
+
+                        adjust = pid(phase)
+                        pt.eng.micro_adjust(adjust, 1000)
+
+                        if calTimer and calTimer.finished():
+                            new_cal_value = pid(phase)
+                            '''
+                            config.set('calibration', displayfps, new_cal_value)
+                            config.set('calibration', 'period', period)
+                            '''
+                            thrifty_calibration = new_cal_value
+                            menu.force_transition_to(menu_follow_state)
+                    else:
+                        print("RX: %s (%4d %21s)" % (pt.eng.rc.to_ascii(), phase, phases))
+        else:
+            if monTimer:
+                monTimer = None
+                pt.eng.micro_adjust(thrifty_calibration, 10000) # period in ms
 
 
 def thrifty_display_callback(sm=None):

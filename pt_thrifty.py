@@ -97,22 +97,23 @@ def start_state_machines(mode=pt.RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led2, freq=sm_freq,
-                               out_base=Pin(2)))       # LED2 may be used as MTC quarter clock
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_mtc, freq=sm_freq,
+                           jmp_pin=Pin(3),
+                           out_base=Pin(2)))       # LED2 may be used as MTC quarter clock
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
-                               out_base=Pin(22)))       # Output of 'raw' bitstream
+                           out_base=Pin(22)))       # Output of 'raw' bitstream
 
     if high_output_level:
         tx2.value(0)
         pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc, freq=sm_freq,
-                                   jmp_pin=Pin(22),
-                                   in_base=Pin(9),         # same as pin as out
-                                   out_base=Pin(9)))       # Encoded LTC Output
+                           jmp_pin=Pin(22),
+                           in_base=Pin(9),         # same as pin as out
+                           out_base=Pin(9)))       # Encoded LTC Output
     else:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc2, freq=sm_freq,
-                                   jmp_pin=Pin(22),
-                                   in_base=Pin(9),         # same as pin as out
-                                   out_base=Pin(9)))       # Encoded LTC Output
+                           jmp_pin=Pin(22),
+                           in_base=Pin(9),         # same as pin as out
+                           out_base=Pin(9)))       # Encoded LTC Output
 
     pt.eng.sm.append(rp2.StateMachine(pt.SM_TX_RAW, pt.tx_raw_value, freq=sm_freq))
 
@@ -490,7 +491,7 @@ def thrifty_display_callback(sm=None):
                 disp_asc = asc
 
                 # print to console (except in powersave)
-                #print("TX: %s" % disp.to_ascii())
+                print("TX: %s" % disp.to_ascii())
 
 
 #---------------------------------------------

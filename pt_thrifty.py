@@ -71,6 +71,8 @@ thrifty_available_fps_df = [
 # ----------------------
 
 def start_state_machines(mode=pt.RUN):
+    global thrifty_calibration
+
     if pt.eng.is_running():
         pt.stop = True
         while pt.eng.is_running():
@@ -80,6 +82,12 @@ def start_state_machines(mode=pt.RUN):
     gc.collect()
 
     # apply any calibration
+    try:
+        setting = config.calibration[str(thrifty_available_fps_df[thrifty_current_fps][0])]
+        thrifty_calibration = float(setting[0])
+    except:
+        pass
+
     pt.eng.calval = thrifty_calibration
 
     # restart...
@@ -298,6 +306,18 @@ def menu_jam_logic():
                 print("stopping")
                 sleep(0.1)
 
+        # Update config with current fps/df selection
+        try:
+            setting = config.setting['framerate']
+            setting[0] = str(thrifty_available_fps_df[thrifty_current_fps][0])
+            config.set('setting', 'framerate', setting)
+
+            setting = config.setting['dropframe']
+            setting[0] = ("Yes" if thrifty_available_fps_df[thrifty_current_fps][1] else "No")
+            config.set('setting', 'dropframe', setting)
+        except:
+            pass
+
         #slate_set_fps_df(index=slate_new_fps_df)
         start_state_machines(pt.JAM)
 
@@ -343,10 +363,13 @@ def menu_complete_logic():
         RGB.write()
 
 def menu_follow_logic():
+    global calTimer
+
     # PID will 'follow' RX LTC, keeping TX aligned
 
-    #if menu.execute_once:
-    #    print("menu follow")
+    if menu.execute_once:
+        #print("menu follow")
+        calTimer = None
 
     # ~1/2sec ticks
     now = ticks_ms() >> 9
@@ -372,7 +395,7 @@ def menu_cal_logic():
         # erase existing calibration
         #thrifty_calibration = 0.0
 
-        calTimer = Neotimer(5 * 60 * 1000) # 5mins
+        calTimer = Neotimer(1 * 60 * 1000) # 5mins
         calTimer.start()
 
     # 1/8sec ticks to flash LED
@@ -433,6 +456,7 @@ def thrifty_display_thread():
     global powersave, menu_active
     global amp_cs, high_output_level
     global thrifty_calibration, calTimer
+    global thrifty_current_fps
 
     pt.eng = pt.engine()
     pt.eng.mode = pt.RUN
@@ -473,6 +497,27 @@ def thrifty_display_thread():
     except:
         pass
 
+    # Update 'current' with config's fps/df selection
+    try:
+        setting = config.setting['framerate']
+        for i in range(len(thrifty_available_fps_df)):
+            # find first matching fps
+            if setting[0] == str(thrifty_available_fps_df[i][0]):
+                thrifty_current_fps = i
+                break
+
+        setting = config.setting['dropframe']
+        if setting[0] == "Yes":
+            if thrifty_available_fps_df[i][0] == thrifty_available_fps_df[i+1][0]:
+                # check for repeated fps, else reject
+                thrifty_current_fps += 1
+            else:
+                # clear illegal combination
+                setting[0] = "No"
+                config.set('setting', 'dropframe', setting)
+    except:
+        pass
+
     # load PIO blocks, and start pico_timecode thread
     start_state_machines(pt.eng.mode)
 
@@ -483,16 +528,15 @@ def thrifty_display_thread():
     calTimer = None
 
     period = 10
-    '''
     try:
         period = config.calibration['period']
     except:
         pass
-    '''
-    pt.eng.micro_adjust(thrifty_calibration, 10000) # period in ms
+
+    pt.eng.micro_adjust(thrifty_calibration, period * 1000) # period in ms
 
     # register callbacks, functions to display TX data ASAP
-    pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
+    #pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
 
     while True:
         if pt.eng.mode == pt.HALTED:
@@ -550,10 +594,15 @@ def thrifty_display_thread():
 
                         if calTimer and calTimer.finished():
                             new_cal_value = pid(phase)
-                            '''
-                            config.set('calibration', displayfps, new_cal_value)
+
+                            # deregister to prevent 'uncaught exception in IRQ handler'? :-(
+                            pt.irq_callbacks[pt.SM_BLINK] = None
+                            sleep(0.1)
+
+                            config.set('calibration', pt.eng.tc.fps, new_cal_value)
                             config.set('calibration', 'period', period)
-                            '''
+                            pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
+
                             thrifty_calibration = new_cal_value
                             menu.force_transition_to(menu_follow_state)
                     else:

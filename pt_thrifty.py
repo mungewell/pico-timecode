@@ -83,7 +83,15 @@ def start_state_machines(mode=pt.RUN):
     pt.eng.calval = thrifty_calibration
 
     # restart...
-    pt.eng.tc.from_ascii("00:00:00:00")
+    try:
+        setting = config.setting['tc_start']
+        if setting[2] == ":":
+            pt.eng.tc.from_ascii(setting, True)
+        else:
+            pt.eng.tc.from_ascii(setting, False)
+    except:
+        pt.eng.tc.from_ascii("00:00:00:00")
+
     pt.eng.tc.set_fps_df(thrifty_available_fps_df[thrifty_current_fps][0],
                          thrifty_available_fps_df[thrifty_current_fps][1])
     pt.eng.sm = []
@@ -440,8 +448,30 @@ def thrifty_display_thread():
         machine.freq(120000000)
 
     # Toggle output level between Line/MIC if booted with 'A' pressed
+    try:
+        setting = config.setting['output']
+        high_output_level = setting[1].index(setting[0])
+    except:
+        pass
+
     if keyA.value() == 0:
         high_output_level = not high_output_level
+        try:
+            setting = config.setting['output']
+            setting[0] = setting[1][high_output_level]
+            config.set('setting', 'output', setting)
+        except:
+            pass
+
+    # Load/set the flashframe from config
+    try:
+        setting = config.setting['flashframe']
+        if setting[0]=="Off":
+            pt.eng.flashframe = -1
+        else:
+            pt.eng.flashframe = int(setting[0])
+    except:
+        pass
 
     # load PIO blocks, and start pico_timecode thread
     start_state_machines(pt.eng.mode)

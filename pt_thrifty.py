@@ -84,7 +84,7 @@ def start_state_machines(mode=pt.RUN):
     # apply any calibration
     try:
         setting = config.calibration[str(thrifty_available_fps_df[thrifty_current_fps][0])]
-        thrifty_calibration = float(setting[0])
+        thrifty_calibration = float(setting)
     except:
         pass
 
@@ -393,9 +393,15 @@ def menu_cal_logic():
         timerC.start()
 
         # erase existing calibration
-        #thrifty_calibration = 0.0
+        thrifty_calibration = 0.0
 
-        calTimer = Neotimer(1 * 60 * 1000) # 5mins
+        # deregister to prevent 'uncaught exception in IRQ handler'? :-(
+        pt.irq_callbacks[pt.SM_BLINK] = None
+        sleep(0.1)
+        config.set('calibration', pt.eng.tc.fps, thrifty_calibration)
+        pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
+
+        calTimer = Neotimer(5 * 60 * 1000) # 5mins
         calTimer.start()
 
     # 1/8sec ticks to flash LED
@@ -518,6 +524,13 @@ def thrifty_display_thread():
     except:
         pass
 
+    # apply any calibration
+    try:
+        setting = config.calibration[str(thrifty_available_fps_df[thrifty_current_fps][0])]
+        thrifty_calibration = float(setting)
+    except:
+        pass
+
     # load PIO blocks, and start pico_timecode thread
     start_state_machines(pt.eng.mode)
 
@@ -536,7 +549,7 @@ def thrifty_display_thread():
     pt.eng.micro_adjust(thrifty_calibration, period * 1000) # period in ms
 
     # register callbacks, functions to display TX data ASAP
-    #pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
+    pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
 
     while True:
         if pt.eng.mode == pt.HALTED:

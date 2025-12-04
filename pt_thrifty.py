@@ -40,7 +40,7 @@ from libs.statemachine import *
 
 import pico_timecode as pt
 
-from machine import Pin,freq,reset,mem32
+from machine import Pin,freq,reset,mem32, ADC
 from utime import sleep, ticks_ms
 from neopixel import NeoPixel
 import _thread
@@ -454,6 +454,20 @@ def menu_init():
 
     menu_cal_state.attach_transition(keyD_debounce_high, menu_run_state)
 
+#---------------------------------------------
+# Class for using the internal temp sensor
+
+class Temperature:
+    def __init__(self, ref=3.3):
+        self.ref = ref
+        self.sensor = ADC(4)
+
+    def read(self):
+        adc_value = self.sensor.read_u16()
+        volt = (self.ref/65536) * adc_value
+
+        return(27-(volt-0.706)/0.001721)
+
 # ----------------------
 
 def thrifty_display_thread():
@@ -472,6 +486,9 @@ def thrifty_display_thread():
 
     debug = Pin(27,Pin.OUT)
     debug.off()
+
+    # Internal temp sensor
+    sensor = Temperature()
 
     # Reduce the CPU clock, for better computation of PIO freqs
     if machine.freq() != 120000000:
@@ -599,7 +616,8 @@ def thrifty_display_thread():
                             pid.output_limits = (-500.0, 500.0)
                             pid.set_auto_mode(True, last_output=pt.eng.calval)
 
-                        print("RX: %s (%4d %21s)" % (pt.eng.rc.to_ascii(), phase, phases),
+                        print("RX: %s (%4d %21s) %2.2f" % (pt.eng.rc.to_ascii(),
+                                phase, phases, sensor.read()),
                                 pid.components)
 
                         adjust = pid(phase)
@@ -612,6 +630,7 @@ def thrifty_display_thread():
                             pt.irq_callbacks[pt.SM_BLINK] = None
                             sleep(0.1)
 
+                            print("Calibration complete, writing to config file")
                             config.set('calibration', pt.eng.tc.fps, new_cal_value)
                             config.set('calibration', 'period', period)
                             pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
@@ -619,7 +638,8 @@ def thrifty_display_thread():
                             thrifty_calibration = new_cal_value
                             menu.force_transition_to(menu_follow_state)
                     else:
-                        print("RX: %s (%4d %21s)" % (pt.eng.rc.to_ascii(), phase, phases))
+                        print("RX: %s (%4d %21s) %2.2f" % (pt.eng.rc.to_ascii(),
+                                phase, phases, sensor.read()))
         else:
             if monTimer:
                 monTimer = None

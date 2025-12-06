@@ -401,7 +401,7 @@ def menu_cal_logic():
         config.set('calibration', pt.eng.tc.fps, thrifty_calibration)
         pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
 
-        calTimer = Neotimer(5 * 60 * 1000) # 5mins
+        calTimer = Neotimer(3 * 60 * 1000) # 3mins
         calTimer.start()
 
     # 1/8sec ticks to flash LED
@@ -557,7 +557,7 @@ def thrifty_display_thread():
     monTimer = None
     calTimer = None
 
-    period = 10
+    period = 1
     try:
         period = config.calibration['period']
     except:
@@ -591,7 +591,7 @@ def thrifty_display_thread():
 
                 if monTimer == None:
                     # Display data every second
-                    monTimer = Neotimer(1000)
+                    monTimer = Neotimer(1000 - (1000/pt.eng.tc.fps))
                     monTimer.start()
                     pid = None
                 elif monTimer.repeat_execution():
@@ -609,34 +609,51 @@ def thrifty_display_thread():
                             or calTimer:
 
                         if not pid:
-                            #pid = PID(25, 0.0, 0.0, setpoint=0)
-                            #pid = PID(12.5, 0.25, 0.0, setpoint=0)
                             pid = PID(12.5, 0.25, 0.1, setpoint=0)
+
                             pid.sample_time = 1
                             pid.output_limits = (-500.0, 500.0)
                             pid.set_auto_mode(True, last_output=pt.eng.calval)
 
+                            zcount = 0
+                            zmax = 0
+
+                        # count when we are 'exact', and for how long
+                        if phase == 0.0:
+                            zcount += 1
+                        else:
+                            if zcount > zmax:
+                                zmax = zcount
+                            zcount = 0
+
                         print("RX: %s (%4d %21s) %2.2f" % (pt.eng.rc.to_ascii(),
                                 phase, phases, sensor.read()),
-                                pid.components)
+                                pid.components, zcount, zmax)
 
                         adjust = pid(phase)
                         pt.eng.micro_adjust(adjust, 1000)
 
                         if calTimer and calTimer.finished():
-                            new_cal_value = pid(phase)
+                            if pid.Ki > 0.005:
+                                pid.Ki = pid.Ki / 2
 
-                            # deregister to prevent 'uncaught exception in IRQ handler'? :-(
-                            pt.irq_callbacks[pt.SM_BLINK] = None
-                            sleep(0.1)
+                                print("Calibration extended", pid.Ki)
+                                calTimer = Neotimer(2 * 60 * 1000) # 2mins
+                                calTimer.start()
+                            else:
+                                new_cal_value = pid(phase)
 
-                            print("Calibration complete, writing to config file")
-                            config.set('calibration', pt.eng.tc.fps, new_cal_value)
-                            config.set('calibration', 'period', period)
-                            pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
+                                # deregister to prevent 'uncaught exception in IRQ handler'? :-(
+                                pt.irq_callbacks[pt.SM_BLINK] = None
+                                sleep(0.1)
 
-                            thrifty_calibration = new_cal_value
-                            menu.force_transition_to(menu_follow_state)
+                                print("Calibration complete, writing to config file")
+                                config.set('calibration', 'period', period)
+                                config.set('calibration', pt.eng.tc.fps, new_cal_value)
+                                pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
+
+                                thrifty_calibration = new_cal_value
+                                menu.force_transition_to(menu_follow_state)
                     else:
                         print("RX: %s (%4d %21s) %2.2f" % (pt.eng.rc.to_ascii(),
                                 phase, phases, sensor.read()))

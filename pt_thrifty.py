@@ -404,8 +404,8 @@ def menu_cal_logic():
         calTimer = Neotimer(3 * 60 * 1000) # 3mins
         calTimer.start()
 
-    # 1/8sec ticks to flash LED
-    now = ticks_ms() >> 7
+    # ~1/2sec ticks
+    now = ticks_ms() >> 9
     if now & 1:
         RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
         RGB.write()

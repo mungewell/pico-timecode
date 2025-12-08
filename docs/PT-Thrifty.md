@@ -20,6 +20,7 @@ be DIY-ed).
 The unit needs to be (and remain) externally powered for the duration 
 of the shoot.
 
+[Video Demo](https://youtube.com/shorts/oo_elmEAXs4?feature=share)
 
 ## Run, and Info
 

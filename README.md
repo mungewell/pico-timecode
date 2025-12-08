@@ -2,6 +2,16 @@
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
 and the PIO blocks on the Pico make it very possible...
 
+# Updates are in progress, PT-Thrifty is coming...
+
+Even lower cost that the original Pico based board, PT-Thrify is based around the WaveShare RP2050_Zero 
+board and has a minimal UI of just one button and one LED. More details [here](docs/PT-Thrifty.md).
+
+![PT-Thrifty Render](docs/pics/PT_Thrifty_PCB.png)
+
+We also have a 'New Timer' mechanism which is more reliable than using timers after the PIOs cause 
+interrupts. I am hoping that this will be released in time for the new year....
+
 # DIY Timecode made real (cheap).
 
 The Rev-1 PCBs have been assembled and tested, although the project can run on a un-modified Pi Pico -

@@ -22,6 +22,13 @@ of the shoot.
 
 [Video Demo](https://youtube.com/shorts/oo_elmEAXs4?feature=share)
 
+# Map of the UI
+
+In pictorial form the UI looks like:
+![Map](pics/PT_Thrifty_UI.png)
+
+
+
 ## Run, and Info
 
 When initially powered up, the PT-Thrifty will start outputing LTC

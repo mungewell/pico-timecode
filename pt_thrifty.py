@@ -1,9 +1,6 @@
 # Pico-Thrifty for WaveShare Pico-Zero
 # (c) 2025-11-23 Simon Wood <simon@mungewell.org>
 #
-# All rights reserved, this particular file is NOT open-source.
-#
-# based on:
 # https://github.com/mungewell/pico-timecode
 
 # pt-Thrifty, the lowest cost timecode generator
@@ -115,9 +112,8 @@ def start_state_machines(mode=pt.RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_mtc, freq=sm_freq,
-                           jmp_pin=Pin(3),
-                           out_base=Pin(2)))       # LED2 may be used as MTC quarter clock
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led2, freq=sm_freq,
+                           out_base=Pin(2)))       # LED on GPIO2/3
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
 

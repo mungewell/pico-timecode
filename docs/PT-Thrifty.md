@@ -25,8 +25,8 @@ of the shoot.
 # Map of the UI
 
 In pictorial form the UI looks like:
-![Map](pics/PT_Thrifty_UI.png)
 
+![Map](pics/PT_Thrifty_UI.png)
 
 
 ## Run, and Info

@@ -116,3 +116,41 @@ that the calibration is very much affected by changing temperature.
 Even a few degrees change can push the calibration value significantly - meaning that if we had previous calibrated at a 
 different temp, then the resultant LTC stream will be fast/slow and eventually the reported time/frame will be inaccurate.
 
+
+## New Timer Method
+
+The New Timer Method changes the way that the phase of the TX vs RX is measured. It is now measuremed within the PIO blocks
+and passed to microPython viaa FIFO. The data is a lot less noisy, but perhaps has less resolution.
+
+A run of 10 successive calibrations on a PT-Thrifty board, modified board with TCXO against an accurate RX source:
+```
+RX: 00:06:30:06 (   0           :          ) 30.80 (0.0, -8.0, -0.0)
+RX: 00:21:07:10 (   0           :          ) 31.73 (0.0, -8.0, -0.0)
+RX: 00:40:46:04 (   0           :          ) 32.20 (0.0, -8.25, -0.0)
+RX: 00:52:01:12 (   0           :          ) 32.67 (0.0, -8.25, -0.0)
+RX: 01:05:36:26 (   0           :          ) 32.67 (0.0, -8.25, -0.0)
+RX: 01:13:13:20 (   0           :          ) 32.20 (0.0, -8.5, -0.0)
+RX: 01:20:05:28 (   0           :          ) 32.67 (0.0, -8.25, -0.0)
+RX: 01:25:43:14 (   0           :          ) 33.60 (0.0, -8.5, -0.0)
+RX: 01:30:51:20 (   0           :          ) 33.60 (0.0, -8.25, -0.0)
+RX: 01:36:10:00 (   0           :          ) 33.60 (0.0, -8.25, -0.0)
+```
+
+The `check_calibration.py` script reverses the calibration into a calculated value of what the boards XTAL must be (assuming 
+RX is 100% accruate). Here we can see that there's not much difference in the min/max calibrated values
+```
+-8.0:
+Checking 30.0 fps
+Ideal divider 1562.500000 (at 30.000000 fps)
+Calculated divider 1562.5312
+Calculated XTAL freq 12000241.0
+
+-8.5:
+Checking 30.0 fps
+Ideal divider 1562.500000 (at 30.000000 fps)
+Calculated divider 1562.5332
+Calculated XTAL freq 12000255.0
+```
+
+In fact the ratio is 1.000_001_167 (ie: under 2ppm).
+

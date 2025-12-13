@@ -1508,34 +1508,34 @@ def ascii_display_callback(sm=None):
     global mtc
 
     if sm == SM_BLINK:
-        if eng.mode == RUN:
-            # Figure out what TX frame to display
-            disp.from_raw(tx_raw)
-            asc = disp.to_ascii()
+        # Figure out what TX frame to display
+        disp.from_raw(tx_raw)
+        asc = disp.to_ascii()
 
-            # MTC quarter packets
-            if mtc and mtc.is_open() and mtc.open_seen:
-                # only sent after long packet, and 3 'empty' IRQs
-                if mtc.open_seen > 3:
-                    mtc.send_quarter_mtc()
-                    debug.toggle()
-                else:
-                    mtc.open_seen += 1
+        # MTC quarter packets
+        if mtc and mtc.is_open() and mtc.open_seen:
+            # only sent after long packet, and 3 'empty' IRQs
+            if mtc.open_seen > 3:
+                mtc.send_quarter_mtc()
+                debug.toggle()
+            else:
+                mtc.open_seen += 1
 
-            if disp_asc != asc:
-                # MTC long packet, first frame only
-                if mtc and mtc.is_open():
-                    if not mtc.open_seen:
-                        mtc.send_long_mtc()           # 'seek' to position
-                        mtc.open_seen = 1
+        if disp_asc != asc:
+            # MTC long packet, first frame only
+            if mtc and mtc.is_open():
+                if not mtc.open_seen:
+                    mtc.send_long_mtc()           # 'seek' to position
+                    mtc.open_seen = 1
 
+            disp_asc = asc
+            if eng.mode == RUN:
                 print("TX: %s" % asc)
-                disp_asc = asc
 
-            if mtc and not mtc.is_open():
-                # reset, ready for being USB attached again
-                mtc.open_seen = 0
-                mtc.count = 0
+        if mtc and not mtc.is_open():
+            # reset, ready for being USB attached again
+            mtc.open_seen = 0
+            mtc.count = 0
 
 
 

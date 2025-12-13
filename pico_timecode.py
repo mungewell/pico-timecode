@@ -1214,6 +1214,7 @@ def pico_timecode_thread(eng, stop):
 if _hasUsbDevice:
     class MTC(MIDIInterface):
         count = 0
+        open_seen = 0
 
         def send_sysex(self, p):
             # start of SysEx packet
@@ -1512,20 +1513,30 @@ def ascii_display_callback(sm=None):
             disp.from_raw(tx_raw)
             asc = disp.to_ascii()
 
-            if disp_asc == "--:--:--:--":
+            # MTC quarter packets
+            if mtc and mtc.is_open() and mtc.open_seen:
+                # only sent after long packet, and 3 'empty' IRQs
+                if mtc.open_seen > 3:
+                    mtc.send_quarter_mtc()
+                    debug.toggle()
+                else:
+                    mtc.open_seen += 1
+
+            if disp_asc != asc:
                 # MTC long packet, first frame only
                 if mtc and mtc.is_open():
-                    mtc.send_long_mtc()           # 'seek' to position
+                    if not mtc.open_seen:
+                        mtc.send_long_mtc()           # 'seek' to position
+                        mtc.open_seen = 1
 
                 print("TX: %s" % asc)
-            else:
-                # MTC quarter packets
-                if mtc and mtc.is_open():
-                    mtc.send_quarter_mtc()
+                disp_asc = asc
 
-                debug.toggle()
+            if mtc and not mtc.is_open():
+                # reset, ready for being USB attached again
+                mtc.open_seen = 0
+                mtc.count = 0
 
-            disp_asc = asc
 
 
 #---------------------------------------------

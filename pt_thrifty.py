@@ -502,7 +502,7 @@ def thrifty_display_thread():
     if machine.freq() != 120000000:
         machine.freq(120000000)
 
-    # Toggle output level between Line/MIC if booted with 'A' pressed
+    # Read Line/MIC level from config, toggle if booted with 'A' pressed
     try:
         setting = config.setting['output']
         high_output_level = setting[1].index(setting[0])
@@ -525,6 +525,18 @@ def thrifty_display_thread():
             pt.eng.flashframe = -1
         else:
             pt.eng.flashframe = int(setting[0])
+    except:
+        pass
+
+    # Load userbits from config
+    try:
+        userbits = config.userbits['userbits']
+        if userbits[0]=="Name":
+            pt.eng.tc.user_from_ascii(config.userbits['ub_name'])
+        elif userbits[0]=="Digits":
+            pt.eng.tc.user_from_bcd_hex(config.userbits['ub_digits'])
+        else:   # Date
+            pt.eng.tc.user_from_date(config.userbits['ub_date'])
     except:
         pass
 

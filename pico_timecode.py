@@ -12,6 +12,19 @@ from utime import sleep, ticks_us
 from gc import collect
 from os import uname
 
+# remember to do install lib to device
+# 'mpremote mip install usb-device-midi'
+try:
+    import usb.device
+    from usb.device.midi import MIDIInterface
+    _hasUsbDevice= True
+except ImportError:
+    _hasUsbDevice= False
+'''
+_hasUsbDevice= False
+'''
+
+
 alloc_emergency_exception_buf(100)
 
 VERSION="v2.1+"
@@ -124,6 +137,35 @@ def shift_led2():
 
     label("delay")
     jmp(y_dec, "delay") [30]        # 8 * 31 = 248 + 8 = 256 cycles
+    jmp(x_not_y, "next")
+    wrap()
+
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
+             fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+
+def shift_led_mtc():
+    irq(block, 4)                   # Wait for sync'ed start
+                                    # ---
+    wrap_target()
+    out(x, 6)                       # nominally 20 per frame
+
+    label("next")
+    out(pins, 2)                    # LEDs are bit-shifted pattern
+                                    # each loop should be 127 cycles
+                                    # representing each of the bytes in packet
+    jmp(pin, "skip_irq")
+    irq(rel(0)) [4]                 # set IRQ clocking quarter frame MTC data
+                                    # _extra_ cycles 4x per frame = 20cycles
+
+    label("skip_irq")
+    set(y, 3) [2]
+    jmp(x_dec, "delay")
+
+    pull() [27]                     # last sub-frame only
+    jmp(y_dec, "delay")
+
+    label("delay")
+    jmp(y_dec, "delay") [29]        # 4 * 30 = 120 + 8 = 127 cycles
     jmp(x_not_y, "next")
     wrap()
 
@@ -952,6 +994,7 @@ class engine(object):
 
 def pico_timecode_thread(eng, stop):
     global tx_raw, rx_ticks
+    global debug
 
     debug = Pin(28,Pin.OUT)
     debug.off()
@@ -962,8 +1005,20 @@ def pico_timecode_thread(eng, stop):
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
     eng.sm[SM_SYNC].put(0xCFFFFFF0)
 
-    # Set up Blink/LED timing, plus 2 bytes 'extra sync'
-    eng.sm[SM_BLINK].put((0b1111 << 6) + 11)
+    # Set up Blink/LED timing
+    # 1st LED on for 6 (~10ms) of 20 sub-divisions
+    # plus 4 sub-divions of 'extra sync'
+    # needs to be '00000_00000_00001_11111__1111->'
+    #
+    # 2nd LED out is used to trigger MTC quarter packets
+    # plus 4 sub-divions of 'extra sync'
+    # needs to be '11110_11110_11110_11110__1110->'
+    #
+    # combined for the 24 sub-divisions, split across 32words
+    # '10101001111111110111111101->'
+    # '10101010101010101000101010100010'
+    eng.sm[SM_BLINK].put((0b10101001111111110111111101 << 6) + 23)
+    eng.sm[SM_BLINK].put((0b10101010101010101000101010100010))
     send_sync = True        # send 1st packet with sync header
 
     # Ensure Timecodes are using same fps/df settings
@@ -1085,18 +1140,30 @@ def pico_timecode_thread(eng, stop):
             eng.tc.next_frame()
 
             # Does the LED flash for the next frame?
-            # LED on for 3bytes (~99ms), period 10bytes
+            # 1st LED on for 6 (~10ms) of 20 sub-divisions
+            # needs to be '00000_00000_00001_11111->'
+            #
+            # 2nd LED out is used to trigger MTC quarter packets
+            # needs to be '11110_11110_11110_11110->'
+            #
+            # combined for the 20 sub-divisions, split across 32words
+            # '10101010101010101010101010001010'
+            # '10100010101010011111111101->'
             eng.tc.acquire()
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
-                    eng.sm[SM_BLINK].put((0b111111 << 6) + 9)
+                    eng.sm[SM_BLINK].put((0b10100010101010011111111101 << 6) + 19)
+                    eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
                 else:
-                    eng.sm[SM_BLINK].put(9)
+                    eng.sm[SM_BLINK].put((0b10100010101010001010101000 << 6) + 19)
+                    eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
             else:
                 if eng.tc.to_raw() == eng.flashtime:
-                    eng.sm[SM_BLINK].put((0b111111 << 6) + 9)
+                    eng.sm[SM_BLINK].put((0b10100010101010011111111101 << 6) + 19)
+                    eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
                 else:
-                    eng.sm[SM_BLINK].put(9)
+                    eng.sm[SM_BLINK].put((0b10100010101010001010101000 << 6) + 19)
+                    eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
             eng.tc.release()
 
             # Complete start-up sequence
@@ -1144,11 +1211,143 @@ def pico_timecode_thread(eng, stop):
 
 #-------------------------------------------------------
 
+if _hasUsbDevice:
+    class MTC(MIDIInterface):
+        count = 0
+        open_seen = 0
+
+        def send_sysex(self, p):
+            # start of SysEx packet
+            if len(p) > 3:
+                w = self._tx.pend_write()
+                if len(w) < 4:
+                    return False  # TX buffer is full. TODO: block here?
+
+                w[0] = 0x4  # _CIN_SYSEX_START
+                w[1] = p[0]
+                w[2] = p[1]
+                w[3] = p[2]
+                self._tx.finish_write(4)
+                self._tx_xfer()
+
+                p = p[3:]
+
+            '''
+            # add some checks/code for really short packets???
+            # _CIN_SYSEX_END_3BYTE
+            # _CIN_SYSEX_END_2BYTE
+            '''
+
+            # play out til end
+            while p:
+                if len(p) > 2:
+                    w = self._tx.pend_write()
+                    if len(w) < 4:
+                        return False  # TX buffer is full. TODO: block here?
+
+                    w[0] = 0x7  # _CIN_SYSEX_END_3BYTE
+                    w[1] = p[0]
+                    w[2] = p[1]
+                    w[3] = p[2]
+                    self._tx.finish_write(4)
+                    self._tx_xfer()
+
+                    p = p[3:]
+                elif len(p) > 1:
+                    w = self._tx.pend_write()
+                    if len(w) < 4:
+                        return False  # TX buffer is full. TODO: block here?
+
+                    w[0] = 0x6  # _CIN_SYSEX_END_2BYTE
+                    w[1] = p[0]
+                    w[2] = p[1]
+                    w[3] = 0
+                    self._tx.finish_write(4)
+                    self._tx_xfer()
+
+                    p = p[2:]
+                else:
+                    w = self._tx.pend_write()
+                    if len(w) < 4:
+                        return False  # TX buffer is full. TODO: block here?
+
+                    w[0] = 0x5  # _CIN_SYSEX_END_1BYTE
+                    w[1] = p[0]
+                    w[2] = 0
+                    w[3] = 0
+                    self._tx.finish_write(4)
+                    self._tx_xfer()
+
+                    p = p[1:]
+
+            return True
+
+
+        def send_long_mtc(self):
+            global tx_raw
+
+            p = bytearray(b"\xF0\x7F\x7F\x01\x01")
+            p.append(((tx_raw & 0x1F000000) >> 24) + (0b11 << 5))     # hour + '30fps'
+            p.append(( tx_raw & 0x003F0000) >> 16)                    # minutes
+            p.append(( tx_raw & 0x00003F00) >> 8)                     # seconds
+            p.append(  tx_raw & 0x0000003F)                           # frames
+            p.append(0xF7)
+
+            return self.send_sysex(p)
+
+
+        def send_quarter_mtc(self):
+            global tx_raw
+
+            # send directly as time critical
+            w = self._tx.pend_write()
+            if len(w) < 4:
+                return False  # TX buffer is full. TODO: block here?
+
+            # assemble packet
+            w[0] = 0x6 # _CIN_SYSEX_END_2BYTE
+            w[1] = 0xF1
+
+            # figure the right packet to send
+            if not self.count & 0x4:
+                if not self.count & 0x2:
+                    if not self.count & 0x1:
+                        w[2] = (tx_raw & 0x0000000F)                              # 0x0_ low frame
+                    else:
+                        w[2] = (((tx_raw & 0x00000010) >> 4) + 0x10)              # 0x1_ high frame
+                else:
+                    if not self.count & 0x1:
+                        w[2] = (((tx_raw & 0x00000F00) >> 8) + 0x20)              # 0x2_ low second
+                    else:
+                        w[2] = (((tx_raw & 0x00003000) >> 12) + 0x30)             # 0x3_ high second
+            else:
+                if not self.count & 0x2:
+                    if not self.count & 0x1:
+                        w[2] = (((tx_raw & 0x000F0000) >> 16) + 0x40)             # 0x4_ low minute
+                    else:
+                        w[2] = (((tx_raw & 0x00300000) >> 20) + 0x50)             # 0x5_ high minute
+                else:
+                    if not self.count & 0x1:
+                        w[2] = (((tx_raw & 0x0F000000) >> 24) + 0x60)             # 0x6_ low hour
+                    else:
+                        w[2] = (((tx_raw & 0x10000000) >> 28) + 0x70 + 0b0110)    # 0x7_ high hour + '30fps'
+
+            # finish assembling and send
+            w[3] = 0
+            self._tx.finish_write(4)
+            self._tx_xfer()
+
+            self.count += 1
+            return True
+
+#-------------------------------------------------------
+
 def ascii_display_thread(init_mode = RUN):
     global eng, stop
     global tx_raw, rx_ticks
     global irq_callbacks
     global disp, disp_asc
+    global mtc
 
     eng = engine()
     eng.mode = init_mode
@@ -1179,7 +1378,8 @@ def ascii_display_thread(init_mode = RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led2, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_mtc, freq=sm_freq,
+                           jmp_pin=Pin(26),
                            out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
     eng.sm.append(rp2.StateMachine(SM_BUFFER, buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
@@ -1222,6 +1422,16 @@ def ascii_display_thread(init_mode = RUN):
     # set up IRQ handler
     for m in eng.sm:
         m.irq(handler=irq_handler, hard=True)
+
+    if _hasUsbDevice:
+        # set up MTC engine
+        mtc = MTC()
+
+        # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.
+        usb.device.get().init(mtc, builtin_driver=True)
+        sleep(2)
+    else:
+        mtc = None
 
     # Start up threads
     stop = False
@@ -1294,15 +1504,39 @@ def ascii_display_callback(sm=None):
     global eng
     global tx_raw
     global disp, disp_asc
+    global debug
+    global mtc
 
     if sm == SM_BLINK:
         if eng.mode == RUN:
             # Figure out what TX frame to display
             disp.from_raw(tx_raw)
             asc = disp.to_ascii()
+
+            # MTC quarter packets
+            if mtc and mtc.is_open() and mtc.open_seen:
+                # only sent after long packet, and 3 'empty' IRQs
+                if mtc.open_seen > 3:
+                    mtc.send_quarter_mtc()
+                    debug.toggle()
+                else:
+                    mtc.open_seen += 1
+
             if disp_asc != asc:
+                # MTC long packet, first frame only
+                if mtc and mtc.is_open():
+                    if not mtc.open_seen:
+                        mtc.send_long_mtc()           # 'seek' to position
+                        mtc.open_seen = 1
+
                 print("TX: %s" % asc)
                 disp_asc = asc
+
+            if mtc and not mtc.is_open():
+                # reset, ready for being USB attached again
+                mtc.open_seen = 0
+                mtc.count = 0
+
 
 
 #---------------------------------------------
@@ -1310,6 +1544,8 @@ def ascii_display_callback(sm=None):
 if __name__ == "__main__":
     print("Pico-Timecode " + VERSION)
     print("www.github.com/mungewell/pico-timecode")
+    if _hasUsbDevice:
+        print("MTC enabled (will loose USB-UART connection)")
     sleep(2)
 
     ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

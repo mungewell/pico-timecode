@@ -69,6 +69,7 @@ thrifty_available_fps_df = [
 
 def start_state_machines(mode=pt.RUN):
     global thrifty_calibration
+    global mtc
 
     if pt.eng.is_running():
         pt.stop = True
@@ -112,7 +113,8 @@ def start_state_machines(mode=pt.RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led2, freq=sm_freq,
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_mtc, freq=sm_freq,
+                           jmp_pin=Pin(3),
                            out_base=Pin(2)))       # LED on GPIO2/3
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
@@ -155,6 +157,16 @@ def start_state_machines(mode=pt.RUN):
     # set up IRQ handler
     for m in pt.eng.sm:
         m.irq(handler=pt.irq_handler, hard=True)
+
+    if pt._hasUsbDevice:
+        # set up MTC engine
+        mtc = pt.MTC()
+
+        # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.
+        pt.usb.device.get().init(mtc, builtin_driver=True)
+        sleep(2)
+    else:
+        mtc = None
 
     pt.stop = False
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
@@ -661,18 +673,36 @@ def thrifty_display_thread():
 
 def thrifty_display_callback(sm=None):
     global disp, disp_asc
+    global mtc
 
     if sm == pt.SM_BLINK:
         if pt.eng.mode == pt.RUN:
             # Figure out what TX frame to display
             disp.from_raw(pt.tx_raw)
-            asc = disp.to_ascii(False)
+            asc = disp.to_ascii()
+
+            # MTC quarter packets
+            if mtc and mtc.is_open() and mtc.open_seen:
+                # only sent after long packet, and 3 'empty' IRQs
+                if mtc.open_seen > 3:
+                    mtc.send_quarter_mtc()
+                else:
+                    mtc.open_seen += 1
 
             if disp_asc != asc:
+                # MTC long packet, first frame only
+                if mtc and mtc.is_open():
+                    if not mtc.open_seen:
+                        mtc.send_long_mtc()           # 'seek' to position
+                        mtc.open_seen = 1
+
+                print("TX: %s" % asc)
                 disp_asc = asc
 
-                # print to console (except in powersave)
-                print("TX: %s" % disp.to_ascii())
+            if mtc and not mtc.is_open():
+                # reset, ready for being USB attached again
+                mtc.open_seen = 0
+                mtc.count = 0
 
 
 #---------------------------------------------
@@ -681,6 +711,8 @@ if __name__ == "__main__":
     print("pt-Thrifty uses...")
     print("Pico-Timecode" + pt.VERSION)
     print("www.github.com/mungewell/pico-timecode")
+    if pt._hasUsbDevice:
+        print("MTC enabled (will loose USB-UART connection)")
     sleep(2)
 
     thrifty_display_thread()

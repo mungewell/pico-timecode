@@ -1544,7 +1544,8 @@ def ascii_display_callback(sm=None):
 if __name__ == "__main__":
     print("Pico-Timecode " + VERSION)
     print("www.github.com/mungewell/pico-timecode")
-    print("MTC enabled (will loose USB-UART connection)")
+    if _hasUsbDevice:
+        print("MTC enabled (will loose USB-UART connection)")
     sleep(2)
 
     ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

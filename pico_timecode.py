@@ -1210,11 +1210,21 @@ def pico_timecode_thread(eng, stop):
     collect()
 
 #-------------------------------------------------------
+# MTC functions, depend on having the correct lib installed
+# 'mpremote mip install usb-device-midi'
+
+mtc = None
 
 if _hasUsbDevice:
     class MTC(MIDIInterface):
         count = 0
         open_seen = 0
+
+        def init(self):
+            usb.device.get().init(mtc,
+                      manufacturer_str="Pico-Timecode",
+                      product_str=eng.tc.user_to_ascii(),
+                      builtin_driver=True)
 
         def send_sysex(self, p):
             # start of SysEx packet
@@ -1426,12 +1436,7 @@ def ascii_display_thread(init_mode = RUN):
     if _hasUsbDevice:
         # set up MTC engine
         mtc = MTC()
-
-        # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.
-        usb.device.get().init(mtc, builtin_driver=True)
-        sleep(2)
-    else:
-        mtc = None
+        mtc.init()
 
     # Start up threads
     stop = False
@@ -1443,7 +1448,7 @@ def ascii_display_thread(init_mode = RUN):
     disp_asc = "--:--:--:--"
 
     # register callbacks, functions to display TX data ASAP
-    irq_callbacks[SM_BLINK] = ascii_display_callback
+    irq_callbacks[SM_BLINK] = mtc_display_callback
 
     while True:
         sleep(0.01)
@@ -1497,10 +1502,10 @@ def ascii_display_thread(init_mode = RUN):
                     sleep(0.1)
 
                 print("Exited powersave")
-                irq_callbacks[SM_BLINK] = ascii_display_callback
+                irq_callbacks[SM_BLINK] = mtc_display_callback
         '''
 
-def ascii_display_callback(sm=None):
+def mtc_display_callback(sm=None):
     global eng
     global tx_raw
     global disp, disp_asc

@@ -69,7 +69,6 @@ thrifty_available_fps_df = [
 
 def start_state_machines(mode=pt.RUN):
     global thrifty_calibration
-    global mtc
 
     if pt.eng.is_running():
         pt.stop = True
@@ -160,13 +159,8 @@ def start_state_machines(mode=pt.RUN):
 
     if pt._hasUsbDevice:
         # set up MTC engine
-        mtc = pt.MTC()
-
-        # Remove builtin_driver=True if you don't want the MicroPython serial REPL available.
-        pt.usb.device.get().init(mtc, builtin_driver=True)
-        sleep(2)
-    else:
-        mtc = None
+        pt.mtc = pt.MTC()
+        pt.mtc.init()
 
     pt.stop = False
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
@@ -685,7 +679,6 @@ def thrifty_display_thread():
 
 def thrifty_display_callback(sm=None):
     global disp, disp_asc
-    global mtc
 
     if sm == pt.SM_BLINK:
         # Figure out what TX frame to display
@@ -693,28 +686,28 @@ def thrifty_display_callback(sm=None):
         asc = disp.to_ascii()
 
         # MTC quarter packets
-        if mtc and mtc.is_open() and mtc.open_seen:
+        if pt.mtc and pt.mtc.is_open() and pt.mtc.open_seen:
             # only sent after long packet, and 3 'empty' IRQs
-            if mtc.open_seen > 3:
-                mtc.send_quarter_mtc()
+            if pt.mtc.open_seen > 3:
+                pt.mtc.send_quarter_mtc()
             else:
-                mtc.open_seen += 1
+                pt.mtc.open_seen += 1
 
         if disp_asc != asc:
             # MTC long packet, first frame only
-            if mtc and mtc.is_open():
-                if not mtc.open_seen:
-                    mtc.send_long_mtc()           # 'seek' to position
-                    mtc.open_seen = 1
+            if pt.mtc and pt.mtc.is_open():
+                if not pt.mtc.open_seen:
+                    pt.mtc.send_long_mtc()          # 'seek' to position
+                    pt.mtc.open_seen = 1
 
             disp_asc = asc
             if pt.eng.mode == pt.RUN:
                 print("TX: %s" % asc)
 
-        if mtc and not mtc.is_open():
+        if pt.mtc and not pt.mtc.is_open():
             # reset, ready for being USB attached again
-            mtc.open_seen = 0
-            mtc.count = 0
+            pt.mtc.open_seen = 0
+            pt.mtc.count = 0
 
 
 #---------------------------------------------

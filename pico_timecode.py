@@ -1012,12 +1012,12 @@ def pico_timecode_thread(eng, stop):
     #
     # 2nd LED out is used to trigger MTC quarter packets
     # plus 4 sub-divions of 'extra sync'
-    # needs to be '11110_11110_11110_11110__1110->'
+    # needs to be '11110_11110_11110_11110__1111->'
     #
     # combined for the 24 sub-divisions, split across 32words
     # '10101001111111110111111101->'
     # '10101010101010101000101010100010'
-    eng.sm[SM_BLINK].put((0b10101001111111110111111101 << 6) + 23)
+    eng.sm[SM_BLINK].put((0b10101001111111110111111111 << 6) + 23)
     eng.sm[SM_BLINK].put((0b10101010101010101000101010100010))
     send_sync = True        # send 1st packet with sync header
 

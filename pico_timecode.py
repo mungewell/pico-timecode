@@ -1302,8 +1302,10 @@ if _hasUsbDevice:
             return True
 
 
-        def send_long_mtc(self):
+        def send_long_mtc(self, raw):
             global tx_raw
+            global debug
+            debug.on()
 
             # determine FPS encoding
             if eng.tc.fps == 30.00:
@@ -1316,18 +1318,20 @@ if _hasUsbDevice:
                 self.mtc_fps = 0b00
 
             p = bytearray(b"\xF0\x7F\x7F\x01\x01")
-            p.append(((tx_raw & 0x1F000000) >> 24) +
-                     (self.mtc_fps << 5))                             # hour + 'fps'
-            p.append(( tx_raw & 0x003F0000) >> 16)                    # minutes
-            p.append(( tx_raw & 0x00003F00) >> 8)                     # seconds
-            p.append(  tx_raw & 0x0000003F)                           # frames
+            p.append(((raw & 0x1F000000) >> 24) +
+                     (self.mtc_fps << 5))                          # hour + 'fps'
+            p.append(( raw & 0x003F0000) >> 16)                    # minutes
+            p.append(( raw & 0x00003F00) >> 8)                     # seconds
+            p.append(  raw & 0x0000003F)                           # frames
             p.append(0xF7)
 
             return self.send_sysex(p)
 
 
-        def send_quarter_mtc(self):
+        def send_quarter_mtc(self, raw):
             global tx_raw
+            global debug
+            debug.toggle()
 
             # send directly as time critical
             w = self._tx.pend_write()
@@ -1342,25 +1346,25 @@ if _hasUsbDevice:
             if not self.count & 0x4:
                 if not self.count & 0x2:
                     if not self.count & 0x1:
-                        w[2] = (tx_raw & 0x0000000F)                              # 0x0_ low frame
+                        w[2] = (raw & 0x0000000F)                              # 0x0_ low frame
                     else:
-                        w[2] = (((tx_raw & 0x00000010) >> 4) + 0x10)              # 0x1_ high frame
+                        w[2] = (((raw & 0x00000010) >> 4) + 0x10)              # 0x1_ high frame
                 else:
                     if not self.count & 0x1:
-                        w[2] = (((tx_raw & 0x00000F00) >> 8) + 0x20)              # 0x2_ low second
+                        w[2] = (((raw & 0x00000F00) >> 8) + 0x20)              # 0x2_ low second
                     else:
-                        w[2] = (((tx_raw & 0x00003000) >> 12) + 0x30)             # 0x3_ high second
+                        w[2] = (((raw & 0x00003000) >> 12) + 0x30)             # 0x3_ high second
             else:
                 if not self.count & 0x2:
                     if not self.count & 0x1:
-                        w[2] = (((tx_raw & 0x000F0000) >> 16) + 0x40)             # 0x4_ low minute
+                        w[2] = (((raw & 0x000F0000) >> 16) + 0x40)             # 0x4_ low minute
                     else:
-                        w[2] = (((tx_raw & 0x00300000) >> 20) + 0x50)             # 0x5_ high minute
+                        w[2] = (((raw & 0x00300000) >> 20) + 0x50)             # 0x5_ high minute
                 else:
                     if not self.count & 0x1:
-                        w[2] = (((tx_raw & 0x0F000000) >> 24) + 0x60)             # 0x6_ low hour
+                        w[2] = (((raw & 0x0F000000) >> 24) + 0x60)             # 0x6_ low hour
                     else:
-                        w[2] = (((tx_raw & 0x10000000) >> 28) + 0x70 +
+                        w[2] = (((raw & 0x10000000) >> 28) + 0x70 +
                                 (self.mtc_fps << 1))                              # 0x7_ high hour + 'fps'
 
             # finish assembling and send
@@ -1539,30 +1543,29 @@ def mtc_display_callback(sm=None):
         asc = disp.to_ascii()
 
         # MTC quarter packets
-        if mtc and mtc.is_open() and mtc.open_seen:
-            # only sent after long packet, and 3 'empty' IRQs
-            if mtc.open_seen > 3:
-                mtc.send_quarter_mtc()
-                debug.toggle()
+        if mtc:
+            if mtc.is_open():
+                # sync to 0th quarter (inc has happened)
+                if quarters==1 and mtc.open_seen==1:
+                    mtc.open_seen=2
+
+                if mtc.open_seen==2:
+                    mtc.send_quarter_mtc(tx_raw)
             else:
-                mtc.open_seen += 1
+                # reset, ready for being USB attached again
+                mtc.open_seen = 0
+                mtc.count = 0
 
         if disp_asc != asc:
             # MTC long packet, first frame only
             if mtc and mtc.is_open():
                 if not mtc.open_seen:
-                    mtc.send_long_mtc()           # 'seek' to position
+                    mtc.send_long_mtc(tx_raw)          # 'seek' to position
                     mtc.open_seen = 1
 
             disp_asc = asc
             if eng.mode == RUN:
                 print("TX: %s" % asc)
-
-        if mtc and not mtc.is_open():
-            # reset, ready for being USB attached again
-            mtc.open_seen = 0
-            mtc.count = 0
-
 
 
 #---------------------------------------------

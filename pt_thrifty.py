@@ -686,28 +686,29 @@ def thrifty_display_callback(sm=None):
         asc = disp.to_ascii()
 
         # MTC quarter packets
-        if pt.mtc and pt.mtc.is_open() and pt.mtc.open_seen:
-            # only sent after long packet, and 3 'empty' IRQs
-            if pt.mtc.open_seen > 3:
-                pt.mtc.send_quarter_mtc()
+        if pt.mtc:
+            if pt.mtc.is_open():
+                # sync to 0th quarter (inc has happened)
+                if pt.quarters==1 and pt.mtc.open_seen==1:
+                    pt.mtc.open_seen=2
+
+                if pt.mtc.open_seen==2:
+                    pt.mtc.send_quarter_mtc(pt.tx_raw)
             else:
-                pt.mtc.open_seen += 1
+                # reset, ready for being USB attached again
+                pt.mtc.open_seen = 0
+                pt.mtc.count = 0
 
         if disp_asc != asc:
             # MTC long packet, first frame only
             if pt.mtc and pt.mtc.is_open():
                 if not pt.mtc.open_seen:
-                    pt.mtc.send_long_mtc()          # 'seek' to position
+                    pt.mtc.send_long_mtc(pt.tx_raw)          # 'seek' to position
                     pt.mtc.open_seen = 1
 
             disp_asc = asc
             if pt.eng.mode == pt.RUN:
                 print("TX: %s" % asc)
-
-        if pt.mtc and not pt.mtc.is_open():
-            # reset, ready for being USB attached again
-            pt.mtc.open_seen = 0
-            pt.mtc.count = 0
 
 
 #---------------------------------------------

@@ -1219,6 +1219,7 @@ if _hasUsbDevice:
     class MTC(MIDIInterface):
         count = 0
         open_seen = 0
+        mtc_fps = 0
 
         def init(self):
             usb.device.get().init(mtc,
@@ -1296,8 +1297,19 @@ if _hasUsbDevice:
         def send_long_mtc(self):
             global tx_raw
 
+            # determine FPS encoding
+            if eng.tc.fps == 30.00:
+                self.mtc_fps = 0b11
+            if eng.tc.fps == 29.97:
+                self.mtc_fps = 0b10
+            if eng.tc.fps == 25.00:
+                self.mtc_fps = 0b01
+            else:   # 24.00
+                self.mtc_fps = 0b00
+
             p = bytearray(b"\xF0\x7F\x7F\x01\x01")
-            p.append(((tx_raw & 0x1F000000) >> 24) + (0b11 << 5))     # hour + '30fps'
+            p.append(((tx_raw & 0x1F000000) >> 24) +
+                     (self.mtc_fps << 5))                             # hour + 'fps'
             p.append(( tx_raw & 0x003F0000) >> 16)                    # minutes
             p.append(( tx_raw & 0x00003F00) >> 8)                     # seconds
             p.append(  tx_raw & 0x0000003F)                           # frames
@@ -1340,7 +1352,8 @@ if _hasUsbDevice:
                     if not self.count & 0x1:
                         w[2] = (((tx_raw & 0x0F000000) >> 24) + 0x60)             # 0x6_ low hour
                     else:
-                        w[2] = (((tx_raw & 0x10000000) >> 28) + 0x70 + 0b0110)    # 0x7_ high hour + '30fps'
+                        w[2] = (((tx_raw & 0x10000000) >> 28) + 0x70 +
+                                (self.mtc_fps << 1))                              # 0x7_ high hour + 'fps'
 
             # finish assembling and send
             w[3] = 0

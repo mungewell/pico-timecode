@@ -37,6 +37,7 @@ tx_raw = 0
 rx_ticks = 0
 rx_ticks_us = 0
 tx_ticks_us = 0
+quarters = 0
 
 core_dis = [0, 0]
 
@@ -303,13 +304,18 @@ def irq_handler(m):
     global eng, stop
     global tx_raw, rx_ticks_us, tx_ticks_us
     global core_dis
+    global quarters
 
     core_dis[mem32[0xd0000000]] = disable_irq()
     ticks = ticks_us()
 
     if m==eng.sm[SM_BLINK]:
-        if eng.sm[SM_TX_RAW].rx_fifo():
+        if quarters==0 and eng.sm[SM_TX_RAW].rx_fifo():
+            # only read RX FIFO every 4th interrupt
             tx_raw = eng.sm[SM_TX_RAW].get()
+        quarters += 1
+        if quarters==4:
+            quarters = 0
         tx_ticks_us = ticks
 
     if m==eng.sm[SM_SYNC]:
@@ -994,12 +1000,14 @@ class engine(object):
 
 def pico_timecode_thread(eng, stop):
     global tx_raw, rx_ticks
+    global quarters
     global debug
 
     debug = Pin(28,Pin.OUT)
     debug.off()
 
     eng.set_stopped(False)
+    quarters = 0
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0

@@ -313,9 +313,11 @@ def irq_handler(m):
         if quarters==0 and eng.sm[SM_TX_RAW].rx_fifo():
             # only read RX FIFO every 4th interrupt
             tx_raw = eng.sm[SM_TX_RAW].get()
+
         quarters += 1
         if quarters==4:
             quarters = 0
+
         tx_ticks_us = ticks
 
     if m==eng.sm[SM_SYNC]:
@@ -330,6 +332,15 @@ def irq_handler(m):
     for i in range(len(eng.sm)):
         if irq_callbacks[i] and m==eng.sm[i]:
             schedule(irq_callbacks[i], i)
+            '''
+            # prevent "Uncaught exception in IRQ callback handler"
+            # which I believe is due to code overloading the CPU,
+            # but this will invalidate the actual timecode...
+            try:
+                schedule(irq_callbacks[i], i)
+            except:
+                pass
+            '''
 
     enable_irq(core_dis[mem32[0xd0000000]])
 

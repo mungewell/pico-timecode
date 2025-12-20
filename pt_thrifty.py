@@ -296,6 +296,7 @@ def menu_select_logic():
 
 def menu_jam_logic():
     global thrifty_current_fps, thrifty_new_fps
+    global disp_asc
 
     if menu.execute_once:
         #print("menu jam")
@@ -321,6 +322,7 @@ def menu_jam_logic():
             pass
 
         #slate_set_fps_df(index=slate_new_fps_df)
+        disp_asc = "--:--:--:--"
         start_state_machines(pt.JAM)
 
         # pins 9 & 10 : force muxing to GPIO (disable LTC output)
@@ -355,8 +357,13 @@ def menu_cancel_jam_logic():
 
         print("JAM cancelled")
         start_state_machines(pt.RUN)
+        timerC.start()
 
-    menu.force_transition_to(menu_run_state)
+    menu.force_transition_to(menu_info_state)
+    '''
+    # force reset of whole device
+    reset()
+    '''
 
 def menu_complete_logic():
     if menu.execute_once:
@@ -424,7 +431,7 @@ def menu_cal_logic():
     '''
 
 def menu_init():
-    global menu, menu_run_state, menu_jam_state
+    global menu, menu_info_state, menu_jam_state
     global menu_complete_state, menu_follow_state
 
     # Initilize states

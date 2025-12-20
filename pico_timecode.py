@@ -1319,11 +1319,12 @@ if _hasUsbDevice:
             debug.on()
 
             # determine FPS encoding
-            if eng.tc.fps == 30.00:
+            fps = eng.tc.fps
+            if fps == 30.00:
                 self.mtc_fps = 0b11
-            if eng.tc.fps == 29.97:
+            elif fps == 29.97:
                 self.mtc_fps = 0b10
-            if eng.tc.fps == 25.00:
+            elif fps == 25.00:
                 self.mtc_fps = 0b01
             else:   # 24.00
                 self.mtc_fps = 0b00

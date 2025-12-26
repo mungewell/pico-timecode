@@ -876,19 +876,19 @@ class engine(object):
         if calval == 0:
             calval = self.calval
 
-        # optimal divider computed for CPU clock at 120MHz
+        # optimal divider computed for CPU clock at 180MHz
         if fps == 30.00:
-            new_div = 0x061a8000
+            new_div = 0x0927c000
         elif fps == 29.97:
-            new_div = 0x061c1000
+            new_div = 0x092a1800
         elif fps == 25.00:
-            new_div = 0x07530000
+            new_div = 0x0afc8000
         elif fps == 24.98:
-            new_div = 0x0754e000
+            new_div = 0x0aff5000
         elif fps == 24.00:
-            new_div = 0x07a12000
+            new_div = 0x0b71b000
         elif fps == 23.98:
-            new_div = 0x07a31400
+            new_div = 0x0b749e00
         else:
             return
 
@@ -1406,9 +1406,9 @@ def ascii_display_thread(init_mode = RUN):
     if keyB.value() == 0:
         eng.mode = JAM
 
-    # Reduce the CPU clock, for better computation of PIO freqs
-    if freq() != 120000000:
-        freq(120000000)
+    # set the CPU clock, for better computation of PIO freqs
+    if freq() != 180000000:
+        freq(180000000)
 
     # Allocate appropriate StateMachines, and their pins
     eng.sm = []

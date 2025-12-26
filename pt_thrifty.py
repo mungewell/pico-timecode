@@ -499,9 +499,9 @@ def thrifty_display_thread():
     # Internal temp sensor
     sensor = Temperature()
 
-    # Reduce the CPU clock, for better computation of PIO freqs
-    if machine.freq() != 120000000:
-        machine.freq(120000000)
+    # Set the CPU clock, for better computation of PIO freqs
+    if machine.freq() != 180000000:
+        machine.freq(180000000)
 
     # Read Line/MIC level from config, toggle if booted with 'A' pressed
     try:

@@ -1,6 +1,6 @@
 "Reference","Value","Datasheet","Footprint","Qty","DNP"
-"C1,C2,C3,C4","100nF","~","Capacitor_SMD:C_0603_1608Metric","4",""
-"C5,C6","100nF","~","Capacitor_SMD:C_0603_1608Metric","2","DNP"
+"C1,C3,C4,C5","100nF","~","Capacitor_SMD:C_0603_1608Metric","4",""
+"C2,C6","100nF","~","Capacitor_SMD:C_0603_1608Metric","2","DNP"
 "J1,J2","Conn_01x09","~","Connector_PinSocket_2.54mm:PinSocket_1x09_P2.54mm_Vertical","2","DNP"
 "J3","SJ-43515RS-SMT-TR","","PicoTimecode_PCB_Rev2:CUI_SJ-43514-SMT-TR","1",""
 "LED1","LTST-S220GKT","LTST-S220GKT","footprints:LED_LTST-S220GKT_LTO","1",""

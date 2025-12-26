@@ -1,0 +1,8 @@
+### Footprint positions - created on 2025-12-05T01:10:59-0700 ###
+### Printed by KiCad version 8.0.6
+## Unit = mm, Angle = deg.
+## Side : bottom
+# Ref     Val               Package                                      PosX       PosY       Rot  Side
+SW2       SW_Push_Shielded  SW_Tactile_SPST_Angled_PTS645Vx31-2LFS   142.1650   -70.5104  180.0000  bottom
+U1        ~                 RP2040-Tiny                              130.8905   -98.1100    0.0000  bottom
+## End

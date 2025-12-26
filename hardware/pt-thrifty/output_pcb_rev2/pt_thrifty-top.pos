@@ -1,0 +1,27 @@
+### Footprint positions - created on 2025-12-05T01:10:59-0700 ###
+### Printed by KiCad version 8.0.6
+## Unit = mm, Angle = deg.
+## Side : top
+# Ref     Val                    Package                               PosX       PosY       Rot  Side
+C1        100nF                  C_0603_1608Metric                 144.9705   -86.3600   90.0000  top
+C2        100nF                  C_0603_1608Metric                 143.1290   -91.9480   90.0000  top
+C3        100nF                  C_0603_1608Metric                 140.7160   -78.9940    0.0000  top
+C4        100nF                  C_0603_1608Metric                 134.3660   -84.0740   90.0000  top
+C5        100nF                  C_0603_1608Metric                 144.3990   -89.2810    0.0000  top
+C6        100nF                  C_0603_1608Metric                 145.0340   -91.9480   90.0000  top
+J1        Conn_01x09             PinSocket_1x09_P2.54mm_Vertical   150.0505   -96.5200  180.0000  top
+J2        Conn_01x09             PinSocket_1x09_P2.54mm_Vertical   129.7940   -96.5200  180.0000  top
+J3        SJ-43514-SMT-TR        CUI_SJ-43514-SMT-TR               142.1205   -99.1500   90.0000  top
+LED1      LTST-S220GKT           LED_LTST-S220GKT_LTO              146.2405   -99.3140    0.0000  top
+R1        10K                    R_0603_1608Metric                 136.1440   -82.2960   90.0000  top
+R2        10K                    R_0603_1608Metric                 136.1440   -78.9940   90.0000  top
+R3        10K                    R_0603_1608Metric                 137.9220   -82.2960   90.0000  top
+R4        10K                    R_0603_1608Metric                 137.9220   -78.9940   90.0000  top
+R5        2.1K                   R_0603_1608Metric                 144.9705   -79.2480  -90.0000  top
+R6        2.0K                   R_0603_1608Metric                 144.9705   -82.8040  -90.0000  top
+R7        330R                   R_0603_1608Metric                 144.9705   -96.5200  -90.0000  top
+R8        22R                    R_0603_1608Metric                 134.3660   -87.3760  -90.0000  top
+R9        22R                    R_0603_1608Metric                 134.3660   -90.6780  -90.0000  top
+SW1       PTS636_SM50J_SMTR_LFS  SW_PTS636_CNK                     142.1650   -72.3900    0.0000  top
+U2        MCP6273T-E/CH          SOT-23-6                          140.9755   -81.7880  180.0000  top
+## End

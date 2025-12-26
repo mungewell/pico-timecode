@@ -1,0 +1,8 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "RP2040-Tiny")(type "KiCad")(uri "${KIPRJMOD}/libs/RP2040-Tiny_kicad-main/RP2040-Tiny.kicad_sym")(options "")(descr ""))
+  (lib (name "2024-12-04_21-34-14")(type "KiCad")(uri "${KIPRJMOD}/libs/MCP6273T_E_CH/KiCADv6/2024-12-04_21-34-14.kicad_sym")(options "")(descr ""))
+  (lib (name "2024-02-24_16-38-46")(type "KiCad")(uri "C:/Users/swood/Downloads/pico-timecode-main/pico-timecode-main/hardware/libs/LTST_S220GKT/KiCADv6/2024-02-24_16-38-46.kicad_sym")(options "")(descr ""))
+  (lib (name "sj-43514-smt-tr")(type "KiCad")(uri "${KIPRJMOD}/libs/SJ-43514-SMT-TR/sj-43514-smt-tr.kicad_sym")(options "")(descr ""))
+  (lib (name "2024-11-18_16-32-35")(type "KiCad")(uri "${KIPRJMOD}/libs/PTS636_SM50J_SMTR_LFS/KiCADv6/2024-11-18_16-32-35.kicad_sym")(options "")(descr ""))
+)

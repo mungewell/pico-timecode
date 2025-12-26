@@ -1,0 +1,6 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "PicoTimecode_PCB_Rev2")(type "KiCad")(uri "C:/Users/swood/Downloads/pico-timecode-main/pico-timecode-main/hardware/libs/PicoTimecode_PCB_Rev2.pretty")(options "")(descr ""))
+  (lib (name "SJ-43514-SMT-TR")(type "KiCad")(uri "${KIPRJMOD}/libs/SJ-43514-SMT-TR.pretty")(options "")(descr ""))
+  (lib (name "footprints")(type "KiCad")(uri "${KIPRJMOD}/libs/LTST_S220GKT/KiCADv6/footprints.pretty")(options "")(descr ""))
+)

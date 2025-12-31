@@ -699,8 +699,8 @@ def OLED_display_thread(mode=pt.RUN):
         )
 
     # Reduce the CPU clock, for better computation of PIO freqs
-    if freq() != 120000000:
-        freq(120000000)
+    if freq() != 180000000:
+        freq(180000000)
 
     # Allocate appropriate StateMachines, and their pins
     pt.eng.sm = []

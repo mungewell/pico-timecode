@@ -118,7 +118,15 @@ class HT16K33:
         Write the display buffer out to I2C
         """
         buffer = bytearray(len(self.buffer) + 1)
+
         buffer[1:] = self.buffer
+        '''
+        # double up characters for flicker reduction, see:
+        # https://github.com/smittytone/HT16K33-Python/issues/28
+        buffer[1:] = self.buffer[:8]
+        buffer[9:] = self.buffer[:8]
+        '''
+
         buffer[0] = 0x00
         self.i2c.writeto(self.address, bytes(buffer))
 

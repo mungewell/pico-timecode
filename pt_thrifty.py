@@ -6,7 +6,7 @@
 # pt-Thrifty, the lowest cost timecode generator
 #
 # GP13 - User key 'A'
-# GP29 - 3.5mm Detect
+# GP27 - 3.5mm Detect
 #
 # GP02 - Onboard LED
 # GP03 - Onboard LED2
@@ -46,9 +46,6 @@ import rp2
 import gc
 
 # Set up (extra) globals
-powersave = False
-menu_active = False
-
 high_output_level = True
 
 thrifty_new_fps = 0
@@ -178,7 +175,7 @@ timerC = Neotimer(2000)
 timerH = Neotimer(2000)
 
 # Connector Detect, ie 3.5mm in socket
-keyD = Pin(29,Pin.IN,Pin.PULL_UP)
+keyD = Pin(27,Pin.IN,Pin.PULL_UP)
 timerD = Neotimer(50)
 
 # chip enable for Amp, low = on
@@ -482,7 +479,6 @@ class Temperature:
 def thrifty_display_thread():
     global disp, slate_current_fps_df
     global disp_asc, slate_open
-    global powersave, menu_active
     global amp_cs, high_output_level
     global thrifty_calibration, calTimer
     global thrifty_current_fps
@@ -493,15 +489,12 @@ def thrifty_display_thread():
 
     menu_init()
 
-    debug = Pin(27,Pin.OUT)
-    debug.off()
-
     # Internal temp sensor
     sensor = Temperature()
 
-    # Reduce the CPU clock, for better computation of PIO freqs
-    if machine.freq() != 120000000:
-        machine.freq(120000000)
+    # Set the CPU clock, for better computation of PIO freqs
+    if machine.freq() != 180000000:
+        machine.freq(180000000)
 
     # Read Line/MIC level from config, toggle if booted with 'A' pressed
     try:

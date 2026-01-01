@@ -52,7 +52,7 @@ from libs.ht16k33segment14 import HT16K33Segment14
 
 import pico_timecode as pt
 
-from machine import Pin,freq,reset,mem32
+from machine import Pin,freq,reset,mem32,I2C
 from utime import sleep
 import _thread
 import utime
@@ -62,6 +62,8 @@ import gc
 # Set up (extra) globals
 powersave = False
 menu_active = False
+slate_HM = False
+slate_SF = False
 
 def start_state_machines(mode=pt.RUN):
     if pt.eng.is_running():
@@ -166,15 +168,21 @@ def slate_set_fps_df(fps=0, df=False, index=0):
 
 
 def slate_show_fps_df(fps_df):
+    global slate_HM, slate_SF
+
     if fps_df >= len(slate_available_fps_df):
         fps_df = 0
 
     asc = slate_available_fps_df[fps_df]
 
     for i in range(4):
-        slate_HM.set_character(asc[i+(1 if i>1 else 0)], \
-                i, has_dot=(True if i==1 else False))
-        slate_SF.set_character(" ", i)
+        if slate_HM:
+            slate_HM.set_character(asc[i+(1 if i>1 else 0)], \
+                    i, has_dot=False) #(True if i==1 else False))
+            slate_SF.set_character(" ", i)
+        else:
+            slate_SF.set_character(asc[i+(1 if i>1 else 0)], \
+                    i, has_dot=(True if i==1 else False))
 
     if len(asc) > 5:
         '''
@@ -182,12 +190,18 @@ def slate_show_fps_df(fps_df):
         d = 1 2 3 4 6 = 0x5e
         f = 0 4 5 6   = 0x71
         '''
-        slate_SF.set_glyph(0x40, 0)
-        slate_SF.set_glyph(0x5e, 1)
-        slate_SF.set_glyph(0x71, 2)
+        if slate_HM:
+            slate_SF.set_glyph(0x40, 0)
+            slate_SF.set_glyph(0x5e, 1)
+            slate_SF.set_glyph(0x71, 2)
+        else:
+            # overwrite last digits
+            slate_SF.set_glyph(0x5e, 2)
+            slate_SF.set_glyph(0x71, 3)
 
-    slate_HM.draw()
-    slate_SF.set_colon(False)
+    if slate_HM:
+        slate_HM.draw()
+    #slate_SF.set_colon(False)
     slate_SF.draw()
 
     return fps_df
@@ -227,20 +241,29 @@ def slate_display_thread(init_mode=pt.RUN):
 
     # Display is made from 2x 4-character I2C modules
     # note: left module is mounted up-side-down
-    slate_R = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
-            i2c_address=0x70)
-    slate_L = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
-            i2c_address=0x71)
-    '''
-    slate_R = HT16K33Segment14(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
-            i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
-    slate_L = HT16K33Segment14(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
-            i2c_address=0x71,board=HT16K33Segment14.ECBUYING_054)
-    '''
+    slate_R = None
+    slate_L = None
+    try:
+        # Adafruit
+        i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=500_000)
+        slate_R = HT16K33Segment(i2c, i2c_address=0x70)
+        slate_L = HT16K33Segment(i2c, i2c_address=0x71)
+        '''
+        # ECBUYING
+        i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=2_500_000)
+        slate_R = HT16K33Segment14(i2c, i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
+        slate_L = HT16K33Segment14(i2c, i2c_address=0x71, board=HT16K33Segment14.ECBUYING_054)
+        '''
+    except OSError as e:
+        if e.args[0] == 5: # Errno 5 is EIO
+            print("One or more 7-seg/14-seg displays not found")
+        else:
+            raise e
 
     slate_SF = slate_R
-    slate_HM = slate_L
-    slate_HM.rotate()
+    if slate_L:
+        slate_HM = slate_L
+        slate_HM.rotate()
 
     '''
     slate_HM.set_brightness(1)
@@ -249,10 +272,12 @@ def slate_display_thread(init_mode=pt.RUN):
 
     disp_asc = "--------"
     for i in range(4):
-        slate_HM.set_character(disp_asc[i], i)
+        if slate_HM:
+            slate_HM.set_character(disp_asc[i], i)
         slate_SF.set_character(disp_asc[i+4], i)
 
-    slate_HM.draw()
+    if slate_HM:
+        slate_HM.draw()
     slate_SF.draw()
     timerS.start()
 
@@ -276,21 +301,23 @@ def slate_display_thread(init_mode=pt.RUN):
     while not timerS.finished():
         sleep(0.1)
 
-    slate_HM.clear()
+    if slate_HM:
+        slate_HM.clear()
+        slate_HM.draw()
     slate_SF.clear()
-    slate_HM.draw()
     slate_SF.draw()
 
     while True:
         if pt.eng.mode == pt.HALTED:
             for i in range(4):
-                slate_HM.set_character("-", i)
-                slate_SF.set_character("-", i)
-            slate_HM.draw()
-            slate_SF.draw()
+                if slate_HM:
+                    slate_HM.set_character("-", i)
+                    slate_HM.draw()
+                    slate_HM.set_blink_rate(2)
 
-            slate_HM.set_blink_rate(2)
-            slate_SF.set_blink_rate(2)
+                slate_SF.set_character("-", i)
+                slate_SF.draw()
+                slate_SF.set_blink_rate(2)
             pt.stop = True
 
         '''
@@ -311,12 +338,13 @@ def slate_display_thread(init_mode=pt.RUN):
                 print("Menu cancelled")
                 menu_active = 0
 
-                slate_HM.clear()
-                slate_SF.clear()
-                slate_HM.draw()
-                slate_SF.draw()
+                if slate_HM:
+                    slate_HM.clear()
+                    slate_HM.draw()
+                    slate_HM.set_blink_rate(0)
 
-                slate_HM.set_blink_rate(0)
+                slate_SF.clear()
+                slate_SF.draw()
                 slate_SF.set_blink_rate(0)
 
             slate_open = False
@@ -324,7 +352,8 @@ def slate_display_thread(init_mode=pt.RUN):
 
         # Once clapper has closed and timer expired, enter powersave
         if not slate_open and timerS.finished() and not powersave:
-            slate_HM.power_off()
+            if slate_HM:
+                slate_HM.power_off()
             slate_SF.power_off()
 
             pt.irq_callbacks[pt.SM_BLINK] = None
@@ -343,7 +372,8 @@ def slate_display_thread(init_mode=pt.RUN):
                 pt.irq_callbacks[pt.SM_BLINK] = slate_display_callback
                 powersave = False
 
-                slate_HM.power_on()
+                if slate_HM:
+                    slate_HM.power_on()
                 slate_SF.power_on()
 
             slate_open = True
@@ -361,27 +391,30 @@ def slate_display_thread(init_mode=pt.RUN):
             continue
 
         # Check for slate rotation
-        if not slate_rotated and timerR.debounce_signal(keyR.value()==0):
-            slate_HM = slate_R
-            slate_HM.rotate()
-            slate_HM.set_colon(False)
-            slate_SF = slate_L
-            slate_SF.rotate()
-            slate_rotated = True
-        elif slate_rotated and timerR.debounce_signal(keyR.value()==1):
-            slate_HM = slate_L
-            slate_HM.rotate()
-            slate_HM.set_colon(False)
-            slate_SF = slate_R
-            slate_SF.rotate()
-            slate_rotated = False
+        # rotation only possible with 2x displays
+        if slate_HM:
+            if not slate_rotated and timerR.debounce_signal(keyR.value()==0):
+                slate_HM = slate_R
+                slate_HM.rotate()
+                slate_HM.set_colon(False)
+                slate_SF = slate_L
+                slate_SF.rotate()
+                slate_rotated = True
+            elif slate_rotated and timerR.debounce_signal(keyR.value()==1):
+                slate_HM = slate_L
+                slate_HM.rotate()
+                slate_HM.set_colon(False)
+                slate_SF = slate_R
+                slate_SF.rotate()
+                slate_rotated = False
 
         # Menu: Changing FPS/DF
         # note: cancel by closing clapper
         if menu_active:
             slate_new_fps_df = slate_show_fps_df(slate_new_fps_df)
 
-            slate_HM.set_blink_rate(-1)
+            if slate_HM:
+                slate_HM.set_blink_rate(-1)
             slate_SF.set_blink_rate(-1)
             sleep(0.25)
 
@@ -391,7 +424,8 @@ def slate_display_thread(init_mode=pt.RUN):
 
             # confirm with B key
             if timerB.debounce_signal(keyB.value()==0):
-                slate_HM.set_blink_rate(0)
+                if slate_HM:
+                    slate_HM.set_blink_rate(0)
                 slate_SF.set_blink_rate(0)
 
                 menu_active = False
@@ -425,16 +459,22 @@ def slate_display_thread(init_mode=pt.RUN):
                 n = 2 4 6     = 0x54
                 c = 3 4 6     = 0x58
                 '''
-                slate_HM.set_glyph(0x6D, 0)
-                slate_HM.set_glyph(0x6E, 1)
-                slate_HM.set_glyph(0x54, 2)
-                slate_HM.set_glyph(0x58, 3)
-                slate_HM.draw()
+                force_dp = False
+                if slate_HM:
+                    slate_HM.set_glyph(0x6D, 0)
+                    slate_HM.set_glyph(0x6E, 1)
+                    slate_HM.set_glyph(0x54, 2)
+                    slate_HM.set_glyph(0x58, 3)
+                    slate_HM.draw()
+                else:
+                    # indicate Sync with all decimal points lit
+                    force_dp = True
 
                 # only display the SS:FF digits
                 for i in range(4):
-                    slate_SF.set_character(asc[4+i], i)
-                slate_SF.set_colon(True)
+                    slate_SF.set_character(asc[4+i], i,
+                                has_dot=(True if i==1 else force_dp))
+                #slate_SF.set_colon(True)
                 slate_SF.draw()
 
                 # also print to console
@@ -479,7 +519,8 @@ def slate_display_callback(sm=None):
             if pt.quarters==1 and slate_open == 1 and timerS.finished():
                 debug.on()
                 slate_SF.draw()
-                slate_HM.draw()
+                if slate_HM:
+                    slate_HM.draw()
                 debug.off()
 
             # Figure out what TX frame to display
@@ -496,8 +537,9 @@ def slate_display_callback(sm=None):
                     disp.next_frame()
                     asc = disp.to_ascii(False)
                     for i in range(4):
-                        slate_HM.set_character(asc[i], i,
-                                has_dot=False) #(True if i&1 else False))
+                        if slate_HM:
+                            slate_HM.set_character(asc[i], i,
+                                    has_dot=False)
                         slate_SF.set_character(asc[4+i], i,
                                 has_dot=(True if i==1 else False))
 

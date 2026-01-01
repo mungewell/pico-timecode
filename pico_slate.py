@@ -48,6 +48,7 @@
 
 from libs.neotimer import *
 from libs.ht16k33segment import HT16K33Segment
+from libs.ht16k33segment14 import HT16K33Segment14
 
 import pico_timecode as pt
 
@@ -86,8 +87,9 @@ def start_state_machines(mode=pt.RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led2, freq=sm_freq,
-                               out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_mtc, freq=sm_freq,
+                               jmp_pin=Pin(27),
+                               out_base=Pin(26)))       # LED on GPIO26
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                                out_base=Pin(22)))       # Output of 'raw' bitstream
     pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc, freq=sm_freq,
@@ -196,6 +198,7 @@ def slate_display_thread(init_mode=pt.RUN):
     global disp_asc, slate_open
     global powersave, menu_active
     global slate_HM, slate_SF, timerS
+    global debug
 
     pt.eng = pt.engine()
     pt.eng.mode = init_mode
@@ -212,7 +215,7 @@ def slate_display_thread(init_mode=pt.RUN):
     if keyB.value() == 0:
         pt.eng.mode=pt.JAM
 
-    debug = Pin(27,Pin.OUT)
+    debug = Pin(28,Pin.OUT)
     debug.off()
 
     # Configure Digi-Slate controls
@@ -223,15 +226,21 @@ def slate_display_thread(init_mode=pt.RUN):
     timerS = Neotimer(1000)
 
     # Display is made from 2x 4-character I2C modules
-    # note: right module is mounted up-side-down
-    slate_L = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
-            i2c_address=0x70)
+    # note: left module is mounted up-side-down
     slate_R = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
+            i2c_address=0x70)
+    slate_L = HT16K33Segment(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
             i2c_address=0x71)
+    '''
+    slate_R = HT16K33Segment14(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
+            i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
+    slate_L = HT16K33Segment14(machine.I2C(1, scl=Pin(3), sda=Pin(2)), \
+            i2c_address=0x71,board=HT16K33Segment14.ECBUYING_054)
+    '''
 
-    slate_HM = slate_L
     slate_SF = slate_R
-    slate_SF.rotate()
+    slate_HM = slate_L
+    slate_HM.rotate()
 
     '''
     slate_HM.set_brightness(1)
@@ -248,8 +257,8 @@ def slate_display_thread(init_mode=pt.RUN):
     timerS.start()
 
     # Reduce the CPU clock, for better computation of PIO freqs
-    if machine.freq() != 120000000:
-        machine.freq(120000000)
+    if machine.freq() != 180000000:
+        machine.freq(180000000)
 
     # load PIO blocks, and start pico_timecode thread
     start_state_machines(pt.eng.mode)
@@ -460,30 +469,37 @@ def slate_display_thread(init_mode=pt.RUN):
 
 def slate_display_callback(sm=None):
     global disp, disp_asc, slate_open
-    global powersave, menu_active
     global slate_HM, slate_SF, timerS
+    global debug
 
     if sm == pt.SM_BLINK:
         if pt.eng.mode == pt.RUN:
+            # sync to 0th quarter (inc has happened)
+            # send previously written frame
+            if pt.quarters==1 and slate_open == 1 and timerS.finished():
+                debug.on()
+                slate_SF.draw()
+                slate_HM.draw()
+                debug.off()
+
             # Figure out what TX frame to display
             disp.from_raw(pt.tx_raw)
-            asc = disp.to_ascii(False)
+            asc = disp.to_ascii()
 
             if disp_asc != asc:
-                if not menu_active and slate_open == 1 and timerS.finished():
-                    for i in range(4):
-                        slate_HM.set_character(asc[i], i,
-                                has_dot=(True if i&1 else False))
-                        slate_SF.set_character(asc[4+i], i)
-
-                    # draw SF first, as most likely to have changed
-                    slate_SF.set_colon(True)
-                    slate_SF.draw()
-                    slate_HM.draw()
+                # print to console
+                print("TX: %s" % asc)
                 disp_asc = asc
 
-                # print to console (except in powersave)
-                print("TX: %s" % disp.to_ascii())
+                if slate_open == 1 and timerS.finished():
+                    # pre-write values for next frame
+                    disp.next_frame()
+                    asc = disp.to_ascii(False)
+                    for i in range(4):
+                        slate_HM.set_character(asc[i], i,
+                                has_dot=False) #(True if i&1 else False))
+                        slate_SF.set_character(asc[4+i], i,
+                                has_dot=(True if i==1 else False))
 
 
 #---------------------------------------------

@@ -245,7 +245,7 @@ def slate_display_thread(init_mode=pt.RUN):
     slate_L = None
     try:
         # Adafruit
-        i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=500_000)
+        i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
         slate_R = HT16K33Segment(i2c, i2c_address=0x70)
         slate_L = HT16K33Segment(i2c, i2c_address=0x71)
         '''
@@ -510,13 +510,14 @@ def slate_display_thread(init_mode=pt.RUN):
 def slate_display_callback(sm=None):
     global disp, disp_asc, slate_open
     global slate_HM, slate_SF, timerS
+    global menu_active
     global debug
 
     if sm == pt.SM_BLINK:
         if pt.eng.mode == pt.RUN:
             # sync to 0th quarter (inc has happened)
             # send previously written frame
-            if pt.quarters==1 and slate_open == 1 and timerS.finished():
+            if pt.quarters==1 and not menu_active and slate_open == 1 and timerS.finished():
                 debug.on()
                 slate_SF.draw()
                 if slate_HM:
@@ -532,7 +533,7 @@ def slate_display_callback(sm=None):
                 print("TX: %s" % asc)
                 disp_asc = asc
 
-                if slate_open == 1 and timerS.finished():
+                if not menu_active and slate_open == 1 and timerS.finished():
                     # pre-write values for next frame
                     disp.next_frame()
                     asc = disp.to_ascii(False)

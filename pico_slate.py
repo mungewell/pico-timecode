@@ -89,7 +89,7 @@ def start_state_machines(mode=pt.RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_mtc, freq=sm_freq,
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq, freq=sm_freq,
                                jmp_pin=Pin(27),
                                out_base=Pin(26)))       # LED on GPIO26
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
@@ -373,6 +373,7 @@ def slate_display_thread(init_mode=pt.RUN):
             timerS.start()
 
         # Once clapper has closed and timer expired, enter powersave
+        '''
         if not slate_open and timerS.finished() and not powersave:
             if slate_HM:
                 slate_HM.power_off()
@@ -384,6 +385,7 @@ def slate_display_thread(init_mode=pt.RUN):
 
             pt.eng.set_powersave(True)
             powersave = True
+        '''
 
         # Display FPS on slate when clapper is first lifted
         if not slate_open and timerC.debounce_signal(keyC.value()==0):
@@ -544,7 +546,8 @@ def slate_display_callback(sm=None):
         if pt.eng.mode == pt.RUN:
             # sync to 0th quarter (inc has happened)
             # send previously written frame
-            if pt.quarters==1 and not menu_active and slate_open == 1 and timerS.finished():
+            if ((pt.quarters == 1) or not pt._hasUsbDevice) and \
+                    not menu_active and slate_open == 1 and timerS.finished():
                 debug.on()
                 slate_SF.draw()
                 if slate_HM:

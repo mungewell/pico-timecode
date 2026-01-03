@@ -109,7 +109,7 @@ def start_state_machines(mode=pt.RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_mtc, freq=sm_freq,
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq, freq=sm_freq,
                            jmp_pin=Pin(3),
                            out_base=Pin(2)))       # LED on GPIO2/3
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,

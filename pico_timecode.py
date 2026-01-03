@@ -17,11 +17,11 @@ from os import uname
 try:
     import usb.device
     from usb.device.midi import MIDIInterface
-    _hasUsbDevice= True
+    _hasUsbDevice = True
 except ImportError:
-    _hasUsbDevice= False
+    _hasUsbDevice = False
 '''
-_hasUsbDevice= False
+_hasUsbDevice = False
 '''
 
 
@@ -144,7 +144,7 @@ def shift_led2():
 @rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
              fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
-def shift_led_mtc():
+def shift_led_irq():
     irq(block, 4)                   # Wait for sync'ed start
                                     # ---
     wrap_target()
@@ -304,7 +304,7 @@ def irq_handler(m):
     global eng, stop
     global tx_raw, rx_ticks_us, tx_ticks_us
     global core_dis
-    global quarters
+    global quarters, _hasUsbDevice
 
     core_dis[mem32[0xd0000000]] = disable_irq()
     ticks = ticks_us()
@@ -314,9 +314,10 @@ def irq_handler(m):
             # only read RX FIFO every 4th interrupt
             tx_raw = eng.sm[SM_TX_RAW].get()
 
-        quarters += 1
-        if quarters==4:
-            quarters = 0
+        if _hasUsbDevice:
+            quarters += 1
+            if quarters==4:
+                quarters = 0
 
         tx_ticks_us = ticks
 
@@ -1036,8 +1037,26 @@ def pico_timecode_thread(eng, stop):
     # combined for the 24 sub-divisions, split across 32words
     # '10101001111111110111111101->'
     # '10101010101010101000101010100010'
-    eng.sm[SM_BLINK].put((0b10101001111111110111111111 << 6) + 23)
-    eng.sm[SM_BLINK].put((0b10101010101010101000101010100010))
+
+    BLINK_LED = 0b010101010101 << 6         # ~10ms flash
+
+    if _hasUsbDevice:
+        # 4x IRQs per frame, long first frame
+        eng.sm[SM_BLINK].put((0b101010011111111101_11111111 << 6) + 23)
+        eng.sm[SM_BLINK].put((0b10101010101010101000101010100010))
+
+        # normally...
+        BLINK_IRQ1 = (0b10100010101010001010101000 << 6) + 19
+        BLINK_IRQ2 = 0b10101010101010101010101010001010
+    else:
+        # 1x IRQs per frame, long first frame
+        eng.sm[SM_BLINK].put((0b101010111111111101_11111111 << 6) + 23)
+        eng.sm[SM_BLINK].put((0b10101010101010101010101010101010))
+
+        # normally...
+        BLINK_IRQ1 = (0b10101010101010101010101000 << 6) + 19
+        BLINK_IRQ2 = 0b10101010101010101010101010101010
+
     send_sync = True        # send 1st packet with sync header
 
     # Ensure Timecodes are using same fps/df settings
@@ -1169,6 +1188,7 @@ def pico_timecode_thread(eng, stop):
             # '10101010101010101010101010001010'
             # '10100010101010011111111101->'
             eng.tc.acquire()
+            '''
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
                     eng.sm[SM_BLINK].put((0b10100010101010011111111101 << 6) + 19)
@@ -1183,6 +1203,21 @@ def pico_timecode_thread(eng, stop):
                 else:
                     eng.sm[SM_BLINK].put((0b10100010101010001010101000 << 6) + 19)
                     eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
+            '''
+            if eng.flashframe >= 0:
+                if eng.tc.ff == eng.flashframe:
+                    eng.sm[SM_BLINK].put(BLINK_IRQ1 | BLINK_LED)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)
+                else:
+                    eng.sm[SM_BLINK].put(BLINK_IRQ1)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)
+            else:
+                if eng.tc.to_raw() == eng.flashtime:
+                    eng.sm[SM_BLINK].put(BLINK_IRQ1 | BLINK_LED)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)
+                else:
+                    eng.sm[SM_BLINK].put(BLINK_IRQ1)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)
             eng.tc.release()
 
             # Complete start-up sequence
@@ -1417,7 +1452,7 @@ def ascii_display_thread(init_mode = RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_mtc, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq, freq=sm_freq,
                            jmp_pin=Pin(26),
                            out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
     eng.sm.append(rp2.StateMachine(SM_BUFFER, buffer_out, freq=sm_freq,

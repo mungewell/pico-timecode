@@ -193,36 +193,34 @@ def slate_show_fps_df(fps_df):
     asc = slate_available_fps_df[fps_df]
 
     for i in range(4):
-        if slate_HM:
-            slate_HM.set_character(asc[i+(1 if i>1 else 0)], \
-                    i, has_dot=False) #(True if i==1 else False))
-            slate_SF.set_character(" ", i)
-        else:
-            slate_SF.set_character(asc[i+(1 if i>1 else 0)], \
-                    i, has_dot=(True if i==1 else False))
+        slate_SF.set_character(asc[i+(1 if i>1 else 0)], \
+                i, has_dot=(True if i==1 else False))
+
+    extend_glyph = 0
+    if len(slate_SF.CHARSET) > 19:
+        # include segment '7' on ECBUYING 14-segment
+        extend_glyph = 0x80
 
     if len(asc) > 5:
         '''
-        - = 6         = 0x40
+        F = 0 4 5 6   = 0x71
+        P = 0 1 4 5 6 = 0x73
+        S = 0 2 3 5 6 = 0x6D
+
         d = 1 2 3 4 6 = 0x5e
         f = 0 4 5 6   = 0x71
         '''
-        extend_glyph = 0
-        if len(slate_SF.CHARSET) > 19:
-            # include segment '7' on ECBUYING 14-segment
-            extend_glyph = 0x80
-
-        if slate_HM:
-            slate_SF.set_glyph(0x40 + extend_glyph, 0)
-            slate_SF.set_glyph(0x5e + extend_glyph, 1)
-            slate_SF.set_glyph(0x71 + extend_glyph, 2)
-        else:
-            # overwrite last digits
-            slate_SF.set_glyph(0x5e + extend_glyph, 2)
-            slate_SF.set_glyph(0x71 + extend_glyph, 3)
+        # overwrite last digits with 'df'
+        slate_SF.set_glyph(0x5e + extend_glyph, 2)
+        slate_SF.set_glyph(0x71 + extend_glyph, 3)
 
     if slate_HM:
+        slate_HM.set_glyph(0x71 + extend_glyph, 0)
+        slate_HM.set_glyph(0x73 + extend_glyph, 1)
+        slate_HM.set_glyph(0x6d + extend_glyph, 2)
+        slate_HM.set_glyph(0x00, 3)
         slate_HM.draw()
+
     #slate_SF.set_colon(False)
     slate_SF.draw()
 
@@ -436,9 +434,6 @@ def slate_display_thread(init_mode=pt.RUN):
         # note: cancel by closing clapper
         if menu_active:
             slate_new_fps_df = slate_show_fps_df(slate_new_fps_df)
-
-            if slate_HM:
-                slate_HM.set_blink_rate(2)
             slate_SF.set_blink_rate(2)
             sleep(0.25)
 
@@ -484,16 +479,18 @@ def slate_display_thread(init_mode=pt.RUN):
                 c = 3 4 6     = 0x58
                 '''
                 force_dp = False
-                extend_glyph = 0
-                if len(slate_SF.CHARSET) > 19:
-                    # include segment '7' on ECBUYING
-                    extend_glyph = 0x80
-
                 if slate_HM:
-                    slate_HM.set_glyph(0x6D + extend_glyph, 0)
-                    slate_HM.set_glyph(0x6E + extend_glyph, 1)
-                    slate_HM.set_glyph(0x54 + extend_glyph, 2)
-                    slate_HM.set_glyph(0x58 + extend_glyph, 3)
+                    if len(slate_SF.CHARSET) > 19:
+                        slate_HM.set_character("S", 0)
+                        slate_HM.set_character("Y", 1)
+                        slate_HM.set_character("N", 2)
+                        slate_HM.set_character("C", 3)
+                    else:
+                        # 7-seg
+                        slate_HM.set_glyph(0x6D, 0)
+                        slate_HM.set_glyph(0x6E, 1)
+                        slate_HM.set_glyph(0x54, 2)
+                        slate_HM.set_glyph(0x58, 3)
                     slate_HM.draw()
                 else:
                     # indicate Sync with all decimal points lit

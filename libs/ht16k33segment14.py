@@ -46,8 +46,9 @@ class HT16K33Segment14(HT16K33):
 
     # *********** CONSTRUCTOR **********
 
-    def __init__(self, i2c, i2c_address=0x70, is_ht16k33=False, board=UNKNOWN):
+    def __init__(self, i2c, i2c_address=0x70, is_ht16k33=False, board=UNKNOWN, do_enable_display=True):
         self.buffer = bytearray(16)
+        self.is_rotated = False
 
         # FROM 4.1.0
         # Provide backwards compatibility with 4.0.x
@@ -59,10 +60,20 @@ class HT16K33Segment14(HT16K33):
             # Use supplied board value
             self.board = board
 
-        super(HT16K33Segment14, self).__init__(i2c, i2c_address)
+        super(HT16K33Segment14, self).__init__(i2c, i2c_address, do_enable_display)
 
 
     # *********** PUBLIC FUNCTIONS **********
+
+    def rotate(self):
+        """
+        Rotate/flip the segment display.
+
+        Returns:
+            The instance (self)
+        """
+        self.is_rotated = not self.is_rotated
+        return self
 
     def set_glyph(self, glyph, digit=0, has_dot=False):
         """
@@ -227,6 +238,54 @@ class HT16K33Segment14(HT16K33):
         # FROM 4.1.0 Use the `board` property rather than `is_ht16k33`.
         # This only works on SparkFun Alphanumeric.
         return self._set_furniture(self.VK16K33_SEG14_DECIMAL_BYTE, is_on)
+
+    def draw(self):
+        """
+        Writes the current display buffer to the display itself.
+
+        Call this method after updating the buffer to update
+        the LED itself. Rotation handled here.
+        """
+        if self.is_rotated:
+            # Swap msb/lsb for digits 0,3 and 1,2
+            a = self.buffer[0]
+            b = self.buffer[1]
+            self.buffer[0] = self.buffer[6]
+            self.buffer[1] = self.buffer[7]
+            self.buffer[6] = a
+            self.buffer[7] = b
+
+            a = self.buffer[2]
+            b = self.buffer[3]
+            self.buffer[2] = self.buffer[4]
+            self.buffer[3] = self.buffer[5]
+            self.buffer[4] = a
+            self.buffer[5] = b
+
+            # Rotate segments for each msb/lsb
+            for i in range(0, 8, 2):
+                a = self.buffer[i] + (self.buffer[i+1] << 8)
+
+                b11 = a & 0x0800
+                b13 = a & 0x2000
+                a =  (a & 0x57FF) | (b11 << 2) | (b13 >> 2)
+
+                b = (a & 0b0000011100000111) << 3
+                c = (a & 0b0011100000111000) >> 3
+                d = (a & 0b0000000001000000) << 1
+                e = (a & 0b0000000010000000) >> 1
+
+                a &= 0b0100000000000000     # Decimal Point remains
+                a = (a | b | c | d | e)
+
+                b11 = a & 0x0800
+                b13 = a & 0x2000
+                a =  (a & 0x57FF) | (b11 << 2) | (b13 >> 2)
+
+                self.buffer[i] = a & 0xFF
+                self.buffer[i+1] = a >> 8
+
+        self._render()
 
     # *********** PRIVATE FUNCTIONS (DO NOT CALL) **********
 

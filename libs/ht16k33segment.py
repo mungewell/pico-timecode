@@ -30,7 +30,7 @@ class HT16K33Segment(HT16K33):
 
     # *********** CONSTRUCTOR **********
 
-    def __init__(self, i2c, i2c_address=0x70):
+    def __init__(self, i2c, i2c_address=0x70, do_enable_display=True):
         self.buffer = bytearray(16)
         self.is_rotated = False
 
@@ -38,7 +38,7 @@ class HT16K33Segment(HT16K33):
         self.use_uppercase = False
         self.charset = self.CHARSET
 
-        super(HT16K33Segment, self).__init__(i2c, i2c_address)
+        super(HT16K33Segment, self).__init__(i2c, i2c_address, do_enable_display)
 
     # *********** PUBLIC METHODS **********
 
@@ -214,9 +214,9 @@ class HT16K33Segment(HT16K33):
                 a &= 0xC0
                 self.buffer[self.POS[i]] = (a | b | c)
         self._render()
-    
+
     # *********** PRIVATE METHODS **********
-    
+
     def _set_case(self, is_upper):
         """
         Set the character set used to display alpha characters.
@@ -233,5 +233,3 @@ class HT16K33Segment(HT16K33):
             self.charset = self.CHARSET_UC if is_upper else self.CHARSET
             self.use_uppercase = is_upper
         return self
-
-    

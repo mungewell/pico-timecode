@@ -244,16 +244,16 @@ def slate_display_thread(init_mode=pt.RUN):
     slate_R = None
     slate_L = None
     try:
+        '''
         # Adafruit
         i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
         slate_R = HT16K33Segment(i2c, i2c_address=0x70)
         slate_L = HT16K33Segment(i2c, i2c_address=0x71)
         '''
         # ECBUYING
-        i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=2_500_000)
+        i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
         slate_R = HT16K33Segment14(i2c, i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
         slate_L = HT16K33Segment14(i2c, i2c_address=0x71, board=HT16K33Segment14.ECBUYING_054)
-        '''
     except OSError as e:
         if e.args[0] == 5: # Errno 5 is EIO
             print("One or more 7-seg/14-seg displays not found")
@@ -414,8 +414,8 @@ def slate_display_thread(init_mode=pt.RUN):
             slate_new_fps_df = slate_show_fps_df(slate_new_fps_df)
 
             if slate_HM:
-                slate_HM.set_blink_rate(-1)
-            slate_SF.set_blink_rate(-1)
+                slate_HM.set_blink_rate(2)
+            slate_SF.set_blink_rate(2)
             sleep(0.25)
 
             # change with A key

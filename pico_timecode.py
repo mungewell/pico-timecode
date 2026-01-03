@@ -1314,10 +1314,6 @@ if _hasUsbDevice:
 
 
         def send_long_mtc(self, raw):
-            global tx_raw
-            global debug
-            debug.on()
-
             # determine FPS encoding
             fps = eng.tc.fps
             if fps == 30.00:
@@ -1341,10 +1337,6 @@ if _hasUsbDevice:
 
 
         def send_quarter_mtc(self, raw):
-            global tx_raw
-            global debug
-            debug.toggle()
-
             # send directly as time critical
             w = self._tx.pend_write()
             if len(w) < 4:
@@ -1377,7 +1369,7 @@ if _hasUsbDevice:
                         w[2] = (((raw & 0x0F000000) >> 24) + 0x60)             # 0x6_ low hour
                     else:
                         w[2] = (((raw & 0x10000000) >> 28) + 0x70 +
-                                (self.mtc_fps << 1))                              # 0x7_ high hour + 'fps'
+                                (self.mtc_fps << 1))                           # 0x7_ high hour + 'fps'
 
             # finish assembling and send
             w[3] = 0
@@ -1550,10 +1542,6 @@ def mtc_display_callback(sm=None):
     global mtc
 
     if sm == SM_BLINK:
-        # Figure out what TX frame to display
-        disp.from_raw(tx_raw)
-        asc = disp.to_ascii()
-
         # MTC quarter packets
         if mtc:
             if mtc.is_open():
@@ -1567,6 +1555,10 @@ def mtc_display_callback(sm=None):
                 # reset, ready for being USB attached again
                 mtc.open_seen = 0
                 mtc.count = 0
+
+        # Figure out what TX frame to display
+        disp.from_raw(tx_raw)
+        asc = disp.to_ascii()
 
         if disp_asc != asc:
             # MTC long packet, first frame only

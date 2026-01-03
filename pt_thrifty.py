@@ -6,10 +6,10 @@
 # pt-Thrifty, the lowest cost timecode generator
 #
 # GP13 - User key 'A'
-# GP27 - 3.5mm Detect
+# GP27 - Detect from 3.5mm connector
 #
 # GP02 - Onboard LED
-# GP03 - Onboard LED2
+# GP03 - Onboard LED2 or Midi Qtr_Clock
 #
 # We'll allocate the following to the PIO blocks
 #
@@ -681,10 +681,6 @@ def thrifty_display_callback(sm=None):
     global disp, disp_asc
 
     if sm == pt.SM_BLINK:
-        # Figure out what TX frame to display
-        disp.from_raw(pt.tx_raw)
-        asc = disp.to_ascii()
-
         # MTC quarter packets
         if pt.mtc:
             if pt.mtc.is_open():
@@ -698,6 +694,10 @@ def thrifty_display_callback(sm=None):
                 # reset, ready for being USB attached again
                 pt.mtc.open_seen = 0
                 pt.mtc.count = 0
+
+        # Figure out what TX frame to display
+        disp.from_raw(pt.tx_raw)
+        asc = disp.to_ascii()
 
         if disp_asc != asc:
             # MTC long packet, first frame only

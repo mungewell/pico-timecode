@@ -207,14 +207,19 @@ def slate_show_fps_df(fps_df):
         d = 1 2 3 4 6 = 0x5e
         f = 0 4 5 6   = 0x71
         '''
+        extend_glyph = 0
+        if len(slate_SF.CHARSET) > 19:
+            # include segment '7' on ECBUYING 14-segment
+            extend_glyph = 0x80
+
         if slate_HM:
-            slate_SF.set_glyph(0x40, 0)
-            slate_SF.set_glyph(0x5e, 1)
-            slate_SF.set_glyph(0x71, 2)
+            slate_SF.set_glyph(0x40 + extend_glyph, 0)
+            slate_SF.set_glyph(0x5e + extend_glyph, 1)
+            slate_SF.set_glyph(0x71 + extend_glyph, 2)
         else:
             # overwrite last digits
-            slate_SF.set_glyph(0x5e, 2)
-            slate_SF.set_glyph(0x71, 3)
+            slate_SF.set_glyph(0x5e + extend_glyph, 2)
+            slate_SF.set_glyph(0x71 + extend_glyph, 3)
 
     if slate_HM:
         slate_HM.draw()
@@ -477,11 +482,16 @@ def slate_display_thread(init_mode=pt.RUN):
                 c = 3 4 6     = 0x58
                 '''
                 force_dp = False
+                extend_glyph = 0
+                if len(slate_SF.CHARSET) > 19:
+                    # include segment '7' on ECBUYING
+                    extend_glyph = 0x80
+
                 if slate_HM:
-                    slate_HM.set_glyph(0x6D, 0)
-                    slate_HM.set_glyph(0x6E, 1)
-                    slate_HM.set_glyph(0x54, 2)
-                    slate_HM.set_glyph(0x58, 3)
+                    slate_HM.set_glyph(0x6D + extend_glyph, 0)
+                    slate_HM.set_glyph(0x6E + extend_glyph, 1)
+                    slate_HM.set_glyph(0x54 + extend_glyph, 2)
+                    slate_HM.set_glyph(0x58 + extend_glyph, 3)
                     slate_HM.draw()
                 else:
                     # indicate Sync with all decimal points lit

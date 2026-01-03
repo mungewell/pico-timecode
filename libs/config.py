@@ -1,10 +1,10 @@
 setting = {
     'framerate' : ['30', ['30', '29.97', '25', '24', '23.98']],
     'dropframe' : ['No', ['No', 'Yes']],
-    'output'    : ['Line', ['Mic', 'Line']],
-    'flashframe': ['11', ['Off', '0', '11']],
+    'output'    : ['Mic', ['Mic', 'Line']],
+    'flashframe': ['0', ['Off', '0', '11']],
     'tc_start'  : "01000000",
-    'powersave' : ['Off', ['Off', 'Screen', 'Hardware']],
+    'powersave' : ['Off', ['Off', 'Screen']],
     'zoom'      : ['No', ['No', 'Yes']],
     'automon'   : ['No', ['No', 'Yes']],
     'calibrate' : ['No', ['No', 'Once', 'Always']],

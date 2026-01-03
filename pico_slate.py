@@ -130,6 +130,23 @@ def start_state_machines(mode=pt.RUN):
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
 #---------------------------------------------
+# Class to overload HT16K33Segment14
+# modify 'render' to double up characters for reduced flicker on ECBUYING display
+# https://github.com/smittytone/HT16K33-Python/issues/28
+
+class HT16K33Segment14_dbl(HT16K33Segment14):
+    def _render(self):
+        """
+        Write the display buffer out to I2C
+        """
+        buffer = bytearray(len(self.buffer) + 1)
+        buffer[1:] = self.buffer[:8]
+        buffer[9:] = self.buffer[:8]
+
+        buffer[0] = 0x00
+        self.i2c.writeto(self.address, bytes(buffer))
+
+#---------------------------------------------
 
 slate_current_fps_df = 0
 
@@ -245,15 +262,15 @@ def slate_display_thread(init_mode=pt.RUN):
     slate_L = None
     try:
         '''
-        # Adafruit
+        # Adafruit 7-segment
         i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
         slate_R = HT16K33Segment(i2c, i2c_address=0x70)
         slate_L = HT16K33Segment(i2c, i2c_address=0x71)
         '''
-        # ECBUYING
+        # ECBUYING 14-segment
         i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
-        slate_R = HT16K33Segment14(i2c, i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
-        slate_L = HT16K33Segment14(i2c, i2c_address=0x71, board=HT16K33Segment14.ECBUYING_054)
+        slate_R = HT16K33Segment14_dbl(i2c, i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
+        slate_L = HT16K33Segment14_dbl(i2c, i2c_address=0x71, board=HT16K33Segment14.ECBUYING_054)
     except OSError as e:
         if e.args[0] == 5: # Errno 5 is EIO
             print("One or more 7-seg/14-seg displays not found")

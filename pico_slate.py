@@ -371,7 +371,6 @@ def slate_display_thread(init_mode=pt.RUN):
             timerS.start()
 
         # Once clapper has closed and timer expired, enter powersave
-        '''
         if not slate_open and timerS.finished() and not powersave:
             if slate_HM:
                 slate_HM.power_off()
@@ -383,7 +382,6 @@ def slate_display_thread(init_mode=pt.RUN):
 
             pt.eng.set_powersave(True)
             powersave = True
-        '''
 
         # Display FPS on slate when clapper is first lifted
         if not slate_open and timerC.debounce_signal(keyC.value()==0):

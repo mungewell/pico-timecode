@@ -297,6 +297,15 @@ def tx_raw_value():
     in_(x, 32)                      # and then write back into FIFO
     wrap()
 
+# Purge the TX-FIFOs
+@rp2.asm_pio(autopull=True,
+             fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+
+def tx_fifo_purge():
+    wrap_target()
+    out(null, 1)
+    wrap()
+
 #-------------------------------------------------------
 # handler for IRQs
 
@@ -1025,6 +1034,8 @@ def pico_timecode_thread(eng, stop):
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
     eng.sm[SM_SYNC].put(0xCFFFFFF0)
 
+    send_sync = True        # send 1st packet with sync header
+
     # Set up Blink/LED timing
     # 1st LED on for 6 (~10ms) of 20 sub-divisions
     # plus 4 sub-divions of 'extra sync'
@@ -1056,8 +1067,6 @@ def pico_timecode_thread(eng, stop):
         # normally...
         BLINK_IRQ1 = (0b10101010101010101010101000 << 6) + 19
         BLINK_IRQ2 = 0b10101010101010101010101010101010
-
-    send_sync = True        # send 1st packet with sync header
 
     # Ensure Timecodes are using same fps/df settings
     eng.tc.acquire()
@@ -1172,7 +1181,7 @@ def pico_timecode_thread(eng, stop):
             for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[SM_BUFFER].put(w)
             eng.tc.release()
-            send_sync = (send_sync + 1) & 1
+            send_sync = not send_sync
 
             # Calculate next frame value
             eng.tc.next_frame()
@@ -1245,15 +1254,31 @@ def pico_timecode_thread(eng, stop):
                 eng.set_powersave(False)
             '''
 
-    # Stop all StateMachines
-    for m in range(len(eng.sm)):
-        eng.sm[m].active(0)
+    # Stop all StateMachines, disable IRQs and empty RX FIFOs
+    for m in eng.sm:
+        m.active(0)
+        m.irq(handler=None)
+        while m.rx_fifo():
+            m.get()
+
+    # Bug workaround - specify StateMachines implicitly
+    rp2.PIO(0).remove_program(auto_start)
+    rp2.PIO(0).remove_program(start_from_sync)
 
     rp2.PIO(0).remove_program()
     rp2.PIO(1).remove_program()
 
-    Pin(25, Pin.OUT, value=0)
-    Pin(26, Pin.OUT, value=0)
+    '''
+    # 'Purge' statemachines to ensure TX FIFOs are empty
+    for i in range(8):
+        sm = rp2.StateMachine(i, tx_fifo_purge, freq=1_000_000)
+        sm.active(1)
+        sleep(0.01)
+        sm.active(0)
+
+    rp2.PIO(0).remove_program()
+    rp2.PIO(1).remove_program()
+    '''
 
     eng.set_stopped(True)
 

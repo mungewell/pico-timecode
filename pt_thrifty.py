@@ -96,22 +96,24 @@ def start_state_machines(mode=pt.RUN):
 
     pt.eng.tc.set_fps_df(thrifty_available_fps_df[thrifty_current_fps][0],
                          thrifty_available_fps_df[thrifty_current_fps][1])
+
     pt.eng.sm = []
+    pt.eng.mode = mode
+
     sm_freq = int(pt.eng.tc.fps + 0.1) * 80 * 32
 
-    pt.eng.mode = mode
-    if mode > pt.RUN:
+    if pt.eng.mode > pt.MONITOR:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, freq=sm_freq,
                            in_base=Pin(21),
                            jmp_pin=Pin(21)))        # RX Decoding
     else:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.auto_start, freq=sm_freq,
-                           jmp_pin=Pin(21)))        # RX Decoding
+                           jmp_pin=Pin(21)))
 
     # TX State Machines
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq, freq=sm_freq,
-                           jmp_pin=Pin(3),
-                           out_base=Pin(2)))       # LED on GPIO2/3
+                           jmp_pin=Pin(3),          # Qtr_Clk on GPIO3
+                           out_base=Pin(2)))        # LED on GPIO2
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
 
@@ -144,7 +146,7 @@ def start_state_machines(mode=pt.RUN):
     # DEBUG: check the PIO code space/addresses
     for base in [0x50200000, 0x50300000]:
         for offset in [0x0d4, 0x0ec, 0x104, 0x11c]:
-            print("0x%8.8x : 0x%2.2x" % (base + offset, mem32[base + offset]))
+            print("0x%8.8x : 0x%8.8x = 0x%8.8x" % (base + offset, mem32[base + offset], mem32[base + offset + 4]))
     '''
 
     # correct clock dividers
@@ -236,7 +238,7 @@ def menu_run_logic():
         RGB[0] = (0, 0, 0)
         RGB.write()
 
-        # pins 9 & 10 : force muxing to use PIO block(s)
+        # pins 9 & 10 : force muxing to use PIO block (Enable LTC output)
         mem32[0x40014000 + 0x04c] = (mem32[0x40014000 + 0x04c] & 0xFFFFFFE0) + 0x6
         if not high_output_level:
             print("MIC level selected")
@@ -298,6 +300,8 @@ def menu_jam_logic():
     if menu.execute_once:
         #print("menu jam")
         thrifty_current_fps = thrifty_new_fps
+
+        # Enable Amp, LTC receive
         amp_cs.value(0)
 
         if pt.eng.is_running():
@@ -341,6 +345,8 @@ def menu_jam_logic():
         menu.force_transition_to(menu_complete_state)
 
 def menu_cancel_jam_logic():
+    global disp_asc
+
     if menu.execute_once:
         #print("menu cancel")
         RGB[0] = (0, 0, 0)
@@ -353,7 +359,10 @@ def menu_cancel_jam_logic():
                 sleep(0.1)
 
         print("JAM cancelled")
+
+        disp_asc = "--:--:--:--"
         start_state_machines(pt.RUN)
+
         timerC.start()
 
     menu.force_transition_to(menu_info_state)

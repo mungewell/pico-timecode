@@ -116,8 +116,9 @@ def start_from_sync():
     jmp(pin, "wait_for_low") [2]
     wrap()
 
-@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2,
-        autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+'''
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
+        fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def shift_led2():
     irq(block, 4)                   # Wait for sync'ed start
@@ -140,35 +141,71 @@ def shift_led2():
     jmp(y_dec, "delay") [30]        # 8 * 31 = 248 + 8 = 256 cycles
     jmp(x_not_y, "next")
     wrap()
+'''
 
 @rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
-             fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+        fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
-def shift_led_irq():
+def shift_led_irq_1x():
     irq(block, 4)                   # Wait for sync'ed start
                                     # ---
-    wrap_target()
-    out(x, 6)                       # nominally 20 per frame
-
+    wrap_target()                   # nominally 20 divisions per frame
+    out(x, 6)                       # sub-total 1 cycle
+                                    # ---
     label("next")
     out(pins, 2)                    # LEDs are bit-shifted pattern
-                                    # each loop should be 127 cycles
-                                    # representing each of the bytes in packet
-    jmp(pin, "skip_irq")
+                                    # each division should be ~128 cycles
+                                    # representing each of the bits in packet
+    jmp(pin, "skip_irq")            # sub-total 2 cycles
+                                    # ---
+    irq(rel(0)) [1]                 # set IRQ clocking quarter frame MTC data
+                                    # _extra_ cycles 1x per frame = 2cycles
+                                    # ---
+    label("skip_irq")
+    set(y, 3) [3]
+    jmp(x_dec, "delay")             # sub-total 5 cycles
+                                    # ---
+    pull() [25]                     # last division only, fall through
+    jmp(y_dec, "delay")             # sub-total 26 cycles
+                                    # ---
+    label("delay")
+    jmp(y_dec, "delay") [29]        # sub-total 30 cycles
+                                    # ---
+    jmp(x_not_y, "next")            # sub-total 1 cycle
+    wrap()                          # total 1 + 19(2+5+(4*30)+1) + (2+6+26+(3*30)+1) + 2
+                                    # total 1 + (19 * 128) + 125 + 2
+
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
+        fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+
+def shift_led_irq_4x():
+    irq(block, 4)                   # Wait for sync'ed start
+                                    # ---
+    wrap_target()                   # nominally 20 divisions per frame
+    out(x, 6)                       # sub-total 1 cycle
+                                    # ---
+    label("next")
+    out(pins, 2)                    # LEDs are bit-shifted pattern
+                                    # each division should be ~128 cycles
+                                    # representing each of the bits in packet
+    jmp(pin, "skip_irq")            # sub-total 2 cycles
+                                    # ---
     irq(rel(0)) [4]                 # set IRQ clocking quarter frame MTC data
                                     # _extra_ cycles 4x per frame = 20cycles
-
+                                    # ---
     label("skip_irq")
     set(y, 3) [2]
-    jmp(x_dec, "delay")
-
-    pull() [27]                     # last sub-frame only
-    jmp(y_dec, "delay")
-
+    jmp(x_dec, "delay")             # sub-total 4 cycles
+                                    # ---
+    pull() [27]                     # last division only, fall through
+    jmp(y_dec, "delay")             # sub-total 29 cycles
+                                    # ---
     label("delay")
-    jmp(y_dec, "delay") [29]        # 4 * 30 = 120 + 8 = 127 cycles
-    jmp(x_not_y, "next")
-    wrap()
+    jmp(y_dec, "delay") [29]        # sub-total 30 cycles
+                                    # ---
+    jmp(x_not_y, "next")            # sub-total 1 cycle
+    wrap()                          # total 1 + 19(2+4+(4*30)+1) + (2+4+29+(3*30)+1) + 20
+                                    # total 1 + (19 * 127) + 126 + 20 = 2560 cycles
 
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
 
@@ -257,7 +294,7 @@ def decode_dmc():
              autopull=True, autopush=True, in_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def sync_and_read():
-    out(y, 32)              # Read the expected sync word to Y
+    out(y, 32)              # Read the expected sync word to Y, once only
 
     wrap_target()
     label("find_sync")
@@ -294,12 +331,12 @@ def sync_and_read():
 def tx_raw_value():
     wrap_target()
     out(x, 32)                      # will 'block' waiting for TX timecode
-    in_(x, 32)                      # and then write back into FIFO
+    in_(x, 32)                      # and then write back into RX FIFO
     wrap()
 
 # Purge the TX-FIFOs
 @rp2.asm_pio(autopull=True,
-             fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+        fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def tx_fifo_purge():
     wrap_target()
@@ -1054,19 +1091,19 @@ def pico_timecode_thread(eng, stop):
     if _hasUsbDevice:
         # 4x IRQs per frame, long first frame
         eng.sm[SM_BLINK].put((0b101010011111111101_11111111 << 6) + 23)
-        eng.sm[SM_BLINK].put((0b10101010101010101000101010100010))
+        eng.sm[SM_BLINK].put( 0b101010101010_10101000101010100010)
 
         # normally...
         BLINK_IRQ1 = (0b10100010101010001010101000 << 6) + 19
-        BLINK_IRQ2 = 0b10101010101010101010101010001010
+        BLINK_IRQ2 =  0b10101010101010101010_101010001010
     else:
         # 1x IRQs per frame, long first frame
         eng.sm[SM_BLINK].put((0b101010111111111101_11111111 << 6) + 23)
-        eng.sm[SM_BLINK].put((0b10101010101010101010101010101010))
+        eng.sm[SM_BLINK].put( 0b101010101010_10101010101010101010)
 
         # normally...
         BLINK_IRQ1 = (0b10101010101010101010101000 << 6) + 19
-        BLINK_IRQ2 = 0b10101010101010101010101010101010
+        BLINK_IRQ2 =  0b10101010101010101010_101010101010
 
     # Ensure Timecodes are using same fps/df settings
     eng.tc.acquire()
@@ -1173,13 +1210,12 @@ def pico_timecode_thread(eng, stop):
                     # clone Userbit Clock flag
                     eng.tc.bgf1 = eng.rc.bgf1
 
-        # Wait for TX FIFO to be empty enough to accept more
-        #while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < (7 - send_sync):
-        while eng.mode <= MONITOR and eng.sm[SM_BUFFER].tx_fifo() < (7 - send_sync):
-            eng.sm[SM_TX_RAW].put(eng.tc.to_raw())
+        # Wait for TX FIFO to be empty enough to accept next packet
+        while eng.mode <= MONITOR and eng.sm[SM_BUFFER].tx_fifo() < (6 - send_sync):
+            eng.sm[SM_TX_RAW].put(eng.tc.to_raw())      # 1 word into FIFO
 
             for w in eng.tc.to_ltc_packet(send_sync, False):
-                eng.sm[SM_BUFFER].put(w)
+                eng.sm[SM_BUFFER].put(w)                # 2 or 3 words into FIFO
             eng.tc.release()
             send_sync = not send_sync
 
@@ -1216,7 +1252,7 @@ def pico_timecode_thread(eng, stop):
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
                     eng.sm[SM_BLINK].put(BLINK_IRQ1 | BLINK_LED)
-                    eng.sm[SM_BLINK].put(BLINK_IRQ2)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)    # 2 words into FIFO
                 else:
                     eng.sm[SM_BLINK].put(BLINK_IRQ1)
                     eng.sm[SM_BLINK].put(BLINK_IRQ2)
@@ -1477,9 +1513,15 @@ def ascii_display_thread(init_mode = RUN):
                            jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq, freq=sm_freq,
-                           jmp_pin=Pin(26),
-                           out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+    if _hasUsbDevice:
+        eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq_4x, freq=sm_freq,
+                               jmp_pin=Pin(26),
+                               out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+    else:
+        eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq_1x, freq=sm_freq,
+                               jmp_pin=Pin(26),
+                               out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+
     eng.sm.append(rp2.StateMachine(SM_BUFFER, buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
     eng.sm.append(rp2.StateMachine(SM_ENCODE, encode_dmc, freq=sm_freq,

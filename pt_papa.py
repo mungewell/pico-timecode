@@ -90,9 +90,15 @@ def add_more_state_machines():
     sm_freq = int(pt.eng.tc.fps * 80 * 32)
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq, freq=sm_freq,
-                               jmp_pin=Pin(27),
-                               out_base=Pin(26)))       # LED on GPIO26
+    if pt._hasUsbDevice:
+        pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq_4x, freq=sm_freq,
+                                   jmp_pin=Pin(27),
+                                   out_base=Pin(26)))       # LED on GPIO26
+    else:
+        pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq_1x, freq=sm_freq,
+                                   jmp_pin=Pin(27),
+                                   out_base=Pin(26)))       # LED on GPIO26
+
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                                out_base=Pin(22)))       # Output of 'raw' bitstream
     pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc, freq=sm_freq,

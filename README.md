@@ -4,7 +4,7 @@ and the PIO blocks on the Pico make it very possible...
 
 # Updates are in progress, PT-Thrifty is coming...
 
-Even lower cost that the original Pico based board, PT-Thrify is based around the WaveShare RP2050_Zero 
+Even lower cost that the original Pico based board, PT-Thrify is based around the WaveShare RP2040_Zero 
 board and has a minimal UI of just one button and one LED. More details [here](docs/PT-Thrifty.md).
 
 ![PT-Thrifty Render](docs/pics/PT_Thrifty_PCB.png)

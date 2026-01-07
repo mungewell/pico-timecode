@@ -37,6 +37,8 @@ tx_raw = 0
 rx_ticks = 0
 rx_ticks_us = 0
 tx_ticks_us = 0
+
+mtc = None
 quarters = 0
 
 core_dis = [0, 0]
@@ -62,6 +64,7 @@ irq_callbacks = [None]*8
 
 #---------------------------------------------
 
+# 'SM_START' State Machine
 @rp2.asm_pio(autopull=True, autopush=True)
 
 def auto_start():
@@ -89,6 +92,7 @@ def auto_start():
     wrap()
 
 
+# 'SM_START' State Machine
 @rp2.asm_pio(autopull=True, autopush=True)
 
 def start_from_sync():
@@ -116,33 +120,7 @@ def start_from_sync():
     jmp(pin, "wait_for_low") [2]
     wrap()
 
-'''
-@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
-        fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
-
-def shift_led2():
-    irq(block, 4)                   # Wait for sync'ed start
-                                    # ---
-    wrap_target()
-    irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
-    out(x, 6)
-
-    label("next")
-    out(pins, 2)                    # LEDs are bit-shifted pattern
-                                    # each loop should be 256 cycles
-                                    # representing each of the bytes in packet
-    set(y, 7) [4]
-    jmp(x_dec, "delay")
-
-    pull() [27]
-    jmp(y_dec, "delay")
-
-    label("delay")
-    jmp(y_dec, "delay") [30]        # 8 * 31 = 248 + 8 = 256 cycles
-    jmp(x_not_y, "next")
-    wrap()
-'''
-
+# 'SM_BLINK' State Machine
 @rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
         fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
@@ -175,6 +153,7 @@ def shift_led_irq_1x():
     wrap()                          # total 1 + 19(2+5+(4*30)+1) + (2+6+26+(3*30)+1) + 2
                                     # total 1 + (19 * 128) + 125 + 2
 
+# 'SM_BLINK' State Machine
 @rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
         fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
@@ -207,6 +186,7 @@ def shift_led_irq_4x():
     wrap()                          # total 1 + 19(2+4+(4*30)+1) + (2+4+29+(3*30)+1) + 20
                                     # total 1 + (19 * 127) + 126 + 20 = 2560 cycles
 
+# 'SM_ENCODE' State Machine
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
 
 def encode_dmc():
@@ -224,7 +204,7 @@ def encode_dmc():
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
     wrap()
 
-# 'how-to' example for differential output
+# 'SM_ENCODE' State Machine for differential output
 @rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH, rp2.PIO.OUT_LOW))
 
 def encode_dmc2():
@@ -242,7 +222,7 @@ def encode_dmc2():
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
     wrap()
 
-
+# 'SM_BUFFER' State Machine
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW, autopull=True,
              fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
@@ -259,7 +239,9 @@ def buffer_out():
     set(pins, 0)
     wrap()
 
+# ---
 
+# 'SM_DECODE' State Machine
 @rp2.asm_pio(set_init=(rp2.PIO.OUT_LOW,)*2)
 
 def decode_dmc():
@@ -290,6 +272,7 @@ def decode_dmc():
     wrap()
 
 
+# 'SM_SYNC' State Machine
 @rp2.asm_pio(set_init=rp2.PIO.OUT_LOW, out_init=rp2.PIO.OUT_LOW,
              autopull=True, autopush=True, in_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
@@ -326,6 +309,7 @@ def sync_and_read():
     in_(pins, 1)			# Read last bit
     wrap()
 
+# 'SM_TX_RAW' State Machine
 @rp2.asm_pio(autopull=True, autopush=True)
 
 def tx_raw_value():
@@ -1074,9 +1058,9 @@ def pico_timecode_thread(eng, stop):
     send_sync = True        # send 1st packet with sync header
 
     # Set up Blink/LED timing
-    # 1st LED on for 6 (~10ms) of 20 sub-divisions
+    # 1st LED on for 10 (~16ms) of 20 sub-divisions
     # plus 4 sub-divions of 'extra sync'
-    # needs to be '00000_00000_00001_11111__1111->'
+    # needs to be '00000_00000_11111_11111__1111->'
     #
     # 2nd LED out is used to trigger MTC quarter packets
     # plus 4 sub-divions of 'extra sync'
@@ -1086,11 +1070,11 @@ def pico_timecode_thread(eng, stop):
     # '10101001111111110111111101->'
     # '10101010101010101000101010100010'
 
-    BLINK_LED = 0b010101010101 << 6         # ~10ms flash
+    BLINK_LED = 0b01010101010101010101 << 6         # ~16ms flash
 
     if _hasUsbDevice:
         # 4x IRQs per frame, long first frame
-        eng.sm[SM_BLINK].put((0b101010011111111101_11111111 << 6) + 23)
+        eng.sm[SM_BLINK].put((0b101010001010101000_11111111 << 6) + 23)
         eng.sm[SM_BLINK].put( 0b101010101010_10101000101010100010)
 
         # normally...
@@ -1098,7 +1082,7 @@ def pico_timecode_thread(eng, stop):
         BLINK_IRQ2 =  0b10101010101010101010_101010001010
     else:
         # 1x IRQs per frame, long first frame
-        eng.sm[SM_BLINK].put((0b101010111111111101_11111111 << 6) + 23)
+        eng.sm[SM_BLINK].put((0b101010101010101000_11111111 << 6) + 23)
         eng.sm[SM_BLINK].put( 0b101010101010_10101010101010101010)
 
         # normally...
@@ -1223,32 +1207,6 @@ def pico_timecode_thread(eng, stop):
             eng.tc.next_frame()
 
             # Does the LED flash for the next frame?
-            # 1st LED on for 6 (~10ms) of 20 sub-divisions
-            # needs to be '00000_00000_00001_11111->'
-            #
-            # 2nd LED out is used to trigger MTC quarter packets
-            # needs to be '11110_11110_11110_11110->'
-            #
-            # combined for the 20 sub-divisions, split across 32words
-            # '10101010101010101010101010001010'
-            # '10100010101010011111111101->'
-            eng.tc.acquire()
-            '''
-            if eng.flashframe >= 0:
-                if eng.tc.ff == eng.flashframe:
-                    eng.sm[SM_BLINK].put((0b10100010101010011111111101 << 6) + 19)
-                    eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
-                else:
-                    eng.sm[SM_BLINK].put((0b10100010101010001010101000 << 6) + 19)
-                    eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
-            else:
-                if eng.tc.to_raw() == eng.flashtime:
-                    eng.sm[SM_BLINK].put((0b10100010101010011111111101 << 6) + 19)
-                    eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
-                else:
-                    eng.sm[SM_BLINK].put((0b10100010101010001010101000 << 6) + 19)
-                    eng.sm[SM_BLINK].put((0b10101010101010101010101010001010))
-            '''
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
                     eng.sm[SM_BLINK].put(BLINK_IRQ1 | BLINK_LED)
@@ -1263,7 +1221,6 @@ def pico_timecode_thread(eng, stop):
                 else:
                     eng.sm[SM_BLINK].put(BLINK_IRQ1)
                     eng.sm[SM_BLINK].put(BLINK_IRQ2)
-            eng.tc.release()
 
             # Complete start-up sequence
             if not startup_complete:
@@ -1297,7 +1254,7 @@ def pico_timecode_thread(eng, stop):
         while m.rx_fifo():
             m.get()
 
-    # Bug workaround - specify StateMachines implicitly
+    # Bug 18646 workaround - specify StateMachines implicitly by name
     rp2.PIO(0).remove_program(auto_start)
     rp2.PIO(0).remove_program(start_from_sync)
 
@@ -1327,8 +1284,6 @@ def pico_timecode_thread(eng, stop):
 #-------------------------------------------------------
 # MTC functions, depend on having the correct lib installed
 # 'mpremote mip install usb-device-midi'
-
-mtc = None
 
 if _hasUsbDevice:
     class MTC(MIDIInterface):

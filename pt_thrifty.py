@@ -434,14 +434,6 @@ def menu_cal_logic():
         RGB[0] = (127, 127, 127)
         RGB.write()
 
-    # store new value after we deem calibration is complete
-    # note: user can cancel calibration by removing 3.5mm
-    '''
-    if True:
-        thrifty_calibration = 1.0
-        menu.force_transition_to(menu_follow_state)
-    '''
-
 def menu_init():
     global menu, menu_info_state, menu_jam_state
     global menu_complete_state, menu_follow_state

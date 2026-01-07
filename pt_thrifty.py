@@ -46,7 +46,7 @@ import rp2
 import gc
 
 # Set up (extra) globals
-high_output_level = True
+high_output_level = 0       # MIC level
 
 thrifty_new_fps = 0
 thrifty_current_fps = 0
@@ -269,9 +269,9 @@ def menu_info_logic():
             RGB.write()
 
             if high_output_level:
-                sleep(0.1)
-            else:
                 sleep(0.3)
+            else:
+                sleep(0.1)
 
             RGB[0] = (0, 0, 0)
             RGB.write()

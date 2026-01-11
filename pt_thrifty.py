@@ -172,9 +172,6 @@ def start_state_machines(mode=pt.RUN):
 
 # ----------------------
 
-rgb = Pin(16,Pin.OUT)
-RGB = NeoPixel(rgb,3)
-
 # The (only) button
 keyA = Pin(12,Pin.IN,Pin.PULL_UP)
 timerA = Neotimer(50)
@@ -481,6 +478,13 @@ class Temperature:
 
         return(27-(volt-0.706)/0.001721)
 
+#---------------------------------------------
+# Class for 'V1083' NeoPixel
+# defines different R,G,B order
+
+class V1083_NeoPixel(NeoPixel):
+    ORDER = (0, 1, 2, 3)
+
 # ----------------------
 
 def thrifty_display_thread():
@@ -489,6 +493,7 @@ def thrifty_display_thread():
     global amp_cs, high_output_level
     global thrifty_calibration, calTimer
     global thrifty_current_fps
+    global rgb, RGB
 
     pt.eng = pt.engine()
     pt.eng.mode = pt.RUN
@@ -518,6 +523,21 @@ def thrifty_display_thread():
             config.set('setting', 'output', setting)
         except:
             pass
+
+    # Config the type of NeoPixel
+    # different RGB order seen on 'v1083' board
+    rgb = Pin(16,Pin.OUT)
+    v1083 = False
+    try:
+        if config.hwconfig['v1083'][0] == "Yes":
+            v1083 = True
+    except:
+        pass
+
+    if v1083:
+        RGB = V1083_NeoPixel(rgb,3)
+    else:
+        RGB = NeoPixel(rgb,3)
 
     # Load/set the flashframe from config
     try:

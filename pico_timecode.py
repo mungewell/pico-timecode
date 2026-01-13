@@ -27,7 +27,7 @@ _hasUsbDevice = False
 
 alloc_emergency_exception_buf(100)
 
-VERSION="v2.1+"
+VERSION="v3.0"
 
 # set up Globals
 eng = None

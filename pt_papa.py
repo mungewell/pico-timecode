@@ -90,25 +90,34 @@ def add_more_state_machines():
     sm_freq = int(pt.eng.tc.fps * 80 * 32)
 
     # TX State Machines
-    pt.eng.sm.append(rp2.StateMachine(1, pt.blink_led2, freq=sm_freq,
-                               set_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
-    pt.eng.sm.append(rp2.StateMachine(2, pt.buffer_out, freq=sm_freq,
+    if pt._hasUsbDevice:
+        pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq_4x, freq=sm_freq,
+                                   jmp_pin=Pin(27),
+                                   out_base=Pin(26)))       # LED on GPIO26
+    else:
+        pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq_1x, freq=sm_freq,
+                                   jmp_pin=Pin(27),
+                                   out_base=Pin(26)))       # LED on GPIO26
+
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                                out_base=Pin(22)))       # Output of 'raw' bitstream
-    pt.eng.sm.append(rp2.StateMachine(3, pt.encode_dmc, freq=sm_freq,
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc, freq=sm_freq,
                                jmp_pin=Pin(22),
                                in_base=Pin(13),         # same as pin as out
                                out_base=Pin(13)))       # Encoded LTC Output
 
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_TX_RAW, pt.tx_raw_value, freq=sm_freq))
+
     # RX State Machines
-    pt.eng.sm.append(rp2.StateMachine(4, pt.decode_dmc, freq=sm_freq,
-                               jmp_pin=Pin(18),         # LTC Input ...
-                               in_base=Pin(18),         # ... from 'other' device
-                               set_base=Pin(19)))       # Decoded LTC Input
-    pt.eng.sm.append(rp2.StateMachine(5, pt.sync_and_read, freq=sm_freq,
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_SYNC, pt.sync_and_read, freq=sm_freq,
                                jmp_pin=Pin(19),
                                in_base=Pin(19),
                                out_base=Pin(21),
                                set_base=Pin(21)))       # 'sync' from RX bitstream
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_DECODE, pt.decode_dmc, freq=sm_freq,
+                               jmp_pin=Pin(18),         # LTC Input ...
+                               in_base=Pin(18),         # ... from 'other' device
+                               set_base=Pin(19)))       # Decoded LTC Input
 
     # correct clock dividers
     pt.eng.config_clocks(pt.eng.tc.fps)
@@ -350,7 +359,9 @@ def callback_stop_start():
         menu_hidden = True
 
         pt.eng.sm = []
-        pt.eng.sm.append(rp2.StateMachine(0, pt.auto_start, freq=int(pt.eng.tc.fps * 80 * 32)))
+        pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.auto_start, \
+                            freq=int(pt.eng.tc.fps * 80 * 32), \
+                            jmp_pin=Pin(21)))        # RX Decoding
         add_more_state_machines()
 
         _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
@@ -395,8 +406,10 @@ def callback_jam():
 
     # Reconfigure PIOs
     pt.eng.sm = []
-    pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
-                               jmp_pin=Pin(21)))        # Sync from RX LTC
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, 
+                           freq=int(pt.eng.tc.fps * 80 * 32),
+                           in_base=Pin(21),
+                           jmp_pin=Pin(21)))        # Sync from RX LTC
     add_more_state_machines()
 
     pt.eng.mode = pt.JAM
@@ -692,16 +705,19 @@ def OLED_display_thread(mode=pt.RUN):
         )
 
     # Reduce the CPU clock, for better computation of PIO freqs
-    if freq() != 120000000:
-        freq(120000000)
+    if freq() != 180000000:
+        freq(180000000)
 
     # Allocate appropriate StateMachines, and their pins
     pt.eng.sm = []
+    sm_freq=int(pt.eng.tc.fps * 80 * 32)
     if pt.eng.mode > pt.MONITOR:
-        pt.eng.sm.append(rp2.StateMachine(0, pt.start_from_pin, freq=int(pt.eng.tc.fps * 80 * 32),
-                                   jmp_pin=Pin(21)))        # Sync from RX LTC
+        pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, freq=sm_freq,
+                           in_base=Pin(21),
+                           jmp_pin=Pin(21)))        # RX Decoding
     else:
-        pt.eng.sm.append(rp2.StateMachine(0, pt.auto_start, freq=int(pt.eng.tc.fps * 80 * 32)))
+        pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.auto_start, freq=sm_freq,
+                           jmp_pin=Pin(21)))        # RX Decoding
     add_more_state_machines()
 
     # Start up threads
@@ -864,50 +880,8 @@ def OLED_display_thread(mode=pt.RUN):
 
                             print("Powersave Exited")
 
-                # Attempt to align display with the TX timing
-                if pt.eng.mode == pt.RUN:
-                    t1 = pt.tx_ticks_us
-                    if tx_ticks == t1:
-                        # 5ms before next expected frame arrives we will stall
-                        # intently looking for the moment it happens...
-                        ticks = utime.ticks_us()
-                        d = cycle_us - utime.ticks_diff(ticks, t1)
-                        if d > -1000 and d < 5000:
-                            while d > -1000:
-                                ticks = utime.ticks_us()
-                                d = cycle_us - utime.ticks_diff(ticks, t1)
-                                if tx_ticks != pt.tx_ticks_us:
-                                    break
-                        else:
-                            if tx_loop == 0:
-                                # Force garbage collection at a time that's not busy
-                                gc.collect()
-                            tx_loop += 1
-                            utime.sleep(0.001)
-                            continue
-
-                # Figure out what TX frame to display
-                while True:
-                    t1 = pt.tx_ticks_us
-                    raw = pt.tx_raw
-                    t2 = pt.tx_ticks_us
-
-                    if t1==t2:
-                        disp.from_raw(raw)
-                        break
-
-                # Figure out what RX frame to display
-                if pt.eng.mode > pt.RUN:
-                    while True:
-                        r1 = pt.rx_ticks_us
-                        rf1 = pt.eng.sm[5].rx_fifo()
-                        g = pt.eng.rc.to_raw()
-                        rf2 = pt.eng.sm[5].rx_fifo()
-                        r2 = pt.rx_ticks_us
-
-                        t2 = pt.tx_ticks_us
-                        if r1==r2 and rf1==rf2:
-                            break
+                t1 = pt.tx_ticks_us
+                disp.from_raw(pt.tx_raw)
 
                 # Draw the main TC counter
                 # check which characters of the TC have changed
@@ -950,12 +924,8 @@ def OLED_display_thread(mode=pt.RUN):
 
                 if pt.eng.mode > pt.RUN:
                     # every code left in FIFO, means that we have outdated TC
-                    disp.from_raw(g)
-                    for i in range(int(rf1/2)):
-                        disp.next_frame()
+                    asc = pt.eng.rc.to_ascii()
 
-                    # Show RX Timecode
-                    asc = disp.to_ascii()
                     if rx_asc != asc:
                         if OLED:
                             OLED.text(asc,64,22,OLED.white,1,2)
@@ -976,33 +946,21 @@ def OLED_display_thread(mode=pt.RUN):
                     # and should increase 'duty' to slow down it's bit-clock
                     now = utime.time()
                     if pt.eng.mode == pt.MONITOR:
-                        d = utime.ticks_diff(r1, t2) / cycle_us
+                        d = (((4294967295 - pt.rx_ticks + 188) % 640) - 320) / 640
+                        phase.store(d, now)
 
-                        # RX is offset by ~2/3 bit
-                        d -= 2.0/ (3 * 80)
-
-                        # correct delta, if not adjacent frame
-                        if d > -2 and d <= 0:
-                            while d < -0.5:
-                                d += 1.0
-                        elif d < 2 and d >= 0:
-                            while d > 0.5:
-                                d -= 1.0
-
-                        # Rolling average
-                        if d >= -0.5 and d <= 0.5:
-                            phase.store(d, now)
-
-                        # Check if it's the first received frame
+                        # Pause for a bit, more if we're trying to calibrate
                         if monTimer == None:
+                            '''
                             if cal_after_jam > 0:
                                 # wait 1m
                                 monTimer = Neotimer(60000)
                                 monTimer.start()
                             else:
-                                # wait 1s
-                                monTimer = Neotimer(1000)
-                                monTimer.start()
+                            '''
+                            # wait 1s
+                            monTimer = Neotimer(1000)
+                            monTimer.start()
 
                         elif monTimer.finished():
                             if cal_after_jam > 0:
@@ -1010,6 +968,7 @@ def OLED_display_thread(mode=pt.RUN):
                                     pid.set_auto_mode(True, last_output=pt.eng.calval)
                                     monTimer = Neotimer(1000)
 
+                                ''' # disabled for new timer test
                                 # we'll start calibration with 1s period for 400s, then 
                                 # switch to specified period for more accurate calibration
                                 if cal_after_jam < 340:
@@ -1026,10 +985,19 @@ def OLED_display_thread(mode=pt.RUN):
                                       adj_avg.store_read(adjust), \
                                       pt.eng.tc.user_to_ascii(), \
                                       pid.components)
+                                '''
+                                adjust = pid(d)
+                                pt.eng.micro_adjust(adjust, period * 1000)
+                                print(disp.to_ascii(), d, phase.read(), pt.eng.calval, \
+                                      temp_avg.store_read(sensor.read()), \
+                                      adjust,
+                                      pt.eng.tc.user_to_ascii(), \
+                                      pid.components)
 
                                 # stop calibration after 10mins and save calculated value
                                 cal_after_jam += 1
                                 if cal_after_jam > 540:
+                                    ''' # shouldn't need to average anything
                                     new_cal_value = adj_avg.read()
                                     pt.eng.micro_adjust(new_cal_value, period * 1000)
 
@@ -1037,6 +1005,8 @@ def OLED_display_thread(mode=pt.RUN):
                                     phase.purge(now)
                                     adj_avg.purge(1)
                                     gc.collect()
+                                    ''' # just use actual value
+                                    new_cal_value = pid(phase.read())
 
                                     config.set('calibration', displayfps, new_cal_value)
                                     config.set('calibration', 'period', period)

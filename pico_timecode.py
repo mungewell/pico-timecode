@@ -8,9 +8,22 @@ import rp2
 
 from machine import Timer, Pin, mem32, disable_irq, enable_irq, freq, lightsleep
 from micropython import schedule, alloc_emergency_exception_buf
-from utime import sleep, ticks_us, ticks_diff
+from utime import sleep, ticks_us
 from gc import collect
 from os import uname
+
+# remember to do install lib to device
+# 'mpremote mip install usb-device-midi'
+try:
+    import usb.device
+    from usb.device.midi import MIDIInterface
+    _hasUsbDevice = True
+except ImportError:
+    _hasUsbDevice = False
+'''
+_hasUsbDevice = False
+'''
+
 
 alloc_emergency_exception_buf(100)
 
@@ -21,10 +34,12 @@ eng = None
 stop = False
 
 tx_raw = 0
-tx_offset = 0
-tx_ticks_us = 0
+rx_ticks = 0
 rx_ticks_us = 0
-sl_ticks_us = 0
+tx_ticks_us = 0
+
+mtc = None
+quarters = 0
 
 core_dis = [0, 0]
 
@@ -34,107 +49,144 @@ RUN     = 0
 MONITOR = 1
 JAM     = 64
 
+# Constants for StateMachines
+# PIO block 1
+SM_START    = 0
+SM_BLINK    = 1
+SM_BUFFER   = 2
+SM_ENCODE   = 3
+# PIO block 2
+SM_TX_RAW   = 4
+SM_SYNC     = 5
+SM_DECODE   = 6
+
+irq_callbacks = [None]*8
+
 #---------------------------------------------
 
+# 'SM_START' State Machine
 @rp2.asm_pio(autopull=True, autopush=True)
 
 def auto_start():
+    set(x, 0)
     nop()
     nop()
+    irq(clear, 4)                   # immediately trigger Sync
+                                    # --
+    label("wait_for_low")           # loop length 4 clocks
+    jmp(x_dec, "null1")
+    label("null1")
+    jmp(pin, "wait_for_low") [2]
+                                    # --
+    label("triggered")              # section length 4 clocks
+                                    # capture count when pin goes low
+    mov(isr, x)                     # mov X into ISR
+    push()
+    jmp(x_dec, "wait_for_high") [1]
+                                    # --
+    wrap_target()
+    label("wait_for_high")          # loop length 4 clocks
+    jmp(x_dec, "null2")
+    label("null2")
+    jmp(pin, "wait_for_low") [2]
+    wrap()
 
-    irq(clear, 4)                   # immediately Trigger Sync...
-    irq(rel(0))                     # set IRQ for sl_ticks_us monitoring
 
-    label("halt")
-    out(x, 32)                      # will 'block' waiting for TX timecode
-    in_(x, 32)                      # and then write back into FIFO
-    jmp("halt") [31]
-
-
+# 'SM_START' State Machine
 @rp2.asm_pio(autopull=True, autopush=True)
 
-def start_from_pin():
-    label("high")
-    jmp(pin, "high")                # Wait for pin to go low first...
+def start_from_sync():
+    set(x, 0)
+    wait(0, pin, 0)                 # Wait for pin to go low
+    wait(1, pin, 0)                 # Wait for pin to go high
 
-    wrap_target()
-    jmp(pin, "start")               # Check pin, jump if 1
-    wrap()
-
-    label("start")
     irq(clear, 4)                   # Trigger Sync
-    irq(rel(0))                     # set IRQ for sl_ticks_us monitoring
-
-    label("halt")
-    out(x, 32)                      # will 'block' waiting for TX timecode
-    in_(x, 32)                      # and then write back into FIFO
-    jmp("halt") [31]
-
-
-@rp2.asm_pio(set_init=rp2.PIO.OUT_HIGH, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
-
-def blink_led():
-    out(x, 16)                      # first cycle length may be slightly
-                                    # different so LED is exactly timed...
-    irq(block, 4)                   # Wait for sync'ed start
-
-    label("read_new")
+                                    # --
+    label("wait_for_low")           # loop length 4 clocks
+    jmp(x_dec, "null1")
+    label("null1")
+    jmp(pin, "wait_for_low") [2]
+                                    # --
+    label("triggered")              # section length 4 clocks
+                                    # capture count when pin goes low
+    mov(isr, x)                     # mov X into ISR
+    push()
+    jmp(x_dec, "wait_for_high") [1]
+                                    # --
     wrap_target()
-    irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
-    out(y, 16)                      # Read pulse duration from FIFO
-
-    jmp(not_y, "led_off")           # Do we turn LED on?
-    set(pins, 1)
-    jmp("cont")
-    label("led_off")
-    nop() [1]                       # this section 3 cycles
-
-    label("cont")
-    jmp(y_dec, "still_on")          # Does LED stay on?
-    set(pins, 0) [1]
-    jmp("cont2")
-    label("still_on")
-    nop() [2]                       # this section 4 cycles
-
-    label("cont2")
-    jmp(x_dec, "cont")              # Loop, so it is 80 * 32 =  2560 cycles
-                                    # X = 510 -> 2 + 3 + (510 * (4 +1)) + 5 cycles
-    out(x, 16) [4]
+    label("wait_for_high")          # loop length 4 clocks
+    jmp(x_dec, "null2")
+    label("null2")
+    jmp(pin, "wait_for_low") [2]
     wrap()
 
+# 'SM_BLINK' State Machine
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
+        fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
-@rp2.asm_pio(set_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
-
-def blink_led2():
-    out(x, 16)                      # first cycle length may be slightly
-                                    # different so LED is exactly timed...
+def shift_led_irq_1x():
     irq(block, 4)                   # Wait for sync'ed start
+                                    # ---
+    wrap_target()                   # nominally 20 divisions per frame
+    out(x, 6)                       # sub-total 1 cycle
+                                    # ---
+    label("next")
+    out(pins, 2)                    # LEDs are bit-shifted pattern
+                                    # each division should be ~128 cycles
+                                    # representing each of the bits in packet
+    jmp(pin, "skip_irq")            # sub-total 2 cycles
+                                    # ---
+    irq(rel(0)) [1]                 # set IRQ clocking quarter frame MTC data
+                                    # _extra_ cycles 1x per frame = 2cycles
+                                    # ---
+    label("skip_irq")
+    set(y, 3) [3]
+    jmp(x_dec, "delay")             # sub-total 5 cycles
+                                    # ---
+    pull() [25]                     # last division only, fall through
+    jmp(y_dec, "delay")             # sub-total 26 cycles
+                                    # ---
+    label("delay")
+    jmp(y_dec, "delay") [29]        # sub-total 30 cycles
+                                    # ---
+    jmp(x_not_y, "next")            # sub-total 1 cycle
+    wrap()                          # total 1 + 19(2+5+(4*30)+1) + (2+6+26+(3*30)+1) + 2
+                                    # total 1 + (19 * 128) + 125 + 2
 
-    label("read_new")
-    wrap_target()
-    irq(rel(0))                     # set IRQ for tx_ticks_us monitoring
-    out(y, 16)                      # Read pulse duration from FIFO
+# 'SM_BLINK' State Machine
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH,)*2, autopull=True,
+        fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
-    jmp(not_y, "led_off")           # Do we turn LED on?
-    set(pins, 0b11)
-    jmp("cont")
-    label("led_off")
-    nop() [1]                       # this section 3 cycles
+def shift_led_irq_4x():
+    irq(block, 4)                   # Wait for sync'ed start
+                                    # ---
+    wrap_target()                   # nominally 20 divisions per frame
+    out(x, 6)                       # sub-total 1 cycle
+                                    # ---
+    label("next")
+    out(pins, 2)                    # LEDs are bit-shifted pattern
+                                    # each division should be ~128 cycles
+                                    # representing each of the bits in packet
+    jmp(pin, "skip_irq")            # sub-total 2 cycles
+                                    # ---
+    irq(rel(0)) [4]                 # set IRQ clocking quarter frame MTC data
+                                    # _extra_ cycles 4x per frame = 20cycles
+                                    # ---
+    label("skip_irq")
+    set(y, 3) [2]
+    jmp(x_dec, "delay")             # sub-total 4 cycles
+                                    # ---
+    pull() [27]                     # last division only, fall through
+    jmp(y_dec, "delay")             # sub-total 29 cycles
+                                    # ---
+    label("delay")
+    jmp(y_dec, "delay") [29]        # sub-total 30 cycles
+                                    # ---
+    jmp(x_not_y, "next")            # sub-total 1 cycle
+    wrap()                          # total 1 + 19(2+4+(4*30)+1) + (2+4+29+(3*30)+1) + 20
+                                    # total 1 + (19 * 127) + 126 + 20 = 2560 cycles
 
-    label("cont")
-    jmp(y_dec, "still_on")          # Does LED stay on?
-    set(pins, 0) [1]
-    jmp("cont2")
-    label("still_on")
-    nop() [2]                       # this section 4 cycles
-
-    label("cont2")
-    jmp(x_dec, "cont")              # Loop, so it is 80 * 32 =  2560 cycles
-                                    # X = 510 -> 2 + 3 + (510 * (4 +1)) + 5 cycles
-    out(x, 16) [4]
-    wrap()
-
-
+# 'SM_ENCODE' State Machine
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
 
 def encode_dmc():
@@ -146,15 +198,14 @@ def encode_dmc():
 
     jmp(pin, "toggle-1")            # Check output of SM-1 buffer, jump if 1
 
-    nop() [14]                      # Wait out rest of cycle, "0"
-    jmp("toggle-0")
+    jmp("toggle-0") [15]
 
     label("toggle-1")
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
     wrap()
 
-
-@rp2.asm_pio(out_init=(rp2.PIO.OUT_LOW, rp2.PIO.OUT_HIGH))
+# 'SM_ENCODE' State Machine for differential output
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH, rp2.PIO.OUT_LOW))
 
 def encode_dmc2():
     irq(block, 4)                   # Wait for Sync'ed start
@@ -165,14 +216,13 @@ def encode_dmc2():
 
     jmp(pin, "toggle-1")            # Check output of SM-1 buffer, jump if 1
 
-    nop() [14]                      # Wait out rest of cycle, "0"
-    jmp("toggle-0")
+    jmp("toggle-0") [15]
 
     label("toggle-1")
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
     wrap()
 
-
+# 'SM_BUFFER' State Machine
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW, autopull=True,
              fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
@@ -189,14 +239,15 @@ def buffer_out():
     set(pins, 0)
     wrap()
 
+# ---
 
+# 'SM_DECODE' State Machine
 @rp2.asm_pio(set_init=(rp2.PIO.OUT_LOW,)*2)
 
 def decode_dmc():
     label("previously_low")
     wait(1, pin, 0)         # Line going high
-    irq(clear, 5)           # trigger sync engine, and wait til 3/4s mark
-    nop()[18]
+    irq(clear, 5) [19]      # trigger sync engine, and wait til 3/4s mark
 
     jmp(pin, "staying_high")
     set(pins, 3)            # Second transition detected (data is `1`)
@@ -210,8 +261,7 @@ def decode_dmc():
     wrap_target()
     label("previously_high")
     wait(0, pin, 0)         # Line going Low
-    irq(clear, 5)           # trigger sync engine, and wait til 3/4s mark
-    nop()[18]
+    irq(clear, 5) [19]      # trigger sync engine, and wait til 3/4s mark
 
     jmp(pin, "going_high")
     set(pins, 0)            # Line still low, no centre transition (data is `0`)
@@ -222,11 +272,12 @@ def decode_dmc():
     wrap()
 
 
-@rp2.asm_pio(set_init=rp2.PIO.OUT_HIGH, out_init=rp2.PIO.OUT_LOW,
+# 'SM_SYNC' State Machine
+@rp2.asm_pio(set_init=rp2.PIO.OUT_LOW, out_init=rp2.PIO.OUT_LOW,
              autopull=True, autopush=True, in_shiftdir=rp2.PIO.SHIFT_RIGHT)
 
 def sync_and_read():
-    out(y, 32)              # Read the expected sync word to Y
+    out(y, 32)              # Read the expected sync word to Y, once only
 
     wrap_target()
     label("find_sync")
@@ -258,34 +309,69 @@ def sync_and_read():
     in_(pins, 1)			# Read last bit
     wrap()
 
+# 'SM_TX_RAW' State Machine
+@rp2.asm_pio(autopull=True, autopush=True)
+
+def tx_raw_value():
+    wrap_target()
+    out(x, 32)                      # will 'block' waiting for TX timecode
+    in_(x, 32)                      # and then write back into RX FIFO
+    wrap()
+
+# Purge the TX-FIFOs
+@rp2.asm_pio(autopull=True,
+        fifo_join=rp2.PIO.JOIN_TX, out_shiftdir=rp2.PIO.SHIFT_RIGHT)
+
+def tx_fifo_purge():
+    wrap_target()
+    out(null, 1)
+    wrap()
 
 #-------------------------------------------------------
 # handler for IRQs
 
 def irq_handler(m):
     global eng, stop
-    global tx_raw, tx_ticks_us, rx_ticks_us, sl_ticks_us
+    global tx_raw, rx_ticks_us, tx_ticks_us
     global core_dis
+    global quarters, _hasUsbDevice
 
     core_dis[mem32[0xd0000000]] = disable_irq()
     ticks = ticks_us()
 
-    if m==eng.sm[0]:
-        sl_ticks_us = ticks
+    if m==eng.sm[SM_BLINK]:
+        if quarters==0 and eng.sm[SM_TX_RAW].rx_fifo():
+            # only read RX FIFO every 4th interrupt
+            tx_raw = eng.sm[SM_TX_RAW].get()
 
-    if m==eng.sm[1]:
-        if eng.sm[0].rx_fifo() > 0:
-            tx_raw = eng.sm[0].get()
+        if _hasUsbDevice:
+            quarters += 1
+            if quarters==4:
+                quarters = 0
 
         tx_ticks_us = ticks
 
-    if m==eng.sm[5]:
+    if m==eng.sm[SM_SYNC]:
         rx_ticks_us = ticks
 
-    if m==eng.sm[2]:
+    if m==eng.sm[SM_BUFFER]:
         # Buffer Underflow
         stop = 1
         eng.mode = HALTED
+
+    # check/schedule any registered callbacks
+    for i in range(len(eng.sm)):
+        if irq_callbacks[i] and m==eng.sm[i]:
+            schedule(irq_callbacks[i], i)
+            '''
+            # prevent "Uncaught exception in IRQ callback handler"
+            # which I believe is due to code overloading the CPU,
+            # but this will invalidate the actual timecode...
+            try:
+                schedule(irq_callbacks[i], i)
+            except:
+                pass
+            '''
 
     enable_irq(core_dis[mem32[0xd0000000]])
 
@@ -308,6 +394,7 @@ def timer_re_init(timer):
         else:
             eng.inc_divider()
 
+        eng.timer1.deinit()
         eng.timer1 = None
 
     if timer == eng.timer2:
@@ -317,6 +404,7 @@ def timer_re_init(timer):
             eng.timer1.deinit()
             eng.timer1 = None
 
+        eng.timer2.deinit()
         eng.timer2 = None
         eng.micro_adjust(eng.next_calval)
 
@@ -816,19 +904,22 @@ class engine(object):
         return self.powersave
 
     def config_clocks(self, fps, calval=0):
-        # divider computed for CPU clock at 120MHz
+        if calval == 0:
+            calval = self.calval
+
+        # optimal divider computed for CPU clock at 180MHz
         if fps == 30.00:
-            new_div = 0x061a8000
+            new_div = 0x0927c000
         elif fps == 29.97:
-            new_div = 0x061c1000
+            new_div = 0x092a1800
         elif fps == 25.00:
-            new_div = 0x07530000
+            new_div = 0x0afc8000
         elif fps == 24.98:
-            new_div = 0x0754e000
+            new_div = 0x0aff5000
         elif fps == 24.00:
-            new_div = 0x07a12000
+            new_div = 0x0b71b000
         elif fps == 23.98:
-            new_div = 0x07a31400
+            new_div = 0x0b749e00
         else:
             return
 
@@ -899,6 +990,15 @@ class engine(object):
 
     def micro_adjust(self, calval, period=0):
         if self.stopped:
+            if eng.timer1:
+                eng.timer1.deinit()
+                eng.timer1 = None
+            if eng.timer2:
+                eng.timer2.deinit()
+                eng.timer2 = None
+            if eng.timer3:
+                eng.timer3.deinit()
+                eng.timer3 = None
             return
 
         self.next_calval = calval
@@ -913,6 +1013,8 @@ class engine(object):
             self.config_clocks(self.tc.fps, calval)
 
             # re-init timers
+            if eng.timer2:
+                eng.timer2.deinit()
             self.timer2 = Timer()
             self.timer2.init(period=self.period, mode=Timer.ONE_SHOT, callback=timer_sched)
 
@@ -925,6 +1027,8 @@ class engine(object):
             # are we dithering between two clock values?
             part = int(self.period * (abs(calval) % 1))
             if part > 0:
+                if eng.timer1:
+                    eng.timer1.deinit()
                 self.timer1 = Timer()
                 self.timer1.init(period=self.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
 
@@ -937,36 +1041,75 @@ class engine(object):
 #-------------------------------------------------------
 
 def pico_timecode_thread(eng, stop):
-    global tx_raw
+    global tx_raw, rx_ticks
+    global quarters
+    global debug
 
     debug = Pin(28,Pin.OUT)
     debug.off()
 
     eng.set_stopped(False)
-
-    send_sync = True        # send 1st packet with sync
-    start_sent = False
+    quarters = 0
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
-    eng.sm[5].put(3489660912)
+    eng.sm[SM_SYNC].put(0xCFFFFFF0)
+
+    send_sync = True        # send 1st packet with sync header
 
     # Set up Blink/LED timing
-    eng.sm[1].put(612)          # 1st cycle includes 'extra sync' correction
-                                # (80 + 16) * 32 = 3072 cycles
+    # 1st LED on for 10 (~16ms) of 20 sub-divisions
+    # plus 4 sub-divions of 'extra sync'
+    # needs to be '00000_00000_11111_11111__1111->'
+    #
+    # 2nd LED out is used to trigger MTC quarter packets
+    # plus 4 sub-divions of 'extra sync'
+    # needs to be '11110_11110_11110_11110__1111->'
+    #
+    # combined for the 24 sub-divisions, split across 32words
+    # '10101001111111110111111101->'
+    # '10101010101010101000101010100010'
 
-    # Start the StateMachines (except Sync)
-    for m in range(1, len(eng.sm)):
-        eng.sm[m].active(1)
-        sleep(0.005)
+    BLINK_LED = 0b01010101010101010101 << 6         # ~16ms flash
 
+    if _hasUsbDevice:
+        # 4x IRQs per frame, long first frame
+        eng.sm[SM_BLINK].put((0b101010001010101000_11111111 << 6) + 23)
+        eng.sm[SM_BLINK].put( 0b101010101010_10101000101010100010)
+
+        # normally...
+        BLINK_IRQ1 = (0b10100010101010001010101000 << 6) + 19
+        BLINK_IRQ2 =  0b10101010101010101010_101010001010
+    else:
+        # 1x IRQs per frame, long first frame
+        eng.sm[SM_BLINK].put((0b101010101010101000_11111111 << 6) + 23)
+        eng.sm[SM_BLINK].put( 0b101010101010_10101010101010101010)
+
+        # normally...
+        BLINK_IRQ1 = (0b10101010101010101010101000 << 6) + 19
+        BLINK_IRQ2 =  0b10101010101010101010_101010101010
+
+    # Ensure Timecodes are using same fps/df settings
     eng.tc.acquire()
     fps = eng.tc.fps
     df = eng.tc.df
     eng.tc.release()
 
-    gc = timecode()
-    gc.set_fps_df(fps, df)
+    eng.rc.set_fps_df(fps, df)
+
+    scratch = timecode()
+    scratch.set_fps_df(fps, df)
+
+    # Start StateMachines (except 'SM_START')
+    startup_complete = False
+    for m in range(SM_BLINK, SM_TX_RAW + 1):
+        eng.sm[m].active(1)
+        sleep(0.005)
+
+    if eng.mode >= MONITOR:
+        eng.sm[SM_SYNC].active(1)
+        sleep(0.005)
+        eng.sm[SM_DECODE].active(1)
 
     # Fine adjustment of the PIO clocks to compensate for XTAL inaccuracies
     # -1 -> +1 : +ve = faster clock, -ve = slower clock
@@ -1002,20 +1145,23 @@ def pico_timecode_thread(eng, stop):
         CLOCKS_SLEEP_EN1 = None
 
 
-    # Loop, increasing frame counter each time
+    # Main Loop, service FIFOs and increasing counter
     while not stop():
-        # Empty RX FIFO as it fills
-        if eng.sm[5].rx_fifo() >= 2:
+        # Empty RX FIFOs as they fill
+        # wait for both to be available
+        while eng.sm[SM_SYNC].rx_fifo() >= 2:
+            if eng.sm[SM_START].rx_fifo():
+                rx_ticks = eng.sm[SM_START].get()
+
             p = []
             eng.rc.acquire()
-            p.append(eng.sm[5].get())
-            p.append(eng.sm[5].get())
-            if len(p) == 2:
-                eng.rc.from_ltc_packet(p, False)
+            p.append(eng.sm[SM_SYNC].get())
+            p.append(eng.sm[SM_SYNC].get())
+            eng.rc.from_ltc_packet(p, False)
 
             if eng.mode > MONITOR:
                 # should perform some basic validation:
-                g = gc.to_raw()
+                s = scratch.to_raw()
                 r = eng.rc.to_raw()
                 fail = False
 
@@ -1024,13 +1170,13 @@ def pico_timecode_thread(eng, stop):
                     fail = True
 
                 # check packets are counting correctly
-                if g!=0:
-                    if g!=r:
+                if s!=0:
+                    if s!=r:
                         fail = True
 
                 if r!=0:
-                    gc.from_raw(r)
-                    gc.next_frame()
+                    scratch.from_raw(r)
+                    scratch.next_frame()
                 else:
                     fail = True
 
@@ -1041,45 +1187,49 @@ def pico_timecode_thread(eng, stop):
 
                 if eng.mode == MONITOR:
                     # Jam to 'next' RX timecode
-                    g = eng.rc.to_raw()
-                    eng.tc.from_raw(g)
+                    s = eng.rc.to_raw()
+                    eng.tc.from_raw(s)
                     eng.tc.next_frame(2)
 
                     # clone Userbit Clock flag
                     eng.tc.bgf1 = eng.rc.bgf1
 
-        # Wait for TX FIFO to be empty enough to accept more
-        while eng.mode <= MONITOR and eng.sm[2].tx_fifo() < (7 - send_sync):
-            if eng.sm[0].tx_fifo() < 3:
-                eng.sm[0].put(eng.tc.to_raw())
+        # Wait for TX FIFO to be empty enough to accept next packet
+        while eng.mode <= MONITOR and eng.sm[SM_BUFFER].tx_fifo() < (6 - send_sync):
+            eng.sm[SM_TX_RAW].put(eng.tc.to_raw())      # 1 word into FIFO
+
             for w in eng.tc.to_ltc_packet(send_sync, False):
-                eng.sm[2].put(w)
+                eng.sm[SM_BUFFER].put(w)                # 2 or 3 words into FIFO
             eng.tc.release()
-            send_sync = (send_sync + 1) & 1
+            send_sync = not send_sync
 
             # Calculate next frame value
             eng.tc.next_frame()
 
             # Does the LED flash for the next frame?
-            eng.tc.acquire()
             if eng.flashframe >= 0:
                 if eng.tc.ff == eng.flashframe:
-                    eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
+                    eng.sm[SM_BLINK].put(BLINK_IRQ1 | BLINK_LED)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)    # 2 words into FIFO
                 else:
-                    eng.sm[1].put(509)              # '509' is complete cycle length
+                    eng.sm[SM_BLINK].put(BLINK_IRQ1)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)
             else:
                 if eng.tc.to_raw() == eng.flashtime:
-                    eng.sm[1].put((210 << 16)+ 509) # '209' duration of flash
+                    eng.sm[SM_BLINK].put(BLINK_IRQ1 | BLINK_LED)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)
                 else:
-                    eng.sm[1].put(509)              # '509' is complete cycle length
-            eng.tc.release()
+                    eng.sm[SM_BLINK].put(BLINK_IRQ1)
+                    eng.sm[SM_BLINK].put(BLINK_IRQ2)
 
-            if not start_sent:
-                # enable 'Start' machine last, so others can synchronise to it
-                eng.sm[0].active(1)
-                start_sent = True
+            # Complete start-up sequence
+            if not startup_complete:
+                # enable 'Start' machine last, so it can synchronise others...
+                eng.sm[SM_START].active(1)
+                startup_complete = True
 
-        if eng.powersave and eng.sm[2].tx_fifo() > 5:
+
+        if eng.powersave and eng.sm[SM_BUFFER].tx_fifo() > 5:
             # requires special build microPython with ability to control CLKs
             # lightsleep for longer than a frame is possible, with FIFOs, but
             # may cause IRQs to merged and thus corrupt reporting.
@@ -1092,30 +1242,205 @@ def pico_timecode_thread(eng, stop):
             debug.off()
 
             '''
-            # DEMO - automatically exit when TC is 30s
+            # DEMO - automatically exit powersave when TC is 30s
             if (eng.tc.to_raw() & 0x00003F00) == 0x000001E00:
                 eng.set_powersave(False)
             '''
 
-    # Stop the StateMachines
-    for m in range(len(eng.sm)):
-        eng.sm[m].active(0)
+    # Stop all StateMachines, disable IRQs and empty RX FIFOs
+    for m in eng.sm:
+        m.active(0)
+        m.irq(handler=None)
+        while m.rx_fifo():
+            m.get()
+
+    # Bug 18646 workaround - specify StateMachines implicitly by name
+    rp2.PIO(0).remove_program(auto_start)
+    rp2.PIO(0).remove_program(start_from_sync)
 
     rp2.PIO(0).remove_program()
     rp2.PIO(1).remove_program()
 
-    Pin(25, Pin.OUT, value=0)
-    Pin(26, Pin.OUT, value=0)
+    '''
+    # 'Purge' statemachines to ensure TX FIFOs are empty
+    for i in range(8):
+        sm = rp2.StateMachine(i, tx_fifo_purge, freq=1_000_000)
+        sm.active(1)
+        sleep(0.01)
+        sm.active(0)
+
+    rp2.PIO(0).remove_program()
+    rp2.PIO(1).remove_program()
+    '''
 
     eng.set_stopped(True)
 
+    # Ensure timers are cleared
+    eng.micro_adjust(eng.calval)
+
+    # Force Garbage collection
+    collect()
+
+#-------------------------------------------------------
+# MTC functions, depend on having the correct lib installed
+# 'mpremote mip install usb-device-midi'
+
+if _hasUsbDevice:
+    class MTC(MIDIInterface):
+        count = 0
+        open_seen = 0
+        mtc_fps = 0
+
+        def init(self):
+            usb.device.get().init(mtc,
+                      manufacturer_str="Pico-Timecode",
+                      product_str=eng.tc.user_to_ascii(),
+                      builtin_driver=True)
+
+        def send_sysex(self, p):
+            # start of SysEx packet
+            if len(p) > 3:
+                w = self._tx.pend_write()
+                if len(w) < 4:
+                    return False  # TX buffer is full. TODO: block here?
+
+                w[0] = 0x4  # _CIN_SYSEX_START
+                w[1] = p[0]
+                w[2] = p[1]
+                w[3] = p[2]
+                self._tx.finish_write(4)
+                self._tx_xfer()
+
+                p = p[3:]
+
+            '''
+            # add some checks/code for really short packets???
+            # _CIN_SYSEX_END_3BYTE
+            # _CIN_SYSEX_END_2BYTE
+            '''
+
+            # play out til end
+            while p:
+                if len(p) > 2:
+                    w = self._tx.pend_write()
+                    if len(w) < 4:
+                        return False  # TX buffer is full. TODO: block here?
+
+                    w[0] = 0x7  # _CIN_SYSEX_END_3BYTE
+                    w[1] = p[0]
+                    w[2] = p[1]
+                    w[3] = p[2]
+                    self._tx.finish_write(4)
+                    self._tx_xfer()
+
+                    p = p[3:]
+                elif len(p) > 1:
+                    w = self._tx.pend_write()
+                    if len(w) < 4:
+                        return False  # TX buffer is full. TODO: block here?
+
+                    w[0] = 0x6  # _CIN_SYSEX_END_2BYTE
+                    w[1] = p[0]
+                    w[2] = p[1]
+                    w[3] = 0
+                    self._tx.finish_write(4)
+                    self._tx_xfer()
+
+                    p = p[2:]
+                else:
+                    w = self._tx.pend_write()
+                    if len(w) < 4:
+                        return False  # TX buffer is full. TODO: block here?
+
+                    w[0] = 0x5  # _CIN_SYSEX_END_1BYTE
+                    w[1] = p[0]
+                    w[2] = 0
+                    w[3] = 0
+                    self._tx.finish_write(4)
+                    self._tx_xfer()
+
+                    p = p[1:]
+
+            return True
+
+
+        def send_long_mtc(self, raw):
+            # determine FPS encoding
+            fps = eng.tc.fps
+            if fps == 30.00:
+                self.mtc_fps = 0b11
+            elif fps == 29.97:
+                self.mtc_fps = 0b10
+            elif fps == 25.00:
+                self.mtc_fps = 0b01
+            else:   # 24.00
+                self.mtc_fps = 0b00
+
+            p = bytearray(b"\xF0\x7F\x7F\x01\x01")
+            p.append(((raw & 0x1F000000) >> 24) +
+                     (self.mtc_fps << 5))                          # hour + 'fps'
+            p.append(( raw & 0x003F0000) >> 16)                    # minutes
+            p.append(( raw & 0x00003F00) >> 8)                     # seconds
+            p.append(  raw & 0x0000003F)                           # frames
+            p.append(0xF7)
+
+            return self.send_sysex(p)
+
+
+        def send_quarter_mtc(self, raw):
+            # send directly as time critical
+            w = self._tx.pend_write()
+            if len(w) < 4:
+                return False  # TX buffer is full. TODO: block here?
+
+            # assemble packet
+            w[0] = 0x6 # _CIN_SYSEX_END_2BYTE
+            w[1] = 0xF1
+
+            # figure the right packet to send
+            if not self.count & 0x4:
+                if not self.count & 0x2:
+                    if not self.count & 0x1:
+                        w[2] = (raw & 0x0000000F)                              # 0x0_ low frame
+                    else:
+                        w[2] = (((raw & 0x00000010) >> 4) + 0x10)              # 0x1_ high frame
+                else:
+                    if not self.count & 0x1:
+                        w[2] = (((raw & 0x00000F00) >> 8) + 0x20)              # 0x2_ low second
+                    else:
+                        w[2] = (((raw & 0x00003000) >> 12) + 0x30)             # 0x3_ high second
+            else:
+                if not self.count & 0x2:
+                    if not self.count & 0x1:
+                        w[2] = (((raw & 0x000F0000) >> 16) + 0x40)             # 0x4_ low minute
+                    else:
+                        w[2] = (((raw & 0x00300000) >> 20) + 0x50)             # 0x5_ high minute
+                else:
+                    if not self.count & 0x1:
+                        w[2] = (((raw & 0x0F000000) >> 24) + 0x60)             # 0x6_ low hour
+                    else:
+                        w[2] = (((raw & 0x10000000) >> 28) + 0x70 +
+                                (self.mtc_fps << 1))                           # 0x7_ high hour + 'fps'
+
+            # finish assembling and send
+            w[3] = 0
+            self._tx.finish_write(4)
+            self._tx_xfer()
+
+            self.count += 1
+            return True
+
 #-------------------------------------------------------
 
-def ascii_display_thread(mode = RUN):
+def ascii_display_thread(init_mode = RUN):
     global eng, stop
+    global tx_raw, rx_ticks
+    global irq_callbacks
+    global disp, disp_asc
+    global mtc
 
     eng = engine()
-    eng.mode = mode
+    eng.mode = init_mode
     eng.set_stopped(True)
 
     # alternatively, automatically Jam if booted with 'B' pressed
@@ -1124,49 +1449,68 @@ def ascii_display_thread(mode = RUN):
     if keyB.value() == 0:
         eng.mode = JAM
 
-    # Reduce the CPU clock, for better computation of PIO freqs
-    if freq() != 120000000:
-        freq(120000000)
+    # set the CPU clock, for better computation of PIO freqs
+    if freq() != 180000000:
+        freq(180000000)
 
     # Allocate appropriate StateMachines, and their pins
     eng.sm = []
-    sm_freq = int(eng.tc.fps * 80 * 32)
+    sm_freq = int(eng.tc.fps + 0.1) * 80 * 32
 
     # Note: we always want the 'sync' SM to be first in the list.
     if eng.mode > MONITOR:
         # We will only start after a trigger pin goes high
-        eng.sm.append(rp2.StateMachine(0, start_from_pin, freq=sm_freq,
+        eng.sm.append(rp2.StateMachine(SM_START, start_from_sync, freq=sm_freq,
+                           in_base=Pin(21),
                            jmp_pin=Pin(21)))        # RX Decoding
     else:
-        eng.sm.append(rp2.StateMachine(0, auto_start, freq=sm_freq))
+        eng.sm.append(rp2.StateMachine(SM_START, auto_start, freq=sm_freq,
+                           jmp_pin=Pin(21)))        # RX Decoding
 
     # TX State Machines
-    eng.sm.append(rp2.StateMachine(1, blink_led2, freq=sm_freq,
-                           set_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
-    eng.sm.append(rp2.StateMachine(2, buffer_out, freq=sm_freq,
+    if _hasUsbDevice:
+        eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq_4x, freq=sm_freq,
+                               jmp_pin=Pin(26),
+                               out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+    else:
+        eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq_1x, freq=sm_freq,
+                               jmp_pin=Pin(26),
+                               out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+
+    eng.sm.append(rp2.StateMachine(SM_BUFFER, buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
-    eng.sm.append(rp2.StateMachine(3, encode_dmc, freq=sm_freq,
+    eng.sm.append(rp2.StateMachine(SM_ENCODE, encode_dmc, freq=sm_freq,
                            jmp_pin=Pin(22),
                            in_base=Pin(13),         # same as pin as out
                            out_base=Pin(13)))       # Encoded LTC Output
 
-    # RX State Machines - note DEMO Mode
-    if eng.mode > MONITOR:
-        eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=Pin(18),
-                           in_base=Pin(18),
-                           set_base=Pin(19)))       # Decoded LTC Input
-    else:
-        eng.sm.append(rp2.StateMachine(4, decode_dmc, freq=sm_freq,
-                           jmp_pin=Pin(13),         # DEMO MODE - read from self/tx
-                           in_base=Pin(13),         # for real operation change 13 -> 18
-                           set_base=Pin(19)))       # Decoded LTC Input
+    eng.sm.append(rp2.StateMachine(SM_TX_RAW, tx_raw_value, freq=sm_freq))
 
-    eng.sm.append(rp2.StateMachine(5, sync_and_read, freq=sm_freq,
+    # RX State Machines - note DEMO Mode
+    eng.sm.append(rp2.StateMachine(SM_SYNC, sync_and_read, freq=sm_freq,
                            jmp_pin=Pin(19),
                            in_base=Pin(19),
                            out_base=Pin(21),
                            set_base=Pin(21)))       # 'sync' from RX bitstream
+
+    if eng.mode > MONITOR:
+        eng.sm.append(rp2.StateMachine(SM_DECODE, decode_dmc, freq=sm_freq,
+                           jmp_pin=Pin(18),
+                           in_base=Pin(18),
+                           set_base=Pin(19)))       # Decoded LTC Input
+    else:
+        eng.sm.append(rp2.StateMachine(SM_DECODE, decode_dmc, freq=sm_freq,
+                           jmp_pin=Pin(13),         # DEMO MODE - read from self/tx
+                           in_base=Pin(13),         # for real operation change 13 -> 18
+                           set_base=Pin(19)))       # Decoded LTC Input
+
+
+    '''
+    # DEBUG: check the PIO code space/addresses
+    for base in [0x50200000, 0x50300000]:
+        for offset in [0x0d4, 0x0ec, 0x104, 0x11c]:
+            print("0x%8.8x : 0x%2.2x" % (base + offset, mem32[base + offset]))
+    '''
 
     # correct clock dividers
     eng.config_clocks(eng.tc.fps)
@@ -1175,69 +1519,66 @@ def ascii_display_thread(mode = RUN):
     for m in eng.sm:
         m.irq(handler=irq_handler, hard=True)
 
+    if _hasUsbDevice:
+        # set up MTC engine
+        mtc = MTC()
+        mtc.init()
+
     # Start up threads
     stop = False
     _thread.start_new_thread(pico_timecode_thread, (eng, lambda: stop))
 
     disp = timecode()
     disp.set_fps_df(eng.tc.fps, eng.tc.df)
-    cycle_us = (1000000.0 / disp.fps)
 
-    disp_asc="--:--:--:--"
-    disp_ticks = 0
-    disp_loop = 0
+    disp_asc = "--:--:--:--"
+
+    # register callbacks, functions to display TX data ASAP
+    irq_callbacks[SM_BLINK] = mtc_display_callback
 
     while True:
+        sleep(0.01)
+
+        if eng.mode == HALTED:
+            eng.set_powersave(False)
+            print("Underflow Error")
+            break
+
         if eng.mode > RUN:
             if eng.mode > MONITOR:
                 print("Jamming:", eng.mode)
-            else:
-                # Fall back to RUN if we previously initiated JAM
-                if mode == JAM:
-                    eng.mode = RUN
+                sleep(0.01)
 
-            print("RX:", eng.rc.to_ascii())
-            sleep(0.1)
-
-        if eng.mode == RUN:
-            t1 = tx_ticks_us
-            if disp_ticks == t1:
-                # 5ms before next expected frame arrives we will stall
-                # intently looking for the moment it happens...
-                d = cycle_us - ticks_diff(ticks_us(), t1)
-                if d > -1000 and d < 5000:
-                    while d > -1000:
-                        d = cycle_us - ticks_diff(ticks_us(), t1)
-                        if disp_ticks != tx_ticks_us:
-                            break
-                else:
-                    if disp_loop == 0:
-                        # Force garbage collection at a time that's not busy
-                        collect()
-                    disp_loop += 1
-                    sleep(0.001)
-                    continue
-
-            # Figure out what TX frame to display
-            while True:
-                t1 = tx_ticks_us
-                raw = tx_raw
-                t2 = tx_ticks_us
-
-                if t1==t2:
-                    disp.from_raw(raw)
-                    break
-
-            asc = disp.to_ascii()
+            # Async - display RX whenever we notice value has changed
+            asc = eng.rc.to_ascii()
             if disp_asc != asc:
-                print(asc)
-                disp_asc = asc
-                disp_ticks = t1
-                disp_loop = 0
+                phase = ((4294967295 - rx_ticks + 188) % 640) - 320
+                if phase < -32:
+                    # RX is ahead/earlier than TX
+                    phases = ((" "*10) + ":" + ("+"*int(abs(phase/32))) + (" "*10)) [:21]
+                elif phase > 32:
+                    # RX is behind/later than TX
+                    phases = ((" "*10) + ("-"*int(abs(phase/32))) + ":" + (" "*10)) [-21:]
+                else:
+                    phases = "          :          "
 
-            '''
-            # DEMO - Enable Power-Save every minute, at 10s on TC
+                print("RX: %s (%4d %21s)" % (asc, phase, phases))
+                disp_asc = asc
+
+            # Fall back to 'RUN' mode (outputing TX value) after 'JAM'
+            # unless we initially requested 'MONITOR'
+            # note: you can force JAM by holding key-B whilst booting
+            if eng.mode == MONITOR and init_mode != MONITOR:
+                eng.mode = RUN
+
+
+        '''
+        # DEMO - Enter Power-Save every minute, at 10s on TX
+        # note: Timecode generator is still running, but
+        #       USB coms may be interrupted (you can use UART)
+        if eng.mode == RUN:
             if (eng.tc.to_raw() & 0x00003F00) == 0x00000A00:
+                irq_callbacks[SM_BLINK] = None
                 print("Entering powersave")
                 sleep(0.1)
 
@@ -1247,18 +1588,54 @@ def ascii_display_thread(mode = RUN):
                     sleep(0.1)
 
                 print("Exited powersave")
-            '''
+                irq_callbacks[SM_BLINK] = mtc_display_callback
+        '''
 
-        if eng.mode == HALTED:
-            eng.set_powersave(False)
-            print("Underflow Error")
-            break
+def mtc_display_callback(sm=None):
+    global eng
+    global tx_raw
+    global disp, disp_asc
+    global debug
+    global mtc
+
+    if sm == SM_BLINK:
+        # MTC quarter packets
+        if mtc:
+            if mtc.is_open():
+                # sync to 0th quarter (inc has happened)
+                if quarters==1 and mtc.open_seen==1:
+                    mtc.open_seen=2
+
+                if mtc.open_seen==2:
+                    mtc.send_quarter_mtc(tx_raw)
+            else:
+                # reset, ready for being USB attached again
+                mtc.open_seen = 0
+                mtc.count = 0
+
+        # Figure out what TX frame to display
+        disp.from_raw(tx_raw)
+        asc = disp.to_ascii()
+
+        if disp_asc != asc:
+            # MTC long packet, first frame only
+            if mtc and mtc.is_open():
+                if not mtc.open_seen:
+                    mtc.send_long_mtc(tx_raw)          # 'seek' to position
+                    mtc.open_seen = 1
+
+            disp_asc = asc
+            if eng.mode == RUN:
+                print("TX: %s" % asc)
+
 
 #---------------------------------------------
 
 if __name__ == "__main__":
     print("Pico-Timecode " + VERSION)
     print("www.github.com/mungewell/pico-timecode")
+    if _hasUsbDevice:
+        print("MTC enabled (will loose USB-UART connection)")
     sleep(2)
 
     ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

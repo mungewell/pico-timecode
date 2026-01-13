@@ -17,7 +17,7 @@ def find_ideal(fps):
     for i in range(len(optimal)):
         if optimal[i][0] == fps:
             ideal = optimal[i][1]
-            print("Ideal divider %f (at %f fps)" % (ideal,fps))
+            print("Ideal divider  : %f (at %f fps)" % (ideal,fps))
             break
 
     return ideal
@@ -34,8 +34,8 @@ def find_freq(cal, ideal):
         cdiv = ideal + (abs(int(cal)/256) * (1-frac)) + (abs(int(cal-1)/256) * frac)
         cfreq = xtal * cdiv / ideal
 
-    print("Calculated divider", cdiv)
-    print("Calculated XTAL freq", cfreq)
+    print("Calc divider   :", cdiv)
+    print("Calc XTAL freq :", cfreq)
 
     return cfreq
 
@@ -52,6 +52,7 @@ for i in range(len(optimal)):
         else:
             setting = config.calibration[str(optimal[i][0])]
 
+        print("Calibration    :", setting)
         ideal = find_ideal(optimal[i][0])
         if ideal:
             freqs.append(find_freq(float(setting), ideal))

@@ -123,14 +123,13 @@ def start_state_machines(mode=pt.RUN):
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
 
-    if high_output_level:
-        tx2.value(0)
-        pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc, freq=sm_freq,
-                           jmp_pin=Pin(22),
-                           in_base=Pin(9),         # same as pin as out
-                           out_base=Pin(9)))       # Encoded LTC Output
-    else:
-        pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc2, freq=sm_freq,
+    # always run differential outs (MIC level)
+    # outs can be static, and not interfer with incoming/RX LTC for jam'ing
+    # force pins 9 & 10 to mux to GPIO, muxing will be changed later
+    mem32[0x40014000 + 0x04c] = (mem32[0x40014000 + 0x04c] & 0xFFFFFFE0) + 0x5
+    mem32[0x40014000 + 0x054] = (mem32[0x40014000 + 0x054] & 0xFFFFFFE0) + 0x5
+
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc2, freq=sm_freq,
                            jmp_pin=Pin(22),
                            in_base=Pin(9),         # same as pin as out
                            out_base=Pin(9)))       # Encoded LTC Output
@@ -187,9 +186,9 @@ timerD = Neotimer(50)
 amp_cs = Pin(13,Pin.OUT)
 amp_cs.value(1)
 
-# force TX outputs low
+# force TX outputs differential high/low
 tx1 = Pin(9,Pin.OUT)
-tx1.value(0)
+tx1.value(1)
 tx2 = Pin(10,Pin.OUT)
 tx2.value(0)
 
@@ -241,11 +240,16 @@ def menu_run_logic():
         RGB[0] = (0, 0, 0)
         RGB.write()
 
-        # pins 9 & 10 : force muxing to use PIO block (Enable LTC output)
+        # force pins 9 & 10 to mux to PIO
         mem32[0x40014000 + 0x04c] = (mem32[0x40014000 + 0x04c] & 0xFFFFFFE0) + 0x6
-        if not high_output_level:
+        mem32[0x40014000 + 0x054] = (mem32[0x40014000 + 0x054] & 0xFFFFFFE0) + 0x6
+        if high_output_level:
+            # pin 10 : force muxing to use GPIO block (ie force low)
+            mem32[0x40014000 + 0x054] = (mem32[0x40014000 + 0x054] & 0xFFFFFFE0) + 0x5
+
+            print("HIGH level selected")
+        else:
             print("MIC level selected")
-            mem32[0x40014000 + 0x054] = (mem32[0x40014000 + 0x054] & 0xFFFFFFE0) + 0x6
 
         # turn of RX amp
         amp_cs.value(1)
@@ -329,10 +333,6 @@ def menu_jam_logic():
         disp_asc = "--:--:--:--"
         start_state_machines(pt.JAM)
 
-        # pins 9 & 10 : force muxing to GPIO (disable LTC output)
-        mem32[0x40014000 + 0x04c] = (mem32[0x40014000 + 0x04c] & 0xFFFFFFE0) + 0x5
-        mem32[0x40014000 + 0x054] = (mem32[0x40014000 + 0x054] & 0xFFFFFFE0) + 0x5
-
         timerC.start()
 
     # ~1/2sec ticks to flash LED
@@ -387,6 +387,7 @@ def menu_follow_logic():
 
     if menu.execute_once:
         #print("menu follow")
+
         calTimer = None
 
     # ~1/2sec ticks

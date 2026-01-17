@@ -41,6 +41,12 @@ def find_freq(cal, ideal):
 
 #------------------------
 
+# Check ID
+try:
+    print("Unit 'ub_name' :", config.userbits['ub_name'])
+except:
+    pass
+
 # loop through all available calibrations, printing out details
 freqs = []
 for i in range(len(optimal)):

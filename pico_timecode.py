@@ -394,31 +394,52 @@ def timer_re_init(timer):
         else:
             eng.inc_divider()
 
-        eng.timer1.deinit()
-        eng.timer1 = None
-
     if timer == eng.timer2:
-        if eng.timer1:
-            # timer1 should completed first
-            print("!!!")
-            eng.timer1.deinit()
-            eng.timer1 = None
-
+        eng.timer1.deinit()
         eng.timer2.deinit()
-        eng.timer2 = None
-        eng.micro_adjust(eng.next_calval)
+
+        eng.calval = eng.next_calval
+        eng.config_clocks(eng.tc.fps, eng.calval)
+
+        # are we dithering between two clock values?
+        part = int(eng.period * (abs(eng.calval) % 1))
+
+        if part == 0:
+            # timers are no longer needed
+            eng.timer1 = None
+            eng.timer2 = None
+            return
+
+        # safety timer - triggers 2s after timer2, if timer2 fails
+        if eng.timer3:
+            eng.timer3.deinit()
+        else:
+            eng.timer3 = Timer()
+
+        try:
+            eng.timer3.init(period=eng.period + 2000, mode=Timer.ONE_SHOT, callback=timer_sched)
+            eng.timer2.init(period=eng.period,        mode=Timer.ONE_SHOT, callback=timer_sched)
+            eng.timer1.init(period=eng.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
+        except:
+            # restart whole timer system
+            timer = eng.timer3
 
     if timer == eng.timer3:
         # This should NEVER occur, it means previous timers were missed.
-        print("!!!!!")
+        print("!!!!")
         if eng.timer1:
             eng.timer1.deinit()
         if eng.timer2:
             eng.timer2.deinit()
 
+        eng.timer3.deinit()
+
+        # restart whole timer system
         eng.timer1 = None
         eng.timer2 = None
-        eng.micro_adjust(eng.next_calval)
+        eng.timer3 = None
+
+        schedule(eng.micro_adjust, eng.next_calval)
 
 #---------------------------------------------
 
@@ -1009,28 +1030,15 @@ class engine(object):
         if self.timer1 == None and self.timer2 == None:
             self.calval = calval
 
-            # re-init clock dividers
-            self.config_clocks(self.tc.fps, calval)
+            # Force Garbage collection
+            collect()
 
-            # re-init timers
-            if eng.timer2:
-                eng.timer2.deinit()
+            # create timers
+            self.timer1 = Timer()
             self.timer2 = Timer()
-            self.timer2.init(period=self.period, mode=Timer.ONE_SHOT, callback=timer_sched)
 
-            # safety timer - triggers 2s after timer2, if timer2 fails
-            if eng.timer3:
-                eng.timer3.deinit()
-            self.timer3 = Timer()
-            self.timer3.init(period=self.period + 2000, mode=Timer.ONE_SHOT, callback=timer_sched)
-
-            # are we dithering between two clock values?
-            part = int(self.period * (abs(calval) % 1))
-            if part > 0:
-                if eng.timer1:
-                    eng.timer1.deinit()
-                self.timer1 = Timer()
-                self.timer1.init(period=self.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
+            # trigger re-init, as if timer2 had completed
+            timer_re_init(self.timer2)
 
 
     def set_flashtime(self, ft):

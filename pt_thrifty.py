@@ -40,6 +40,7 @@ import pico_timecode as pt
 from machine import Pin,freq,reset,mem32, ADC
 from utime import sleep, ticks_ms
 from neopixel import NeoPixel
+from os import uname
 import _thread
 import utime
 import rp2
@@ -62,6 +63,11 @@ thrifty_available_fps_df = [
         [23.98,  False,  (128, 0, 128), 0b00],      # Cyan
         ]
 
+# Pico2 uses different addressing
+if uname().machine[23:] == 'RP2040':
+    IO_BANK0_BASE = 0x40014000
+else:
+    IO_BANK0_BASE = 0x40028000
 # ----------------------
 
 def start_state_machines(mode=pt.RUN):
@@ -126,8 +132,8 @@ def start_state_machines(mode=pt.RUN):
     # always run differential outs (MIC level)
     # outs can be static, and not interfer with incoming/RX LTC for jam'ing
     # force pins 9 & 10 to mux to GPIO, muxing will be changed later
-    mem32[0x40014000 + 0x04c] = (mem32[0x40014000 + 0x04c] & 0xFFFFFFE0) + 0x5
-    mem32[0x40014000 + 0x054] = (mem32[0x40014000 + 0x054] & 0xFFFFFFE0) + 0x5
+    mem32[IO_BANK0_BASE + 0x04c] = (mem32[IO_BANK0_BASE + 0x04c] & 0xFFFFFFE0) + 0x5
+    mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x5
 
     pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc2, freq=sm_freq,
                            jmp_pin=Pin(22),
@@ -241,11 +247,11 @@ def menu_run_logic():
         RGB.write()
 
         # force pins 9 & 10 to mux to PIO
-        mem32[0x40014000 + 0x04c] = (mem32[0x40014000 + 0x04c] & 0xFFFFFFE0) + 0x6
-        mem32[0x40014000 + 0x054] = (mem32[0x40014000 + 0x054] & 0xFFFFFFE0) + 0x6
+        mem32[IO_BANK0_BASE + 0x04c] = (mem32[IO_BANK0_BASE + 0x04c] & 0xFFFFFFE0) + 0x6
+        mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x6
         if high_output_level:
             # pin 10 : force muxing to use GPIO block (ie force low)
-            mem32[0x40014000 + 0x054] = (mem32[0x40014000 + 0x054] & 0xFFFFFFE0) + 0x5
+            mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x5
 
             print("HIGH level selected")
         else:

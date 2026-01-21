@@ -425,7 +425,7 @@ def timer_re_init(timer):
         '''
         except:
             # restart whole timer system
-            timer = eng.timer3
+            timer = timer3
         '''
         tlock.release()
 
@@ -435,9 +435,9 @@ def timer_re_init(timer):
 
         # restart whole timer system
         tlock.acquire()
-        eng.timer1.deinit()
-        eng.timer2.deinit()
-        eng.timer3.deinit()
+        timer1.deinit()
+        timer2.deinit()
+        timer3.deinit()
         tlock.release()
 
         eng.timers = False
@@ -1019,7 +1019,7 @@ class engine(object):
 
         if not self.timers:
             self.calval = calval
-            self.timers = False
+            self.timers = True
 
             # Force Garbage collection
             #print("Available memory (bytes):", mem_free())

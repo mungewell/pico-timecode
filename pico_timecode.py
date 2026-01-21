@@ -62,6 +62,11 @@ SM_DECODE   = 6
 
 irq_callbacks = [None]*8
 
+timer1 = Timer()
+timer2 = Timer()
+timer3 = Timer()
+tlock = _thread.allocate_lock()
+
 #---------------------------------------------
 
 # 'SM_START' State Machine
@@ -380,78 +385,62 @@ def timer_sched(timer):
     schedule(timer_re_init, timer)
 
 def timer_re_init(timer):
+    global timer1, timer2, timer3, tlock
     global eng
 
-    if timer == None:
-        return
-
-    # do not re-init if we are stopping/stopped
-    if eng.is_running() == False:
+    # do not re-init if engine is stopped
+    if eng.is_stopped():
         return
 
     # timer1 means we are dithering between two values
-    if timer == eng.timer1:
+    if timer == timer1:
         if eng.calval > 0:
             eng.dec_divider()
         else:
             eng.inc_divider()
         return
 
-    if timer == eng.timer2:
+    if timer == timer2:
         eng.calval = eng.next_calval
         eng.config_clocks(eng.tc.fps, eng.calval)
 
         # are we dithering between two clock values?
         part = int(eng.period * (abs(eng.calval) % 1))
 
-        eng.dlock.acquire()
-        eng.timer1.deinit()
-        eng.timer2.deinit()
+        tlock.acquire()
+        timer1.deinit()
+        timer2.deinit()
+        timer3.deinit()
 
         if part == 0:
             # timers are no longer needed
-            eng.timer1 = None
-            eng.timer2 = None
-            if eng.timer3:
-                eng.timer3.deinit()
-                eng.timer3 = None
-            eng.dlock.release()
+            eng.timers = False
+            tlock.release()
             return
 
-        # safety timer - triggers 2s after timer2, if timer2 fails
-        if eng.timer3:
-            eng.timer3.deinit()
-        else:
-            eng.timer3 = Timer()
-
         if True: #try:
-            eng.timer3.init(period=eng.period + 2000, mode=Timer.ONE_SHOT, callback=timer_sched)
-            eng.timer2.init(period=eng.period,        mode=Timer.ONE_SHOT, callback=timer_sched)
-            eng.timer1.init(period=eng.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
+            timer3.init(period=eng.period + 2000, mode=Timer.ONE_SHOT, callback=timer_sched)
+            timer2.init(period=eng.period,        mode=Timer.ONE_SHOT, callback=timer_sched)
+            timer1.init(period=eng.period - part, mode=Timer.ONE_SHOT, callback=timer_sched)
         '''
         except:
             # restart whole timer system
             timer = eng.timer3
         '''
-        eng.dlock.release()
+        tlock.release()
 
-    if timer == eng.timer3:
+    if timer == timer3:
         # This should NEVER occur, it means previous timers were missed.
         print("!!!!")
-        eng.dlock.acquire()
-        if eng.timer1:
-            eng.timer1.deinit()
-        if eng.timer2:
-            eng.timer2.deinit()
-
-        eng.timer3.deinit()
 
         # restart whole timer system
-        eng.timer1 = None
-        eng.timer2 = None
-        eng.timer3 = None
-        eng.dlock.release()
+        tlock.acquire()
+        eng.timer1.deinit()
+        eng.timer2.deinit()
+        eng.timer3.deinit()
+        tlock.release()
 
+        eng.timers = False
         schedule(eng.micro_adjust, eng.next_calval)
 
 #---------------------------------------------
@@ -889,9 +878,7 @@ class engine(object):
         self.next_calval = 0
 
         self.period = 10000 # 10s, can be update by client
-        self.timer1 = None
-        self.timer2 = None
-        self.timer3 = None
+        self.timers = False
 
         # state of running (ie whether being used for output)
         self.stopped = True
@@ -912,18 +899,6 @@ class engine(object):
         if s:
             self.powersave = False
             self.tc.bgf1 = False
-
-            self.dlock.acquire()
-            if self.timer1:
-                self.timer1.deinit()
-                self.timer1 = None
-            if self.timer2:
-                self.timer2.deinit()
-                self.timer2 = None
-            if self.timer3:
-                self.timer3.deinit()
-                self.timer3 = None
-            self.dlock.release()
 
             stop = False
             self.asserted = False
@@ -1025,18 +1000,16 @@ class engine(object):
         self.dlock.release()
 
     def micro_adjust(self, calval, period=0):
+        global timer1, timer2, timer3, tlock
+
         if self.stopped:
-            self.dlock.acquire()
-            if self.timer1:
-                self.timer1.deinit()
-                self.timer1 = None
-            if self.timer2:
-                self.timer2.deinit()
-                self.timer2 = None
-            if self.timer3:
-                self.timer3.deinit()
-                self.timer3 = None
-            self.dlock.release()
+            tlock.acquire()
+            timer1.deinit()
+            timer2.deinit()
+            timer3.deinit()
+            tlock.release()
+
+            self.timers = False
             return
 
         self.next_calval = calval
@@ -1044,22 +1017,17 @@ class engine(object):
             # in ms, only change if specified
             self.period = period
 
-        if self.timer1 == None and self.timer2 == None:
+        if not self.timers:
             self.calval = calval
+            self.timers = False
 
             # Force Garbage collection
             #print("Available memory (bytes):", mem_free())
             collect()
             #print(mem_info())
 
-            # create timers
-            self.dlock.acquire()
-            self.timer1 = Timer()
-            self.timer2 = Timer()
-            self.dlock.release()
-
             # trigger re-init, as if timer2 had completed
-            timer_re_init(self.timer2)
+            timer_re_init(timer2)
 
 
     def set_flashtime(self, ft):
@@ -1507,8 +1475,8 @@ def ascii_display_thread(init_mode = RUN):
                                    out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
         else:
             eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq_1x, freq=sm_freq,
-                                   jmp_pin=Pin(3),
-                                   out_base=Pin(2)))       # LED on Pico board + GPIO26/27/28
+                                   jmp_pin=Pin(26),
+                                   out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
 
         eng.sm.append(rp2.StateMachine(SM_BUFFER, buffer_out, freq=sm_freq,
                                out_base=Pin(22)))       # Output of 'raw' bitstream
@@ -1578,6 +1546,9 @@ def ascii_display_thread(init_mode = RUN):
         # register callbacks, functions to display TX data ASAP
         irq_callbacks[SM_BLINK] = mtc_display_callback
 
+        # DEBUG: force calibration
+        #eng.micro_adjust(0.5, 1000)
+
         while True:
             sleep(0.01)
 
@@ -1641,8 +1612,8 @@ def ascii_display_thread(init_mode = RUN):
                     print("Stopping PT engine. Loop:", loop)
                     loop += 1
 
-                    #print("timer1", eng.timer1)
-                    #print("timer2", eng.timer2)
+                    #print("timer1", timer1)
+                    #print("timer2", timer2)
                     break
             '''
 

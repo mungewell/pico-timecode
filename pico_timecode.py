@@ -86,7 +86,7 @@ def auto_start():
     label("triggered")              # section length 4 clocks
                                     # capture count when pin goes low
     mov(isr, x)                     # mov X into ISR
-    push()
+    push(noblock)
     jmp(x_dec, "wait_for_high") [1]
                                     # --
     wrap_target()
@@ -115,7 +115,7 @@ def start_from_sync():
     label("triggered")              # section length 4 clocks
                                     # capture count when pin goes low
     mov(isr, x)                     # mov X into ISR
-    push()
+    push(noblock)
     jmp(x_dec, "wait_for_high") [1]
                                     # --
     wrap_target()
@@ -937,6 +937,9 @@ class engine(object):
         # apply divider offset, from calibration value
         new_div -= int(calval) << 8
 
+        self.write_divider(new_div)
+
+    def write_divider(self, new_div):
         # Set dividers for all PIO machines
         self.dlock.acquire()
         '''
@@ -957,47 +960,11 @@ class engine(object):
 
     def inc_divider(self):
         # increasing divider -> slower clock
-        self.dlock.acquire()
-        new_div = mem32[0x502000c8] + 0x0100
-
-        # Set dividers for all PIO machines
-        '''
-        for base in [0x50200000, 0x50300000]:
-            for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
-                mem32[base + offset] = (integer << 16) + (fraction << 8)
-        '''
-        mem32[0x502000c8] = new_div
-        mem32[0x502000e0] = new_div
-        mem32[0x502000f8] = new_div
-        mem32[0x50200110] = new_div
-        mem32[0x503000c8] = new_div
-        mem32[0x503000e0] = new_div
-        mem32[0x503000f8] = new_div
-        mem32[0x50300110] = new_div
-
-        self.dlock.release()
+        self.write_divider(mem32[0x502000c8] + 0x0100)
 
     def dec_divider(self):
         # decreasing divider -> faster clock
-        self.dlock.acquire()
-        new_div = mem32[0x502000c8] - 0x0100
-
-        # Set dividers for all PIO machines
-        '''
-        for base in [0x50200000, 0x50300000]:
-            for offset in [0x0c8, 0x0e0, 0x0f8, 0x110]:
-                machine.mem32[base + offset] = (integer << 16) + (fraction << 8)
-        '''
-        mem32[0x502000c8] = new_div
-        mem32[0x502000e0] = new_div
-        mem32[0x502000f8] = new_div
-        mem32[0x50200110] = new_div
-        mem32[0x503000c8] = new_div
-        mem32[0x503000e0] = new_div
-        mem32[0x503000f8] = new_div
-        mem32[0x50300110] = new_div
-
-        self.dlock.release()
+        self.write_divider(mem32[0x502000c8] - 0x0100)
 
     def micro_adjust(self, calval, period=0):
         global timer1, timer2, timer3, tlock
@@ -1050,7 +1017,8 @@ def pico_timecode_thread(eng, stop):
     
     # Pre-load 'SYNC' word into RX decoder - only needed once
     # needs to be bit doubled 0xBFFC -> 0xCFFFFFF0
-    eng.sm[SM_SYNC].put(0xCFFFFFF0)
+    if eng.mode >= MONITOR:
+        eng.sm[SM_SYNC].put(0xCFFFFFF0)
 
     send_sync = True        # send 1st packet with sync header
 
@@ -1113,7 +1081,7 @@ def pico_timecode_thread(eng, stop):
     eng.micro_adjust(eng.calval)
 
     # Defines used later in 'lightsleep()'
-    if uname().machine[23:] == 'RP2040':
+    if uname().machine[-6:] == 'RP2040':
         # RP2040
         CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00001000
         CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00002000

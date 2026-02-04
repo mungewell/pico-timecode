@@ -34,7 +34,7 @@ else: # rp2040
 ##### PIO PROGRAMS #####
 
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
-def pio_trigger_from_gpio():
+def pio_trigger_from_gpio_rising():
     wrap_target()
 
     label("wait_for_high")
@@ -48,6 +48,20 @@ def pio_trigger_from_gpio():
     label("wait_for_low")
     jmp(pin, "wait_for_low")
     jmp("wait_for_high")
+
+@rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
+def pio_trigger_from_gpio_falling():
+
+    label("wait_for_low")
+    jmp(pin, "wait_for_low")
+
+    label("pin_is_low")
+    push(noblock)
+    mov(pins, invert(pins))     # Toggle output pin to signal trigger has occured
+
+    wrap_target()
+    jmp(pin, "wait_for_low")
+    wrap()
 
 @rp2.asm_pio()
 def pio_relay():
@@ -172,6 +186,33 @@ class DMA_PIO_Timestamp64(DMA_PIO_Trigger):
             count = 4,
             ctrl = self.ctrl,
             trigger = trigger)
+
+def timestamp_delta(a, b):
+    # compute the difference between 64bit and 32bit timestamps
+    # as we can't be certain of 32-bit wraps, timestamps should be limited to ~1000s appart
+
+    aa = a & 0xFFFFFFFF
+    bb = b & 0xFFFFFFFF
+
+    ap = aa >> 30
+    bp = bb >> 30
+
+    print(aa, bb, ap, bp)
+    if ap == bp:
+        return aa - bb
+    elif (ap + 1) == bp:
+        return aa - bb
+    elif ap == (bp + 1):
+        return aa - bb
+    elif ap == 0 and bp == 3:
+        print("wrap a")
+        return aa + (1 << 32) - bb
+    elif ap == 3 and bp == 0:
+        print("wrap b")
+        return aa - bb - (1 << 32)
+
+    # if code gets here, we can't be certain of which was first
+    return 0
 
 #-------------------------------------------------------
 
@@ -404,13 +445,13 @@ if __name__ == "__main__":
     _thread.start_new_thread(gps_ltc_thread, (pt.eng, lambda: pt.stop))
 
     # timestamp PIOs allocated to 2nd PIO Block, run at CPU speed
-    sm.append(rp2.StateMachine(4, pio_trigger_from_gpio, freq=-1,
+    sm.append(rp2.StateMachine(4, pio_trigger_from_gpio_rising, freq=-1,
                                out_base=Pin(GPIO_TOGGLE),
                                in_base=Pin(GPIO_TOGGLE),
                                jmp_pin=Pin(GPIO_TRIGGER)))
     sm.append(rp2.StateMachine(5, pio_relay, freq=-1))
 
-    sm.append(rp2.StateMachine(6, pio_trigger_from_gpio, freq=-1,
+    sm.append(rp2.StateMachine(6, pio_trigger_from_gpio_rising, freq=-1,
                                out_base=Pin(5),
                                in_base=Pin(5),
                                jmp_pin=Pin(2)))

@@ -10,6 +10,7 @@ from utime import sleep
 from os import uname
 import rp2
 
+from libs.pid import *
 
 ##### CONFIGURATION DATA #####
 
@@ -197,7 +198,6 @@ def timestamp_delta(a, b):
     ap = aa >> 30
     bp = bb >> 30
 
-    print(aa, bb, ap, bp)
     if ap == bp:
         return aa - bb
     elif (ap + 1) == bp:
@@ -445,12 +445,14 @@ if __name__ == "__main__":
     _thread.start_new_thread(gps_ltc_thread, (pt.eng, lambda: pt.stop))
 
     # timestamp PIOs allocated to 2nd PIO Block, run at CPU speed
-    sm.append(rp2.StateMachine(4, pio_trigger_from_gpio_rising, freq=-1,
+    # GPS 1PPS
+    sm.append(rp2.StateMachine(4, pio_trigger_from_gpio_falling, freq=-1,
                                out_base=Pin(GPIO_TOGGLE),
                                in_base=Pin(GPIO_TOGGLE),
                                jmp_pin=Pin(GPIO_TRIGGER)))
     sm.append(rp2.StateMachine(5, pio_relay, freq=-1))
 
+    # LTC 1PPS
     sm.append(rp2.StateMachine(6, pio_trigger_from_gpio_rising, freq=-1,
                                out_base=Pin(5),
                                in_base=Pin(5),
@@ -478,6 +480,18 @@ if __name__ == "__main__":
     dma_trigger_a.config(sm[0], True)
     dma_trigger_b.config(sm[2], True)
 
+    # set-up PID gains and setpoint
+    # if possible have timestamps so that they don't compete to
+    # run DMA at exactly the same time. My GPS 1PPS is 5ms long.
+    pid = PID(0.02, 0.02, 0.55, setpoint=5000)
+    pid.sample_time = 1
+    pid.output_limits = (-512.0, 512.0)
+    pid.set_auto_mode(True, last_output=pt.eng.calval)
+
+    g = 0
+    l = 0
+    n = False
+
     while True:
         while sm[1].rx_fifo() > 3:
             # read out 4x 32bits, first and last are relevant.
@@ -486,10 +500,28 @@ if __name__ == "__main__":
                 a.append(sm[1].get())
                 #print("A 0x%8.8x" % a[-1])
             
+            '''
             print("Timestamp-GPS: 0x%16.16x %d" % ((a[3]<<32)|a[0], (a[3]<<32)|a[0]))
+            '''
+            g = (a[3]<<32)|a[0]
+            n = True
 
         while sm[3].rx_fifo():
-            # read out 4x 32bits, first and last are relevant.
-            b = sm[3].get()
+            # read out 1x 32bits
+            l = sm[3].get()
+            n = True
             
-            print("Timestamp-LTC:         0x%8.8x %d" % (b, b))
+            '''
+            print("Timestamp-LTC:         0x%8.8x %d" % (l, l))
+            '''
+
+        if n:
+            o = timestamp_delta(g, l)
+            n = False
+
+            # check if timestamps are close to each other
+            if o < 500_000 and o > -500_000:
+                print("Offset %d" % o, pid.components)
+
+                # apply update calibration
+                pt.eng.micro_adjust(pid(o), 1000)

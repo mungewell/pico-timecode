@@ -21,10 +21,10 @@ GPIO_TOGGLE = 7                 # Alternates every trigger
 #keyA = Pin(12,Pin.IN,Pin.PULL_UP)
 
 # setup GPS to output message(s)
-'''
 uart0 = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1), timeout=50)
 uart0.init(115200, bits=8, parity=None, stop=1)
 
+'''
 uart1 = UART(1, baudrate=115200, tx=Pin(4), rx=Pin(5), timeout=50)
 uart1.init(115200, bits=8, parity=None, stop=1)
 '''
@@ -76,6 +76,21 @@ def pio_relay():
     mov(isr, osr)[31]           # copy ISR to OSR
     push(block)[31]             # Push 32-bit from OSR to RX-FIFO
     
+    wrap()
+
+# combined 'SM_START' and 'SM_TX_RAW' State Machine
+
+@rp2.asm_pio()
+def start_from_sync_and_relay():
+    wait(0, pin, 0)                 # Wait for pin to go low
+    wait(1, pin, 0)                 # Wait for pin to go high
+
+    irq(clear, 4)                   # Trigger Sync
+                                    # --
+    wrap_target()
+    pull(block)[31]             # Pull 32-bit from TX-FIFO to ISR
+    mov(isr, osr)[31]           # copy ISR to OSR
+    push(block)[31]             # Push 32-bit from OSR to RX-FIFO
     wrap()
 
 #---------------------------------------------
@@ -276,7 +291,7 @@ def gps_ltc_thread(eng, stop):
     scratch = pt.timecode()
     scratch.set_fps_df(fps, df)
 
-    # Start StateMachines
+    # Start all StateMachines
     for m in eng.sm:
         m.active(1)
 
@@ -288,7 +303,8 @@ def gps_ltc_thread(eng, stop):
     while True: #not stop():
         # Wait for TX FIFO to be empty enough to accept next packet
         while eng.sm[pt.SM_BUFFER].tx_fifo() < (6 - send_sync):
-            #eng.sm[SM_TX_RAW].put(eng.tc.to_raw())      # 1 word into FIFO
+            if eng.sm[pt.SM_TX_RAW].tx_fifo() < 3:
+                eng.sm[pt.SM_TX_RAW].put(eng.tc.to_raw())      # 1 word into FIFO
 
             for w in eng.tc.to_ltc_packet(send_sync, False):
                 eng.sm[pt.SM_BUFFER].put(w)                # 2 or 3 words into FIFO
@@ -387,7 +403,10 @@ class gps_ltc_engine(pt.engine):
 
 #---------------------------------------------
 
-if __name__ == "__main__":
+def gps_display_thread():
+    global disp, disp_asc
+    global uart1
+
     # Set up the state machines to run at CPU speed
     freq(180_000_000)
     sm = []
@@ -403,8 +422,13 @@ if __name__ == "__main__":
     pt.eng.sm = []
     sm_freq = int(pt.eng.tc.fps + 0.1) * 80 * 32
 
+    # re-assign so IRQ handler can function...
+    pt.SM_TX_RAW = pt.SM_START
+    pt.SM_SYNC = pt.SM_START
+
     # Startup State Machine
-    pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, freq=sm_freq,
+    #pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, freq=sm_freq,
+    pt.eng.sm.append(rp2.StateMachine(pt.SM_START, start_from_sync_and_relay, freq=sm_freq,
                                in_base=Pin(GPIO_TRIGGER),
                                jmp_pin=Pin(GPIO_TRIGGER)))  # GPS 1PPS
 
@@ -431,13 +455,12 @@ if __name__ == "__main__":
     # correct clock dividers
     pt.eng.config_clocks(pt.eng.tc.fps)
 
-    # no interrupt for now...
     '''
     # set up IRQ handler
     for m in pt.eng.sm:
-        #m.irq(handler=pt.irq_handler, hard=True)
-        m.irq(handler=gps_ltc_irq_handler, hard=True)
+        m.irq(handler=pt.irq_handler, hard=True)
     '''
+    pt.eng.sm[pt.SM_BLINK].irq(handler=pt.irq_handler, hard=True)
 
     if pt._hasUsbDevice:
         # set up MTC engine
@@ -551,18 +574,26 @@ if __name__ == "__main__":
 
 
         if n and s == 0:
-            # check that we have GPS time (from UART) and start LTC with same
-            # for now assume that we read within one frame (ie 33ms) of PPS
+            # check that we have GPS time (from UART) and start LTC on next PPS
             t = toggle.value()
             if timestamp[t]:
                 pt.eng.tc.from_ascii(timestamp[t][:6] + b"00", False)
                 for i in range(30):
                     pt.eng.tc.next_frame()
 
-                print("Received", timestamp[t], "Next PPS", pt.eng.tc.to_ascii())
+                print("Received", timestamp[t], "from GPS")
+                print("starting next PPS", pt.eng.tc.to_ascii())
+
                 pt.stop = False
                 #_thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
                 _thread.start_new_thread(gps_ltc_thread, (pt.eng, lambda: pt.stop))
+
+                disp = pt.timecode()
+                disp.set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
+                disp_asc = "--:--:--:--"
+
+                # register callbacks, functions to display TX data ASAP
+                pt.irq_callbacks[pt.SM_BLINK] = gps_display_callback
 
                 s = 1
 
@@ -574,7 +605,33 @@ if __name__ == "__main__":
 
             # check if timestamps are close to each other
             if o < 500_000 and o > -500_000:
-                print("Offset %d" % o, pid.components)
+                print("Offset %d " % o, pid.components)
 
                 # apply update calibration
                 pt.eng.micro_adjust(pid(o), 1000)
+
+def gps_display_callback(sm=None):
+    global eng
+    global tx_raw
+    global disp, disp_asc
+    global uart0
+
+    if sm == pt.SM_BLINK:
+        # Figure out what TX frame to display
+        disp.from_raw(pt.tx_raw)
+        asc = disp.to_ascii()
+
+        if disp_asc != asc:
+            disp_asc = asc
+            if pt.eng.mode == pt.RUN:
+                #print("TX: %s" % asc)
+                uart0.write(asc)
+
+#-------------------------------------------------------
+
+if __name__ == "__main__":
+    print("Pico-Timecode " + pt.VERSION)
+    print("www.github.com/mungewell/pico-timecode")
+    sleep(2)
+
+    gps_display_thread()

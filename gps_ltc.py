@@ -21,9 +21,13 @@ GPIO_TOGGLE = 7                 # Alternates every trigger
 #keyA = Pin(12,Pin.IN,Pin.PULL_UP)
 
 # setup GPS to output message(s)
-#uart = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1), timeout=50)
-uart = UART(1, baudrate=115200, tx=Pin(4), rx=Pin(5), timeout=50)
-uart.init(115200, bits=8, parity=None, stop=1)
+'''
+uart0 = UART(0, baudrate=115200, tx=Pin(0), rx=Pin(1), timeout=50)
+uart0.init(115200, bits=8, parity=None, stop=1)
+
+uart1 = UART(1, baudrate=115200, tx=Pin(4), rx=Pin(5), timeout=50)
+uart1.init(115200, bits=8, parity=None, stop=1)
+'''
 
 print(uname().machine)
 if uname().machine[-6:] == 'RP2350':
@@ -440,12 +444,9 @@ if __name__ == "__main__":
         pt.mtc = pt.MTC()
         pt.mtc.init()
 
-    pt.stop = False
-    #_thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
-    _thread.start_new_thread(gps_ltc_thread, (pt.eng, lambda: pt.stop))
-
     # timestamp PIOs allocated to 2nd PIO Block, run at CPU speed
     # GPS 1PPS
+    toggle = Pin(GPIO_TOGGLE,Pin.IN)
     sm.append(rp2.StateMachine(4, pio_trigger_from_gpio_falling, freq=-1,
                                out_base=Pin(GPIO_TOGGLE),
                                in_base=Pin(GPIO_TOGGLE),
@@ -482,8 +483,8 @@ if __name__ == "__main__":
 
     # set-up PID gains and setpoint
     # if possible have timestamps so that they don't compete to
-    # run DMA at exactly the same time. My GPS 1PPS is 5ms long.
-    pid = PID(0.02, 0.02, 0.55, setpoint=5000)
+    # run DMA at exactly the same time.
+    pid = PID(0.02, 0.02, 0.55, setpoint=1000)
     pid.sample_time = 1
     pid.output_limits = (-512.0, 512.0)
     pid.set_auto_mode(True, last_output=pt.eng.calval)
@@ -491,6 +492,23 @@ if __name__ == "__main__":
     g = 0
     l = 0
     n = False
+
+    s = 0
+    timestamp = [None,None]
+
+    uart1 = UART(1, baudrate=115200, tx=Pin(4), rx=Pin(5), timeout=50)
+    uart1.init(115200, bits=8, parity=None, stop=1)
+
+    uart1.write(b"\r\n")
+    uart1.write(b"setTimingSystem, auto\r\n")
+    sleep(0.2)
+    # set GPS 1PPS to be 1ms long.
+    uart1.write(b"setPPSParameters, sec1, Low2High, 0.00, UTC, 60, 1.000\r\n")
+    sleep(0.2)
+    uart1.write(b"setNMEAOutput, Stream1, COM1, GGA, sec1\r\n")
+    #uart1.write(b"setNMEAOutput, Stream1, COM1, ZDA, sec1\r\n")
+
+    print("Starting processing loop")
 
     while True:
         while sm[1].rx_fifo() > 3:
@@ -515,7 +533,42 @@ if __name__ == "__main__":
             print("Timestamp-LTC:         0x%8.8x %d" % (l, l))
             '''
 
-        if n:
+        u = uart1.readline()
+        if u:
+            # UART message arrives shortly after GPS 1PPS goes high
+            # (and after 'toggle' has changed)
+            v = u.split(b",")
+            if (v[0][0:3] == b"$GP" or v[0][0:3] == b"$GN") and \
+                        (v[0][3:] == b"GGA" or v[0][3:] == b"ZDA") :
+                #print(timestamp[toggle.value()])
+
+                if toggle.value():
+                    timestamp[1] = v[1]
+                    timestamp[0] = None
+                else:
+                    timestamp[0] = v[1]
+                    timestamp[1] = None
+
+
+        if n and s == 0:
+            # check that we have GPS time (from UART) and start LTC with same
+            # for now assume that we read within one frame (ie 33ms) of PPS
+            t = toggle.value()
+            if timestamp[t]:
+                pt.eng.tc.from_ascii(timestamp[t][:6] + b"00", False)
+                for i in range(30):
+                    pt.eng.tc.next_frame()
+
+                print("Received", timestamp[t], "Next PPS", pt.eng.tc.to_ascii())
+                pt.stop = False
+                #_thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
+                _thread.start_new_thread(gps_ltc_thread, (pt.eng, lambda: pt.stop))
+
+                s = 1
+
+        if n and s == 1:
+            # adjust state machine clocks so PPS's align
+
             o = timestamp_delta(g, l)
             n = False
 

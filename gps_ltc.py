@@ -233,6 +233,50 @@ def timestamp_delta(a, b):
     # if code gets here, we can't be certain of which was first
     return 0
 
+#---------------------------------------------
+# Class for performing rolling averages
+
+class Rolling:
+    def __init__(self, size=5):
+        self.max = size
+        self.data = []
+        for i in range(size):
+            self.data.append([0.0, 0])
+
+        self.dsum = 0.0
+
+        self.enter = 0
+        self.exit = 0
+        self.size = 0
+
+    def store(self, data, mark=0):
+        if self.size == self.max:
+            self.dsum -= self.data[self.exit][0]
+            self.exit = (self.exit + 1) % self.max
+
+        self.data[self.enter][0] = data
+        self.data[self.enter][1] = mark
+        self.dsum += data
+
+        self.enter = (self.enter + 1) % self.max
+        if self.size < self.max:
+            self.size += 1
+
+    def read(self):
+        if self.size > 0:
+            return(self.dsum/self.size)
+
+    def store_read(self, data, mark=0):
+        self.store(data, mark)
+        return(self.read())
+
+    def purge(self, mark):
+        while self.size and self.data[self.exit][1] < mark:
+            self.dsum -= self.data[self.exit][0]
+            self.data[self.exit][0] = None
+            self.exit = (self.exit + 1) % self.max
+            self.size -= 1
+
 #-------------------------------------------------------
 
 def gps_ltc_thread(eng, stop):
@@ -407,17 +451,13 @@ def gps_display_thread():
     global disp, disp_asc
     global uart1
 
-    # Set up the state machines to run at CPU speed
-    freq(180_000_000)
-    sm = []
-
-    pt.eng = pt.engine()
+    pt.eng = gps_ltc_engine()
     pt.eng.mode = pt.RUN
     pt.eng.set_stopped(True)
 
     # Set the CPU clock, for better computation of PIO freqs
-    if machine.freq() != 180000000:
-        machine.freq(180000000)
+    if machine.freq() != 180_000_000:
+        machine.freq(180_000_000)
 
     pt.eng.sm = []
     sm_freq = int(pt.eng.tc.fps + 0.1) * 80 * 32
@@ -470,6 +510,7 @@ def gps_display_thread():
     # timestamp PIOs allocated to 2nd PIO Block, run at CPU speed
     # GPS 1PPS
     toggle = Pin(GPIO_TOGGLE,Pin.IN)
+    sm = []
     sm.append(rp2.StateMachine(4, pio_trigger_from_gpio_falling, freq=-1,
                                out_base=Pin(GPIO_TOGGLE),
                                in_base=Pin(GPIO_TOGGLE),
@@ -507,7 +548,7 @@ def gps_display_thread():
     # set-up PID gains and setpoint
     # if possible have timestamps so that they don't compete to
     # run DMA at exactly the same time.
-    pid = PID(0.02, 0.02, 0.55, setpoint=1000)
+    pid = PID(0.08, 0.004, 0.0, setpoint=0)
     pid.sample_time = 1
     pid.output_limits = (-512.0, 512.0)
     pid.set_auto_mode(True, last_output=pt.eng.calval)
@@ -516,7 +557,11 @@ def gps_display_thread():
     l = 0
     n = False
 
+    c = 0
+    offset = Rolling(1)
+
     s = 0
+    t = 1000
     timestamp = [None,None]
 
     uart1 = UART(1, baudrate=115200, tx=Pin(4), rx=Pin(5), timeout=50)
@@ -605,10 +650,25 @@ def gps_display_thread():
 
             # check if timestamps are close to each other
             if o < 500_000 and o > -500_000:
-                print("Offset %d " % o, pid.components)
-
                 # apply update calibration
-                pt.eng.micro_adjust(pid(o), 1000)
+                #pt.eng.micro_adjust(pid(o), t)
+                pt.eng.micro_adjust(pid(offset.store_read(o-1000)), t)
+
+                print("Offset %d us" % o, disp_asc, pid.components, offset.read(), c)
+                c += 1
+
+                if c==120 or c==240 or c==480 or c==720:
+                    print("change PID constants")
+                    pid.Kp = pid.Kp * 0.9
+                    pid.Ki = pid.Ki * 0.5
+                    pid.Kd = pid.Kd * 0.8
+                '''
+                if c==360 or c==600 or c==840:
+                    print("lengthen modulation")
+                    t = t * 2
+                    offset = Rolling(offset.size * 2)
+                '''
+
 
 def gps_display_callback(sm=None):
     global eng

@@ -8,6 +8,7 @@ from machine import Timer, disable_irq, enable_irq
 from array import array
 from utime import sleep
 from os import uname
+import uctypes
 import rp2
 
 from libs.pid import *
@@ -40,32 +41,51 @@ else: # rp2040
 
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
 def pio_trigger_from_gpio_rising():
+    set(x, 0)
+                                    # --
     wrap_target()
-
+    nop()                           # loop length 4 clocks
     label("wait_for_high")
-    jmp(pin, "pin_is_high")
+    jmp(x_dec, "null1")
+    label("null1")
+    jmp(pin, "triggered") [1]
     wrap()
-
-    label("pin_is_high")
+                                    # --
+    label("triggered")              # section length 4 clocks
+                                    # capture count when pin goes low
+    mov(isr, x)                     # mov X into ISR
     push(noblock)
-    mov(pins, invert(pins))     # Toggle output pin to signal trigger has occured
+    mov(pins, invert(pins))         # Toggle output pin to signal trigger has occured
+    jmp(x_dec, "wait_for_low")
+                                    # --
+    label("wait_for_low")           # loop length 4 clocks
+    jmp(x_dec, "null2")
+    label("null2")
+    jmp(pin, "wait_for_low") [2]
 
-    label("wait_for_low")
-    jmp(pin, "wait_for_low")
-    jmp("wait_for_high")
+    jmp("wait_for_high")            # extra cycle accounted for above...
 
 @rp2.asm_pio(out_init=rp2.PIO.OUT_LOW)
 def pio_trigger_from_gpio_falling():
-
-    label("wait_for_low")
-    jmp(pin, "wait_for_low")
-
-    label("pin_is_low")
+    set(x, 0)
+                                    # --
+    label("wait_for_low")           # loop length 4 clocks
+    jmp(x_dec, "null1")
+    label("null1")
+    jmp(pin, "wait_for_low") [2]
+                                    # --
+    label("triggered")              # section length 4 clocks
+                                    # capture count when pin goes low
+    mov(isr, x)                     # mov X into ISR
     push(noblock)
-    mov(pins, invert(pins))     # Toggle output pin to signal trigger has occured
-
+    mov(pins, invert(pins))         # Toggle output pin to signal trigger has occured
+    jmp(x_dec, "wait_for_high")
+                                    # --
     wrap_target()
-    jmp(pin, "wait_for_low")
+    label("wait_for_high")          # loop length 4 clocks
+    jmp(x_dec, "null2")
+    label("null2")
+    jmp(pin, "wait_for_low") [2]
     wrap()
 
 @rp2.asm_pio()
@@ -109,6 +129,9 @@ class DMA_PIO_Trigger():
         self.dma = rp2.DMA()
         self.ctrl = None
 
+        self.rx = array('L', [0x00000000])
+        self.rx_addr = uctypes.addressof(self.rx)
+
         self.pack_ctrl(state_machine, enable)
 
     def pack_ctrl(self, treq_state_machine, enable=True, chain_to=0):
@@ -139,9 +162,10 @@ class DMA_PIO_Trigger():
         self.ctrl = self.dma.pack_ctrl(**ctrl_dict)
 
     def config(self, target_state_machine, trigger=False):
+
         self.dma.config(
             read = target_state_machine,
-            write = target_state_machine,
+            write = self.rx_addr,
             count = 1,
             ctrl = self.ctrl,
             trigger = trigger)
@@ -524,8 +548,12 @@ def gps_display_thread():
                                jmp_pin=Pin(2)))
     sm.append(rp2.StateMachine(7, pio_relay, freq=-1))
 
+    '''
     for m in sm:
         m.active(1)
+    '''
+    # align divider phases, and ensure state-machines start at exactly same time
+    mem32[0x50300000] = 0x00000F0F
 
     # Allocate DMA channel(s)
     dma_trigger_a = DMA_PIO_Trigger(sm[0])
@@ -589,6 +617,7 @@ def gps_display_thread():
             '''
             print("Timestamp-GPS: 0x%16.16x %d" % ((a[3]<<32)|a[0], (a[3]<<32)|a[0]))
             '''
+            print("Timestamp-GPS: 0x%16.16x %d" % ((a[3]<<32)|a[0], dma_trigger_a.rx[0]))
             g = (a[3]<<32)|a[0]
             n = True
 
@@ -600,6 +629,7 @@ def gps_display_thread():
             '''
             print("Timestamp-LTC:         0x%8.8x %d" % (l, l))
             '''
+            print("Timestamp-LTC:         0x%8.8x %d" % (l, dma_trigger_b.rx[0]))
 
         u = uart1.readline()
         if u:

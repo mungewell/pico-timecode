@@ -52,6 +52,7 @@ high_output_level = 0       # MIC level
 thrifty_new_fps = 0
 thrifty_current_fps = 0
 thrifty_calibration = 0.0
+thrifty_synced = 0
 
 thrifty_available_fps_df = [
         [30,     False,  (0, 255, 0),   0b11],      # Red
@@ -271,7 +272,7 @@ def menu_info_logic():
     if menu.execute_once:
         #print("menu info")
 
-        for i in range(1 if thrifty_calibration == 0.0 else 2):
+        for i in range(1 if thrifty_synced == 0 else 2):
             RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
             RGB.write()
 
@@ -307,12 +308,13 @@ def menu_select_logic():
         RGB.write()
 
 def menu_jam_logic():
-    global thrifty_current_fps, thrifty_new_fps
+    global thrifty_current_fps, thrifty_new_fps, thrifty_synced
     global disp_asc
 
     if menu.execute_once:
         #print("menu jam")
         thrifty_current_fps = thrifty_new_fps
+        thrifty_synced = 0
 
         # Enable Amp, LTC receive
         amp_cs.value(0)
@@ -381,10 +383,14 @@ def menu_cancel_jam_logic():
     '''
 
 def menu_complete_logic():
+    global thrifty_synced
+
     if menu.execute_once:
     #    print("menu complete")
         RGB[0] = (127, 127, 127)
         RGB.write()
+
+        thrifty_synced = 1
 
 def menu_follow_logic():
     global calTimer

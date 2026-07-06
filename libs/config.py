@@ -21,6 +21,9 @@ hwconfig = {
     'startmode' : ['Run', ['Run', 'Monitor', 'Jam']],
     'display'   : ['Pico1.3', ['None', 'Pico1.3']],
     'board'     : ['Rev1', ['None', 'Rev1']],
+}
+
+pt_thrifty = {
     'v1083'     : ['No', ['No', 'Yes']],
 }
 

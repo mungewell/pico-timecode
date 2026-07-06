@@ -542,7 +542,7 @@ def thrifty_display_thread():
     rgb = Pin(16,Pin.OUT)
     v1083 = False
     try:
-        if config.hwconfig['v1083'][0] == "Yes":
+        if config.pt_thrifty['v1083'][0] == "Yes":
             v1083 = True
     except:
         pass

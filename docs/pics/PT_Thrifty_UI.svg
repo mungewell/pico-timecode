@@ -29,7 +29,7 @@
      showgrid="false"
      inkscape:zoom="0.96212121"
      inkscape:cx="355.46457"
-     inkscape:cy="290.50394"
+     inkscape:cy="291.54331"
      inkscape:window-width="1366"
      inkscape:window-height="720"
      inkscape:window-x="0"
@@ -515,11 +515,11 @@
            y="31.595896"
            id="text2220-2"><tspan
              sodipodi:role="line"
-             id="tspan549">LED Flash - FPS/DF</tspan><tspan
+             id="tspan592">LED Flash - FPS/DF</tspan><tspan
              sodipodi:role="line"
-             id="tspan551">Longer = 'Line' Output</tspan><tspan
+             id="tspan594">Longer = 'Line' Output</tspan><tspan
              sodipodi:role="line"
-             id="tspan553">2nd Flash = Calibrated</tspan></text>
+             id="tspan596">2nd Flash = Sync'ed</tspan></text>
       </g>
     </g>
     <g

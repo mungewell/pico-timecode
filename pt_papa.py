@@ -383,7 +383,7 @@ def callback_monitor():
             pt.eng.mode = pt.RUN
             monitor = False
     else:
-        callback_setting_monitor(config.setting['automon'][0])
+        callback_setting_monitor(config.hwconfig['automon'][0])
         if monitor:
             pt.eng.mode = pt.MONITOR
         else:
@@ -413,7 +413,7 @@ def callback_jam():
     add_more_state_machines()
 
     pt.eng.mode = pt.JAM
-    callback_setting_monitor(config.setting['automon'][0])
+    callback_setting_monitor(config.hwconfig['automon'][0])
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
     # apply previously saved calibration value
@@ -529,6 +529,16 @@ def callback_setting_save():
         except AttributeError:
             pass
 
+def callback_hwconfig_save():
+    global menu, menu_hidden
+
+    menu_hidden = True
+    for j in menu.current_screen._visible_items[0].parent._visible_items:
+        try:
+            config.set('hwconfig', j.name, [j.items[j.selected], j.items])
+        except AttributeError:
+            pass
+
 def callback_power_off():
     global keyA, keyB
     global OLED, outamp
@@ -592,12 +602,13 @@ def OLED_display_thread(mode=pt.RUN):
     callback_setting_output(config.setting['output'][0])
     callback_setting_flashframe(config.setting['flashframe'][0])
     callback_tc_start(config.setting['tc_start'])
-    callback_setting_powersave(config.setting['powersave'][0])
-    callback_setting_zoom(config.setting['zoom'][0])
-    callback_setting_monitor(config.setting['automon'][0])      # Monitor after Jam
-    callback_setting_calibrate(config.setting['calibrate'][0])
 
     callback_userbits_userbits(config.userbits['userbits'][0])
+
+    callback_setting_powersave(config.hwconfig['powersave'][0])
+    callback_setting_zoom(config.hwconfig['zoom'][0])
+    callback_setting_monitor(config.hwconfig['automon'][0])      # Monitor after Jam
+    callback_setting_calibrate(config.hwconfig['calibrate'][0])
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
@@ -680,15 +691,15 @@ def OLED_display_thread(mode=pt.RUN):
             .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
 
             .add(SubMenuItem("Unit Settings")
-                .add(EnumItem("powersave", config.setting['powersave'][1], callback_setting_powersave, \
-                    selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
-                .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \
-                    selected=config.setting['zoom'][1].index(config.setting['zoom'][0])))
-                .add(EnumItem("automon", config.setting['automon'][1], callback_setting_monitor, \
-                    selected=config.setting['automon'][1].index(config.setting['automon'][0])))
-                .add(EnumItem("calibrate", config.setting['calibrate'][1], callback_setting_calibrate, \
-                    selected=config.setting['calibrate'][1].index(config.setting['calibrate'][0])))
-                .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
+                .add(EnumItem("powersave", config.hwconfig['powersave'][1], callback_setting_powersave, \
+                    selected=config.hwconfig['powersave'][1].index(config.hwconfig['powersave'][0])))
+                .add(EnumItem("zoom", config.hwconfig['zoom'][1], callback_setting_zoom, \
+                    selected=config.hwconfig['zoom'][1].index(config.hwconfig['zoom'][0])))
+                .add(EnumItem("automon", config.hwconfig['automon'][1], callback_setting_monitor, \
+                    selected=config.hwconfig['automon'][1].index(config.hwconfig['automon'][0])))
+                .add(EnumItem("calibrate", config.hwconfig['calibrate'][1], callback_setting_calibrate, \
+                    selected=config.hwconfig['calibrate'][1].index(config.hwconfig['calibrate'][0])))
+                .add(ConfirmItem("Save as Default", callback_hwconfig_save, "Confirm?", ('Yes', 'No'))))
 
             .add(SubMenuItem("User Bits")
                 .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \

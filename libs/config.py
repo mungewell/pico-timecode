@@ -4,10 +4,6 @@ setting = {
     'output'    : ['Mic', ['Mic', 'Line']],
     'flashframe': ['0', ['Off', '0', '11']],
     'tc_start'  : "01000000",
-    'powersave' : ['Off', ['Off', 'Screen']],
-    'zoom'      : ['No', ['No', 'Yes']],
-    'automon'   : ['No', ['No', 'Yes']],
-    'calibrate' : ['No', ['No', 'Once', 'Always']],
 }
 
 userbits = {
@@ -21,6 +17,10 @@ hwconfig = {
     'startmode' : ['Run', ['Run', 'Monitor', 'Jam']],
     'display'   : ['Pico1.3', ['None', 'Pico1.3']],
     'board'     : ['Rev1', ['None', 'Rev1']],
+    'powersave' : ['Off', ['Off', 'Screen']],
+    'zoom'      : ['No', ['No', 'Yes']],
+    'automon'   : ['No', ['No', 'Yes']],
+    'calibrate' : ['No', ['No', 'Once', 'Always']],
 }
 
 pt_thrifty = {

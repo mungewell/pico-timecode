@@ -670,16 +670,16 @@ def OLED_display_thread(mode=pt.RUN):
                     selected=config.setting['framerate'][1].index(config.setting['framerate'][0])))
                 .add(EnumItem("dropframe", config.setting['dropframe'][1], callback_fps_df, \
                     selected=config.setting['dropframe'][1].index(config.setting['dropframe'][0])))
-                .add(EditString('tc_start', config.setting['tc_start'], callback_tc_start))
+                .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
+                    selected=config.setting['output'][1].index(config.setting['output'][0])))
+                .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
+                    selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
+                #.add(EditString('tc_start', config.setting['tc_start'], callback_tc_start))
                 .add(ConfirmItem("Save as Default", callback_setting_save, "Confirm?", ('Yes', 'No'))))
             # duplicate for easier navigation
             .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
 
             .add(SubMenuItem("Unit Settings")
-                .add(EnumItem("output", config.setting['output'][1], callback_setting_output, \
-                    selected=config.setting['output'][1].index(config.setting['output'][0])))
-                .add(EnumItem("flashframe", config.setting['flashframe'][1], callback_setting_flashframe, \
-                    selected=config.setting['flashframe'][1].index(config.setting['flashframe'][0])))
                 .add(EnumItem("powersave", config.setting['powersave'][1], callback_setting_powersave, \
                     selected=config.setting['powersave'][1].index(config.setting['powersave'][0])))
                 .add(EnumItem("zoom", config.setting['zoom'][1], callback_setting_zoom, \

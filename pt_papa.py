@@ -61,6 +61,7 @@ from libs.lowpower import *
 # https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
 
 from libs.PicoOled13 import *
+from libs.ssd1306 import *
 
 # Special font, for display the TX'ed timecode in a particular way
 from libs.fonts import TimecodeFont
@@ -575,6 +576,27 @@ def callback_exit():
     menu_hidden = True
 
 #---------------------------------------------
+# Class for overriding SSD1306 functions, as our previous 'Pico1.3'
+# optimizations would cause syntax errors
+
+class override_SSD1306_SPI(SSD1306_SPI):
+    def text(self,s,x0,y0,col=0xffff,wrap=1,just=0):
+
+        # perform a crude text aligment
+        pixlen = len(s) * 4
+
+        if just == 0:
+            super().text(s,x0,y0,col)
+        elif just == 1:                 # align left
+            super().text(s,max(x0 - (pixlen * 2), 0),y0,col)
+        elif just == 2:
+            super().text(s,max(x0 - pixlen, 0),y0,col)
+
+    def show(self, start=0, end=-1, start_col=0, end_col=128):
+        # SSD1306 automatically tracks which areas need to be updated
+        super().show()
+
+#---------------------------------------------
 
 def OLED_display_thread(mode=pt.RUN):
     global OLED, menu, menu_hidden, monitor
@@ -654,6 +676,9 @@ def OLED_display_thread(mode=pt.RUN):
 
     if display == 'Pico1.3':
         OLED = OLED_1inch3_SPI()
+    elif display == 'SSD1306':
+        OLED = override_SSD1306_SPI(128, 64, SPI(1, sck=Pin(10), mosi=Pin(11)),
+                dc=Pin(8), res=Pin(12), cs=Pin(9))
 
     if OLED:
         OLED.fill(0x0000)
@@ -939,6 +964,7 @@ def OLED_display_thread(mode=pt.RUN):
 
                     if rx_asc != asc:
                         if OLED:
+                            OLED.fill_rect(0,22,128,10,OLED.black)
                             OLED.text(asc,64,22,OLED.white,1,2)
                             OLED.show(22,32)
                         rx_asc = asc

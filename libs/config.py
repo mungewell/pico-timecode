@@ -15,7 +15,7 @@ userbits = {
 
 hwconfig = {
     'startmode' : ['Run', ['Run', 'Monitor', 'Jam']],
-    'display'   : ['Pico1.3', ['None', 'Pico1.3']],
+    'display'   : ['Pico1.3', ['None', 'Pico1.3', 'SSD1306']],
     'board'     : ['Rev1', ['None', 'Rev1']],
     'powersave' : ['Off', ['Off', 'Screen']],
     'zoom'      : ['No', ['No', 'Yes']],

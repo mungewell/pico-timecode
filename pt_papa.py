@@ -16,6 +16,15 @@
 # Pin20 / GP15 - User key 'A'
 # Pin22 / GP17 - User key 'B'
 #
+# or alternative display SSD1306 is connected as follows:
+# Pin11 / GP8  - DC
+# Pin12 / GP9  - CS
+# Pin14 / GP10 - SCK  (may be labelled D0 on display)
+# Pin15 / GP11 - MOSI (may be labelled D1 on display)
+# Pin16 / GP12 - RESET
+# Pin20 / GP15 - User key 'A' - need to add switch to GND
+# Pin22 / GP17 - User key 'B' - need to add switch to GND
+#
 # GP25 - Onboard LED
 #
 # We'll allocate the following to the PIO blocks:

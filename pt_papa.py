@@ -784,7 +784,7 @@ def OLED_display_thread(mode=pt.RUN):
                 OLED.fill(0x0000)
                 OLED.text("A=Menu" ,0,2,OLED.white)
                 OLED.text(displayfps + ("*" if calibration != None else ""), \
-                        128,2,OLED.white,1,1)
+                        126,2,OLED.white,1,1)
                 OLED.show()
             else:
                 print("Format:", displayfps)
@@ -852,7 +852,7 @@ def OLED_display_thread(mode=pt.RUN):
                     OLED.fill(0x0000)
                     OLED.text("A=Menu" ,0,2,OLED.white)
                     OLED.text(displayfps + ("*" if calibration != None else ""), \
-                            128,2,OLED.white,1,1)
+                            126,2,OLED.white,1,1)
                     OLED.show()
 
                     tx_asc="--------"
@@ -1062,7 +1062,7 @@ def OLED_display_thread(mode=pt.RUN):
                                         OLED.fill_rect(0,0,128,10, OLED.black)
                                         OLED.text("A=Menu" ,0,2,OLED.white)
                                         OLED.text(displayfps + ("*" if calibration != None else ""), \
-                                                128,2,OLED.white,1,1)
+                                                126,2,OLED.white,1,1)
                                         OLED.show(0,10)
 
                                     if calibrate == 1:

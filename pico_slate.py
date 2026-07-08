@@ -245,6 +245,28 @@ def slate_display_thread(init_mode=pt.RUN):
     pt.eng.mode = init_mode
     pt.eng.set_stopped(True)
 
+    # Load/set the flashframe from config
+    try:
+        setting = config.setting['flashframe']
+        if setting[0]=="Off":
+            pt.eng.flashframe = -1
+        else:
+            pt.eng.flashframe = int(setting[0])
+    except:
+        pass
+
+    # Load userbits from config
+    try:
+        userbits = config.userbits['userbits']
+        if userbits[0]=="Name":
+            pt.eng.tc.user_from_ascii(config.userbits['ub_name'])
+        elif userbits[0]=="Digits":
+            pt.eng.tc.user_from_bcd_hex(config.userbits['ub_digits'])
+        else:   # Date
+            pt.eng.tc.user_from_date(config.userbits['ub_date'])
+    except:
+        pass
+
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
     timerA = Neotimer(50)

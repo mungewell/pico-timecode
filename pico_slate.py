@@ -338,9 +338,19 @@ def slate_display_thread(init_mode=pt.RUN):
     start_state_machines(pt.eng.mode)
 
     disp = pt.timecode()
-    slate_set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
-    slate_new_fps_df = slate_current_fps_df
 
+    # Load FPS/DropFrame from config
+    try:
+        fps = float(config.setting['framerate'][0])
+        if config.setting['dropframe'][0] == "Yes":
+            slate_set_fps_df(fps, True)
+        else:
+            slate_set_fps_df(fps, False)
+    except:
+        slate_set_fps_df(pt.eng.tc.fps, pt.eng.tc.df)
+        pass
+
+    slate_new_fps_df = slate_current_fps_df
     slate_open = False
     slate_rotated = False
 

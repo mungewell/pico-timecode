@@ -46,6 +46,7 @@
 # https://github.com/jrullan/micropython_neotimer
 # https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
 
+from libs import config
 from libs.neotimer import *
 from libs.ht16k33segment import HT16K33Segment
 from libs.ht16k33segment14 import HT16K33Segment14
@@ -386,9 +387,31 @@ def slate_display_thread(init_mode=pt.RUN):
             '''
             if len(slate_SF.CHARSET) > 19:
                 # include segment '7' on ECBUYING 14-segment
-                clap = [0xC0,0xC0,0x39,0x38,0x77,0xF3,0xC0,0xC0]
+                clap = [0xC0,0xC0,0x39,0x38,0xF7,0xF3,0xC0,0xC0]
             else:
                 clap = [0x40,0x40,0x39,0x38,0x77,0x73,0x40,0x40]
+
+            ub = None
+            try:
+                if config.userbits['userbits'][0] == "Name":
+                    ub = "  " + config.userbits['ub_name'] + "      "
+                elif config.userbits['userbits'][0] == "Digits":
+                    ub = config.userbits['ub_digits'] + "        "
+            except:
+                pass
+
+            if ub:
+                # best effort to display Userbits
+                try:
+                    for i in range(4):
+                        if slate_HM:
+                            slate_HM.set_character(ub[i], i)
+                            slate_SF.set_character(ub[i+4], i)
+                        else:
+                            slate_SF.set_character(ub[i+2], i)
+                    clap = None
+                except:
+                    pass
 
             if clap:
                 # Unable to display User-Bits

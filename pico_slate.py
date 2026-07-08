@@ -376,6 +376,33 @@ def slate_display_thread(init_mode=pt.RUN):
             slate_open = False
             timerS.start()
 
+            # display user bits, if possible
+            '''
+            C = 0 3 4 5     = 0x39
+            L = 3 4 5       = 0x38
+            A = 0 1 2 4 5 6 = 0x77
+            P = 0 1 4 5 6   = 0x73
+            - = 6           = 0x40
+            '''
+            if len(slate_SF.CHARSET) > 19:
+                # include segment '7' on ECBUYING 14-segment
+                clap = [0xC0,0xC0,0x39,0x38,0x77,0xF3,0xC0,0xC0]
+            else:
+                clap = [0x40,0x40,0x39,0x38,0x77,0x73,0x40,0x40]
+
+            if clap:
+                # Unable to display User-Bits
+                for i in range(4):
+                    if slate_HM:
+                        slate_HM.set_glyph(clap[i], i)
+                        slate_SF.set_glyph(clap[i+4], i)
+                    else:
+                        slate_SF.set_glyph(clap[i+2], i)
+
+            if slate_HM:
+                slate_HM.draw()
+            slate_SF.draw()
+
         # Once clapper has closed and timer expired, enter powersave
         if not slate_open and timerS.finished() and not powersave:
             if slate_HM:

@@ -76,11 +76,20 @@ def start_state_machines(mode=pt.RUN):
     gc.collect()
 
     # restart...
-    pt.eng.tc.from_ascii("00:00:00:00")
+    try:
+        setting = config.setting['tc_start']
+        if setting[2] == ":":
+            pt.eng.tc.from_ascii(setting, True)
+        else:
+            pt.eng.tc.from_ascii(setting, False)
+    except:
+        pt.eng.tc.from_ascii("00:00:00:00")
+
     pt.eng.sm = []
+    pt.eng.mode = mode
+
     sm_freq = int(pt.eng.tc.fps + 0.1) * 80 * 32
 
-    pt.eng.mode = mode
     if mode > pt.RUN:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, freq=sm_freq,
                            in_base=Pin(21),

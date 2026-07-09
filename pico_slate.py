@@ -85,6 +85,15 @@ def start_state_machines(mode=pt.RUN):
     except:
         pt.eng.tc.from_ascii("00:00:00:00")
 
+    # apply any calibration
+    try:
+        fps = slate_available_fps_df[slate_current_fps_df][0:5]
+        pt.eng.calval = float(config.calibration[fps])
+        #print("calibration", fps, pt.eng.calval)
+    except:
+        pt.eng.calval = 0.0
+        pass
+
     pt.eng.sm = []
     pt.eng.mode = mode
 

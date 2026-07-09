@@ -346,14 +346,15 @@ def slate_display_thread(init_mode=pt.RUN):
     '''
 
     disp_asc = "--------"
-    for i in range(4):
-        if slate_HM:
-            slate_HM.set_character(disp_asc[i], i)
-        slate_SF.set_character(disp_asc[i+4], i)
+    if slate_SF:
+        for i in range(4):
+            if slate_HM:
+                slate_HM.set_character(disp_asc[i], i)
+            slate_SF.set_character(disp_asc[i+4], i)
 
-    if slate_HM:
-        slate_HM.draw()
-    slate_SF.draw()
+        if slate_HM:
+            slate_HM.draw()
+        slate_SF.draw()
     timerS.start()
 
     # Reduce the CPU clock, for better computation of PIO freqs
@@ -386,23 +387,25 @@ def slate_display_thread(init_mode=pt.RUN):
     while not timerS.finished():
         sleep(0.1)
 
-    if slate_HM:
-        slate_HM.clear()
-        slate_HM.draw()
-    slate_SF.clear()
-    slate_SF.draw()
+    if slate_SF:
+        if slate_HM:
+            slate_HM.clear()
+            slate_HM.draw()
+        slate_SF.clear()
+        slate_SF.draw()
 
     while True:
         if pt.eng.mode == pt.HALTED:
-            for i in range(4):
-                if slate_HM:
-                    slate_HM.set_character("-", i)
-                    slate_HM.draw()
-                    slate_HM.set_blink_rate(2)
+            if slate_SF:
+                for i in range(4):
+                    if slate_HM:
+                        slate_HM.set_character("-", i)
+                        slate_HM.draw()
+                        slate_HM.set_blink_rate(2)
 
-                slate_SF.set_character("-", i)
-                slate_SF.draw()
-                slate_SF.set_blink_rate(2)
+                    slate_SF.set_character("-", i)
+                    slate_SF.draw()
+                    slate_SF.set_blink_rate(2)
             pt.stop = True
 
         '''
@@ -423,14 +426,15 @@ def slate_display_thread(init_mode=pt.RUN):
                 print("Menu cancelled")
                 menu_active = 0
 
-                if slate_HM:
-                    slate_HM.clear()
-                    slate_HM.draw()
-                    slate_HM.set_blink_rate(0)
+                if slate_SF:
+                    if slate_HM:
+                        slate_HM.clear()
+                        slate_HM.draw()
+                        slate_HM.set_blink_rate(0)
 
-                slate_SF.clear()
-                slate_SF.draw()
-                slate_SF.set_blink_rate(0)
+                    slate_SF.clear()
+                    slate_SF.draw()
+                    slate_SF.set_blink_rate(0)
 
             slate_open = False
             timerS.start()
@@ -443,52 +447,54 @@ def slate_display_thread(init_mode=pt.RUN):
             P = 0 1 4 5 6   = 0x73
             - = 6           = 0x40
             '''
-            if len(slate_SF.CHARSET) > 19:
-                # include segment '7' on ECBUYING 14-segment
-                clap = [0xC0,0xC0,0x39,0x38,0xF7,0xF3,0xC0,0xC0]
-            else:
-                clap = [0x40,0x40,0x39,0x38,0x77,0x73,0x40,0x40]
+            if slate_SF:
+                if len(slate_SF.CHARSET) > 19:
+                    # include segment '7' on ECBUYING 14-segment
+                    clap = [0xC0,0xC0,0x39,0x38,0xF7,0xF3,0xC0,0xC0]
+                else:
+                    clap = [0x40,0x40,0x39,0x38,0x77,0x73,0x40,0x40]
 
-            ub = None
-            try:
-                if config.userbits['userbits'][0] == "Name":
-                    ub = "  " + config.userbits['ub_name'] + "      "
-                elif config.userbits['userbits'][0] == "Digits":
-                    ub = config.userbits['ub_digits'] + "        "
-            except:
-                pass
-
-            if ub:
-                # best effort to display Userbits
+                ub = None
                 try:
-                    for i in range(4):
-                        if slate_HM:
-                            slate_HM.set_character(ub[i], i)
-                            slate_SF.set_character(ub[i+4], i)
-                        else:
-                            slate_SF.set_character(ub[i+2], i)
-                    clap = None
+                    if config.userbits['userbits'][0] == "Name":
+                        ub = "  " + config.userbits['ub_name'] + "      "
+                    elif config.userbits['userbits'][0] == "Digits":
+                        ub = config.userbits['ub_digits'] + "        "
                 except:
                     pass
 
-            if clap:
-                # Unable to display User-Bits
-                for i in range(4):
-                    if slate_HM:
-                        slate_HM.set_glyph(clap[i], i)
-                        slate_SF.set_glyph(clap[i+4], i)
-                    else:
-                        slate_SF.set_glyph(clap[i+2], i)
+                if ub:
+                    # best effort to display Userbits
+                    try:
+                        for i in range(4):
+                            if slate_HM:
+                                slate_HM.set_character(ub[i], i)
+                                slate_SF.set_character(ub[i+4], i)
+                            else:
+                                slate_SF.set_character(ub[i+2], i)
+                        clap = None
+                    except:
+                        pass
 
-            if slate_HM:
-                slate_HM.draw()
-            slate_SF.draw()
+                if clap:
+                    # Unable to display User-Bits
+                    for i in range(4):
+                        if slate_HM:
+                            slate_HM.set_glyph(clap[i], i)
+                            slate_SF.set_glyph(clap[i+4], i)
+                        else:
+                            slate_SF.set_glyph(clap[i+2], i)
+
+                if slate_HM:
+                    slate_HM.draw()
+                slate_SF.draw()
 
         # Once clapper has closed and timer expired, enter powersave
         if not slate_open and timerS.finished() and not powersave:
-            if slate_HM:
-                slate_HM.power_off()
-            slate_SF.power_off()
+            if slate_SF:
+                if slate_HM:
+                    slate_HM.power_off()
+                slate_SF.power_off()
 
             pt.irq_callbacks[pt.SM_BLINK] = None
             print("Entering powersave")
@@ -506,14 +512,16 @@ def slate_display_thread(init_mode=pt.RUN):
                 pt.irq_callbacks[pt.SM_BLINK] = slate_display_callback
                 powersave = False
 
-                if slate_HM:
-                    slate_HM.power_on()
-                slate_SF.power_on()
+                if slate_SF:
+                    if slate_HM:
+                        slate_HM.power_on()
+                    slate_SF.power_on()
 
             slate_open = True
             timerS.start()
 
-            slate_show_fps_df(slate_current_fps_df)
+            if slate_SF:
+                slate_show_fps_df(slate_current_fps_df)
 
         # Powersave prevents functions below...
         if powersave and pt.eng.get_powersave():
@@ -555,9 +563,10 @@ def slate_display_thread(init_mode=pt.RUN):
 
             # confirm with B key
             if timerB.debounce_signal(keyB.value()==0):
-                if slate_HM:
-                    slate_HM.set_blink_rate(0)
-                slate_SF.set_blink_rate(0)
+                if slate_SF:
+                    if slate_HM:
+                        slate_HM.set_blink_rate(0)
+                    slate_SF.set_blink_rate(0)
 
                 menu_active = False
                 print("Menu de-activated")
@@ -590,30 +599,32 @@ def slate_display_thread(init_mode=pt.RUN):
                 n = 2 4 6     = 0x54
                 c = 3 4 6     = 0x58
                 '''
-                force_dp = False
-                if slate_HM:
-                    if len(slate_SF.CHARSET) > 19:
-                        slate_HM.set_character("S", 0)
-                        slate_HM.set_character("Y", 1)
-                        slate_HM.set_character("N", 2)
-                        slate_HM.set_character("C", 3)
+                if slate_SF:
+                    force_dp = False
+                    if slate_HM:
+                        if len(slate_SF.CHARSET) > 19:
+                            slate_HM.set_character("S", 0)
+                            slate_HM.set_character("Y", 1)
+                            slate_HM.set_character("N", 2)
+                            slate_HM.set_character("C", 3)
+                        else:
+                            # 7-seg
+                            slate_HM.set_glyph(0x6D, 0)
+                            slate_HM.set_glyph(0x6E, 1)
+                            slate_HM.set_glyph(0x54, 2)
+                            slate_HM.set_glyph(0x58, 3)
+                        slate_HM.draw()
                     else:
-                        # 7-seg
-                        slate_HM.set_glyph(0x6D, 0)
-                        slate_HM.set_glyph(0x6E, 1)
-                        slate_HM.set_glyph(0x54, 2)
-                        slate_HM.set_glyph(0x58, 3)
-                    slate_HM.draw()
-                else:
-                    # indicate Sync with all decimal points lit
-                    force_dp = True
+                        # indicate Sync with all decimal points lit
+                        force_dp = True
 
-                # only display the SS:FF digits
-                for i in range(4):
-                    slate_SF.set_character(asc[4+i], i,
-                                has_dot=(True if i==1 else force_dp))
-                #slate_SF.set_colon(True)
-                slate_SF.draw()
+                    # only display the SS:FF digits
+                    if slate_HM:
+                        for i in range(4):
+                            slate_SF.set_character(asc[4+i], i,
+                                        has_dot=(True if i==1 else force_dp))
+                        #slate_SF.set_colon(True)
+                        slate_SF.draw()
 
                 # also print to console
                 phase = ((4294967295 - pt.rx_ticks + 188) % 640) - 320
@@ -655,7 +666,7 @@ def slate_display_callback(sm=None):
         if pt.eng.mode == pt.RUN:
             # sync to 0th quarter (inc has happened)
             # send previously written frame
-            if ((pt.quarters == 1) or not pt._hasUsbDevice) and \
+            if slate_SF and ((pt.quarters == 1) or not pt._hasUsbDevice) and \
                     not menu_active and slate_open == 1 and timerS.finished():
                 debug.on()
                 slate_SF.draw()
@@ -672,7 +683,7 @@ def slate_display_callback(sm=None):
                 print("TX: %s" % asc)
                 disp_asc = asc
 
-                if not menu_active and slate_open == 1 and timerS.finished():
+                if slate_SF and not menu_active and slate_open == 1 and timerS.finished():
                     # pre-write values for next frame
                     disp.next_frame()
                     asc = disp.to_ascii(False)

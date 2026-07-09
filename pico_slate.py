@@ -301,17 +301,25 @@ def slate_display_thread(init_mode=pt.RUN):
     # note: left module is mounted up-side-down
     slate_R = None
     slate_L = None
+
+    # preferred display, supports ASCII
+    setting = "HT16K33Segment14"
     try:
-        '''
-        # Adafruit 7-segment
-        i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
-        slate_R = HT16K33Segment(i2c, i2c_address=0x70)
-        slate_L = HT16K33Segment(i2c, i2c_address=0x71)
-        '''
-        # ECBUYING 14-segment
-        i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
-        slate_R = HT16K33Segment14_dbl(i2c, i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
-        slate_L = HT16K33Segment14_dbl(i2c, i2c_address=0x71, board=HT16K33Segment14.ECBUYING_054)
+        setting = config.hwconfig['7seg'][0]
+    except:
+        pass
+
+    try:
+        if setting=="HT16K33Segment":
+            # Adafruit 7-segment
+            i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
+            slate_R = HT16K33Segment(i2c, i2c_address=0x70)
+            slate_L = HT16K33Segment(i2c, i2c_address=0x71)
+        elif setting=="HT16K33Segment14":
+            # ECBUYING 14-segment
+            i2c = I2C(1, scl=Pin(3), sda=Pin(2), freq=1_200_000)
+            slate_R = HT16K33Segment14_dbl(i2c, i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
+            slate_L = HT16K33Segment14_dbl(i2c, i2c_address=0x71, board=HT16K33Segment14.ECBUYING_054)
     except OSError as e:
         if e.args[0] == 5: # Errno 5 is EIO
             print("One or more 7-seg/14-seg displays not found")

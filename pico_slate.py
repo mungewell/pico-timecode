@@ -439,6 +439,12 @@ def slate_display_thread(init_mode=pt.RUN):
             slate_open = False
             timerS.start()
 
+            # 'LED blur' workaround, freeze TC display for 4 frames
+            if slate_HM:
+                slate_HM.set_character("-", 0)
+                slate_HM.draw()
+            sleep(4/pt.eng.tc.fps)
+
             # display user bits, if possible
             '''
             C = 0 3 4 5     = 0x39
@@ -688,11 +694,11 @@ def slate_display_callback(sm=None):
                     disp.next_frame()
                     asc = disp.to_ascii(False)
                     for i in range(4):
-                        if slate_HM:
-                            slate_HM.set_character(asc[i], i,
-                                    has_dot=False)
                         slate_SF.set_character(asc[4+i], i,
                                 has_dot=(True if i==1 else False))
+                        if slate_HM and slate_open == 1:
+                            slate_HM.set_character(asc[i], i,
+                                    has_dot=False)
 
 
 #---------------------------------------------

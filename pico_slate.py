@@ -3,18 +3,25 @@
 #
 # https://github.com/mungewell/pico-timecode
 
-# implement a basic UI on hardware with Pico-OLED-1.3
+# implement a Digi-Slate with Pico, swiches/buttons
+# and 2x I2C LED modules:
 #
-# Pico-OLED-1.3 is connected as follows:
-# GP6  - I2C_SDA
-# GP7  - I2C_CLK
-# GP8  - OLED_DC        (OLED not used on pico-slate)
-# GP9  - CS
-# GP10 - OLED_CLK
-# GP11 - OLED_DIN
-# GP13 - RESET
-# GP15 - User key 'A'
-# GP17 - User key 'B'
+# Pin4  / GP2  - I2C_SDA
+# Pin5  / GP3  - I2C_CLK
+# Pin6  / GP4  - Clapper Switch, short-circuit to GND when 'open'
+# Pin7  / GP5  - Rotation Switch, short-circuit to GND when 'inverted'
+#
+# Pin20 / GP15 - User key 'A'
+# Pin22 / GP17 - User key 'B'
+#
+# Pico-OLED-1.3 may remain connected as follows:
+# Pin9  / GP6  - I2C_SDA  (OLED not used on pico-slate)
+# Pin10 / GP7  - I2C_CLK  (OLED not used on pico-slate)
+# Pin11 / GP8  - OLED_DC  (OLED not used on pico-slate)
+# Pin12 / GP9  - CS       (OLED not used on pico-slate)
+# Pin14 / GP10 - OLED_CLK (OLED not used on pico-slate)
+# Pin15 / GP11 - OLED_DIN (OLED not used on pico-slate)
+# Pin17 / GP13 - RESET    (OLED not used on pico-slate)
 #
 # GP25 - Onboard LED
 #
@@ -35,16 +42,12 @@
 # GP26 - BLINK_LED (reserved)
 # (this will enable both Pico and off board LED simulataneously)
 #
-# We will also use the I2C bus to 'talk' to other devices...
-#
 
 # We need to install the following modules
 # ---
 # https://github.com/aleppax/upyftsconf
-# https://github.com/m-lundberg/simple-pid
-# https://github.com/plugowski/umenu
 # https://github.com/jrullan/micropython_neotimer
-# https://github.com/mungewell/pico-oled-1.3-driver/tree/pico_timecode
+# https://github.com/smittytone/HT16K33-Python
 
 from libs import config
 from libs.neotimer import *

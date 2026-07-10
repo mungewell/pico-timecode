@@ -1,16 +1,33 @@
 
 Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while
-and the PIO blocks on the Pico make it very possible...
+and the PIO blocks on the Pico are very powerfull. I occasionally post videos to this playlist:
 
-# Updates are in progress, PT-Thrifty is coming...
+https://www.youtube.com/playlist?list=PL1t1GwpUNc-VbEAXxscaxrPQlrt16c4yX
+
+or you can follow the project on Instagram:
+
+https://www.instagram.com/picotimecode/
+
+# Digi-Slate with I2C LED modules
+
+Expanding the hardware that Pico-Timecode supports, this time the ability to display the current Timecode
+on a pair of I2C LED modules to form a Digi-Slate. Switches detect when the slate is 'clapped' and/or
+rotated (for tail slating).
+
+![14-seg or 7-seg displays](docs/pics/7seg-blur.png)
+
+The `pico_slate.py` script uses a full size Pico with the 'Rev-1' board, or can be run on a 'naked' Pico to demo it. I plan
+to port the code into the 'PT Thrifty' code...
+
+# PT-Thrifty
 
 Even lower cost that the original Pico based board, PT-Thrify is based around the WaveShare RP2040_Zero 
 board and has a minimal UI of just one button and one LED. More details [here](docs/PT-Thrifty.md).
 
-![PT-Thrifty Render](docs/pics/PT_Thrifty_PCB.png)
+![PT-Thrifty PCB](docs/pics/PT_Thrifty_PCB.JPG)
 
 We also have a 'New Timer' mechanism which is more reliable than using timers after the PIOs cause 
-interrupts. I am hoping that this will be released in time for the new year....
+interrupts. Expect a new release towards the end of summer....
 
 # DIY Timecode made real (cheap).
 

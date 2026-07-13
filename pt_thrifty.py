@@ -34,6 +34,7 @@ from libs import config
 from libs.pid import *
 from libs.neotimer import *
 from libs.statemachine import *
+from libs.LCD_2in import *
 
 import pico_timecode as pt
 
@@ -247,6 +248,8 @@ def menu_run_logic():
         if RGB:
             RGB[0] = (0, 0, 0)
             RGB.write()
+        if LCD:
+            LCD.lcd_fill(0)     # Black
 
         # force pins 9 & 10 to mux to PIO
         mem32[IO_BANK0_BASE + 0x04c] = (mem32[IO_BANK0_BASE + 0x04c] & 0xFFFFFFE0) + 0x6
@@ -277,6 +280,10 @@ def menu_info_logic():
             if RGB:
                 RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
                 RGB.write()
+            if LCD:
+                # LCD takes 5-6-5 RGB values
+                (r,g,b) = thrifty_available_fps_df[thrifty_current_fps][2]
+                LCD.lcd_fill(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
             if high_output_level:
                 sleep(0.3)
@@ -286,6 +293,8 @@ def menu_info_logic():
             if RGB:
                 RGB[0] = (0, 0, 0)
                 RGB.write()
+            if LCD:
+                LCD.lcd_fill(0)
             sleep(0.1)
 
 def menu_select_logic():
@@ -296,6 +305,9 @@ def menu_select_logic():
         if RGB:
             RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
             RGB.write()
+        if LCD:
+            (r,g,b) = thrifty_available_fps_df[thrifty_current_fps][2]
+            LCD.lcd_fill(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
         timerB.start()
         timerC.start()
@@ -311,6 +323,9 @@ def menu_select_logic():
         if RGB:
             RGB[0] = thrifty_available_fps_df[thrifty_new_fps][2]
             RGB.write()
+        if LCD:
+            (r,g,b) = thrifty_available_fps_df[thrifty_new_fps][2]
+            LCD.lcd_fill(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
 
 def menu_jam_logic():
     global thrifty_current_fps, thrifty_new_fps, thrifty_synced
@@ -357,6 +372,12 @@ def menu_jam_logic():
         else:
             RGB[0] = (0, 0, 0)
             RGB.write()
+    if LCD:
+        if now & 1:
+            (r,g,b) = thrifty_available_fps_df[thrifty_current_fps][2]
+            LCD.lcd_fill(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
+        else:
+            LCD.lcd_fill(0)
 
     if pt.eng.mode == pt.MONITOR:
         menu.force_transition_to(menu_complete_state)
@@ -369,6 +390,8 @@ def menu_cancel_jam_logic():
         if RGB:
             RGB[0] = (0, 0, 0)
             RGB.write()
+        if LCD:
+            LCD.lcd_fill(0)
 
         if pt.eng.is_running():
             pt.stop = True
@@ -397,6 +420,8 @@ def menu_complete_logic():
         if RGB:
             RGB[0] = (127, 127, 127)
             RGB.write()
+        if LCD:
+            LCD.lcd_fill(0x6BEF)     # 1/2 grey
 
         thrifty_synced = 1
 
@@ -419,6 +444,10 @@ def menu_follow_logic():
         else:
             RGB[0] = (0, 0, 0)
             RGB.write()
+    if LCD:
+            LCD.lcd_fill(0x6BEF)     # 1/2 grey
+        else:
+            LCD.lcd_fill(0)
 
 def menu_cal_logic():
     # PID will 'follow' RX LTC, and after a time-out will
@@ -453,6 +482,12 @@ def menu_cal_logic():
         else:
             RGB[0] = (127, 127, 127)
             RGB.write()
+    if LCD:
+        if now & 1:
+            (r,g,b) = thrifty_available_fps_df[thrifty_current_fps][2]
+            LCD.lcd_fill(((r & 0xF8) << 8) | ((g & 0xFC) << 3) | (b >> 3))
+        else:
+            LCD.lcd_fill(0x6BEF)     # 1/2 grey
 
 def menu_init():
     global menu, menu_info_state, menu_jam_state
@@ -517,6 +552,7 @@ def thrifty_display_thread():
     global thrifty_calibration, calTimer
     global thrifty_current_fps
     global rgb, RGB
+    global LCD
 
     pt.eng = pt.engine()
     pt.eng.mode = pt.RUN
@@ -559,6 +595,10 @@ def thrifty_display_thread():
             RGB = GRB_NeoPixel(rgb,3)
     except:
         pass
+
+    # temp hack for LCD_2in on 'WaveShare RP2350-Touch-2.0'
+    LCD = LCD_2in()
+    LCD.lcd_fill(0)     # Black
 
     # Load/set the flashframe from config
     try:

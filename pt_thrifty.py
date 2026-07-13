@@ -244,8 +244,9 @@ def menu_run_logic():
 
     if menu.execute_once:
         #print("menu run")
-        RGB[0] = (0, 0, 0)
-        RGB.write()
+        if RGB:
+            RGB[0] = (0, 0, 0)
+            RGB.write()
 
         # force pins 9 & 10 to mux to PIO
         mem32[IO_BANK0_BASE + 0x04c] = (mem32[IO_BANK0_BASE + 0x04c] & 0xFFFFFFE0) + 0x6
@@ -273,16 +274,18 @@ def menu_info_logic():
         #print("menu info")
 
         for i in range(1 if thrifty_synced == 0 else 2):
-            RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
-            RGB.write()
+            if RGB:
+                RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
+                RGB.write()
 
             if high_output_level:
                 sleep(0.3)
             else:
                 sleep(0.1)
 
-            RGB[0] = (0, 0, 0)
-            RGB.write()
+            if RGB:
+                RGB[0] = (0, 0, 0)
+                RGB.write()
             sleep(0.1)
 
 def menu_select_logic():
@@ -290,8 +293,9 @@ def menu_select_logic():
 
     if menu.execute_once:
         #print("menu select")
-        RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
-        RGB.write()
+        if RGB:
+            RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
+            RGB.write()
 
         timerB.start()
         timerC.start()
@@ -304,8 +308,9 @@ def menu_select_logic():
         if thrifty_new_fps >= len(thrifty_available_fps_df):
             thrifty_new_fps = 0
 
-        RGB[0] = thrifty_available_fps_df[thrifty_new_fps][2]
-        RGB.write()
+        if RGB:
+            RGB[0] = thrifty_available_fps_df[thrifty_new_fps][2]
+            RGB.write()
 
 def menu_jam_logic():
     global thrifty_current_fps, thrifty_new_fps, thrifty_synced
@@ -345,12 +350,13 @@ def menu_jam_logic():
 
     # ~1/2sec ticks to flash LED
     now = ticks_ms() >> 9
-    if now & 1:
-        RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
-        RGB.write()
-    else:
-        RGB[0] = (0, 0, 0)
-        RGB.write()
+    if RGB:
+        if now & 1:
+            RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
+            RGB.write()
+        else:
+            RGB[0] = (0, 0, 0)
+            RGB.write()
 
     if pt.eng.mode == pt.MONITOR:
         menu.force_transition_to(menu_complete_state)
@@ -360,8 +366,9 @@ def menu_cancel_jam_logic():
 
     if menu.execute_once:
         #print("menu cancel")
-        RGB[0] = (0, 0, 0)
-        RGB.write()
+        if RGB:
+            RGB[0] = (0, 0, 0)
+            RGB.write()
 
         if pt.eng.is_running():
             pt.stop = True
@@ -386,9 +393,10 @@ def menu_complete_logic():
     global thrifty_synced
 
     if menu.execute_once:
-    #    print("menu complete")
-        RGB[0] = (127, 127, 127)
-        RGB.write()
+        #print("menu complete")
+        if RGB:
+            RGB[0] = (127, 127, 127)
+            RGB.write()
 
         thrifty_synced = 1
 
@@ -404,12 +412,13 @@ def menu_follow_logic():
 
     # ~1/2sec ticks
     now = ticks_ms() >> 9
-    if now & 1:
-        RGB[0] = (127, 127, 127)
-        RGB.write()
-    else:
-        RGB[0] = (0, 0, 0)
-        RGB.write()
+    if RGB:
+        if now & 1:
+            RGB[0] = (127, 127, 127)
+            RGB.write()
+        else:
+            RGB[0] = (0, 0, 0)
+            RGB.write()
 
 def menu_cal_logic():
     # PID will 'follow' RX LTC, and after a time-out will
@@ -437,12 +446,13 @@ def menu_cal_logic():
 
     # ~1/2sec ticks
     now = ticks_ms() >> 9
-    if now & 1:
-        RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
-        RGB.write()
-    else:
-        RGB[0] = (127, 127, 127)
-        RGB.write()
+    if RGB:
+        if now & 1:
+            RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
+            RGB.write()
+        else:
+            RGB[0] = (127, 127, 127)
+            RGB.write()
 
 def menu_init():
     global menu, menu_info_state, menu_jam_state
@@ -543,7 +553,6 @@ def thrifty_display_thread():
     rgb = Pin(16,Pin.OUT)
     try:
         neo = config.pt_thrifty['neopixel'][0]
-        print(neo)
         if neo == "RGB":
             RGB = NeoPixel(rgb,3)
         elif neo == "GRB":

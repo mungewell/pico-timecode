@@ -55,13 +55,13 @@ thrifty_calibration = 0.0
 thrifty_synced = 0
 
 thrifty_available_fps_df = [
-        [30,     False,  (0, 255, 0),   0b11],      # Red
-        [30,     True,   (0, 255, 255), 0b10],      # Purple
-        [29.97,  False,  (255, 255, 0), 0b11],      # Yellow
-        [29.97,  True,   (128, 255, 0), 0b10],      # Orange
-        [25,     False,  (255, 0, 0),   0b01],      # Green
-        [24,     False,  (0, 0, 255),   0b00],      # Blue
-        [23.98,  False,  (128, 0, 128), 0b00],      # Cyan
+        [30,     False,  (255, 0,   0  ), 0b11],      # Red
+        [30,     True,   (255, 0,   255), 0b10],      # Purple
+        [29.97,  False,  (255, 255, 0  ), 0b11],      # Yellow
+        [29.97,  True,   (255, 128, 0  ), 0b10],      # Orange
+        [25,     False,  (0,   255, 0  ), 0b01],      # Green
+        [24,     False,  (0,   0,   255), 0b00],      # Blue
+        [23.98,  False,  (0,   128, 128), 0b00],      # Cyan
         ]
 
 # Pico2 uses different addressing
@@ -492,10 +492,10 @@ class Temperature:
         return(27-(volt-0.706)/0.001721)
 
 #---------------------------------------------
-# Class for 'V1083' NeoPixel
+# Class for 'GRB' NeoPixel as used on WaveShare boards
 # defines different R,G,B order
 
-class V1083_NeoPixel(NeoPixel):
+class GRB_NeoPixel(NeoPixel):
     ORDER = (0, 1, 2, 3)
 
 # ----------------------
@@ -538,19 +538,18 @@ def thrifty_display_thread():
             pass
 
     # Config the type of NeoPixel
-    # different RGB order seen on 'v1083' board
+    # note: different RGB order seen on 'WaveShare' boards
+    RGB = False
     rgb = Pin(16,Pin.OUT)
-    v1083 = False
     try:
-        if config.pt_thrifty['v1083'][0] == "Yes":
-            v1083 = True
+        neo = config.pt_thrifty['neopixel'][0]
+        print(neo)
+        if neo == "RGB":
+            RGB = NeoPixel(rgb,3)
+        elif neo == "GRB":
+            RGB = GRB_NeoPixel(rgb,3)
     except:
         pass
-
-    if v1083:
-        RGB = V1083_NeoPixel(rgb,3)
-    else:
-        RGB = NeoPixel(rgb,3)
 
     # Load/set the flashframe from config
     try:

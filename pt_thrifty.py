@@ -5,22 +5,23 @@
 
 # pt-Thrifty, the lowest cost timecode generator
 #
-# GP13 - User key 'A'
-# GP27 - Detect from 3.5mm connector
+# GP23 - User key 'A'
+# GP07 - Detect from 3.5mm connector
 #
-# GP02 - Onboard LED
-# GP03 - Onboard LED2 or Midi Qtr_Clock
+# GP08 - Onboard LED
+# GP09 - Onboard LED2 or Midi Qtr_Clock
+# GP22 - AMP_CS, low for disable
 #
 # We'll allocate the following to the PIO blocks
 #
 # GP11 - RX: LTC_INPUT  (physical connection)
-# GP19 - RX: raw/decoded LTC input (debug)
-# GP20 - ditto - Hack to accomodate running out of memory
-# GP21 - RX: sync from LTC input (debug)
+# GP00 - RX: raw/decoded LTC input (debug)
+# GP01 - ditto - Hack to accomodate running out of memory
+# GP02 - RX: sync from LTC input (debug)
 #
-# GP22 - TX: raw LTC bitstream output (debug)
-# GP9  - TX: LTC_OUTPUT (physical connection)
-# GP10 - nTX: LTC_OUTPUT (physical connection)
+# GP03 - TX: raw LTC bitstream output (debug)
+# GP05 - TX: LTC_OUTPUT (physical connection)
+# GP06 - nTX: LTC_OUTPUT (physical connection)
 #
 
 # We need to install the following modules
@@ -112,48 +113,48 @@ def start_state_machines(mode=pt.RUN):
 
     if pt.eng.mode > pt.MONITOR:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, freq=sm_freq,
-                           in_base=Pin(21),
-                           jmp_pin=Pin(21)))        # RX Decoding
+                           in_base=Pin(4),
+                           jmp_pin=Pin(4)))        # RX Sync
     else:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.auto_start, freq=sm_freq,
-                           jmp_pin=Pin(21)))
+                           jmp_pin=Pin(4)))
 
     # TX State Machines
     if pt._hasUsbDevice:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq_4x, freq=sm_freq,
-                               jmp_pin=Pin(3),          # Qtr_Clk on GPIO3
-                               out_base=Pin(2)))        # LED on GPIO2
+                               jmp_pin=Pin(9),          # Qtr_Clk on GPIO9
+                               out_base=Pin(8)))        # LED on GPIO8
     else:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq_1x, freq=sm_freq,
-                               jmp_pin=Pin(3),          # Qtr_Clk on GPIO3
-                               out_base=Pin(2)))        # LED on GPIO2
+                               jmp_pin=Pin(9),          # Qtr_Clk on GPIO9
+                               out_base=Pin(8)))        # LED on GPIO8
 
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
-                           out_base=Pin(22)))       # Output of 'raw' bitstream
+                           out_base=Pin(21)))       # Output of 'raw' bitstream
 
     # always run differential outs (MIC level)
     # outs can be static, and not interfer with incoming/RX LTC for jam'ing
-    # force pins 9 & 10 to mux to GPIO, muxing will be changed later
-    mem32[IO_BANK0_BASE + 0x04c] = (mem32[IO_BANK0_BASE + 0x04c] & 0xFFFFFFE0) + 0x5
-    mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x5
+    # force pins 5 & 6 to mux to GPIO, muxing will be changed later
+    mem32[IO_BANK0_BASE + 0x02c] = (mem32[IO_BANK0_BASE + 0x02c] & 0xFFFFFFE0) + 0x5
+    mem32[IO_BANK0_BASE + 0x034] = (mem32[IO_BANK0_BASE + 0x034] & 0xFFFFFFE0) + 0x5
 
     pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc2, freq=sm_freq,
-                           jmp_pin=Pin(22),
-                           in_base=Pin(9),         # same as pin as out
-                           out_base=Pin(9)))       # Encoded LTC Output
+                           jmp_pin=Pin(21),
+                           in_base=Pin(5),         # same as pin as out
+                           out_base=Pin(5)))       # Encoded LTC Output
 
     pt.eng.sm.append(rp2.StateMachine(pt.SM_TX_RAW, pt.tx_raw_value, freq=sm_freq))
 
     # RX State Machines
     pt.eng.sm.append(rp2.StateMachine(pt.SM_SYNC, pt.sync_and_read, freq=sm_freq,
-                               jmp_pin=Pin(19),
-                               in_base=Pin(19),
-                               out_base=Pin(21),
-                               set_base=Pin(21)))       # 'sync' from RX bitstream
+                               jmp_pin=Pin(2),
+                               in_base=Pin(2),
+                               out_base=Pin(4),
+                               set_base=Pin(4)))       # 'sync' from RX bitstream
     pt.eng.sm.append(rp2.StateMachine(pt.SM_DECODE, pt.decode_dmc, freq=sm_freq,
                                jmp_pin=Pin(11),         # LTC Input ...
                                in_base=Pin(11),         # ... from 'other' device
-                               set_base=Pin(19)))       # Decoded LTC Input
+                               set_base=Pin(2)))       # Decoded LTC Input
 
     '''
     # DEBUG: check the PIO code space/addresses
@@ -161,6 +162,10 @@ def start_state_machines(mode=pt.RUN):
         for offset in [0x0d4, 0x0ec, 0x104, 0x11c]:
             print("0x%8.8x : 0x%8.8x = 0x%8.8x" % (base + offset, mem32[base + offset], mem32[base + offset + 4]))
     '''
+
+    print("GPIO02 mode: 0x%8.8x" % (mem32[IO_BANK0_BASE + 0x014] & 0x1F))
+    print("GPIO04 mode: 0x%8.8x" % (mem32[IO_BANK0_BASE + 0x024] & 0x1F))
+    print("GPIO11 mode: 0x%8.8x" % (mem32[IO_BANK0_BASE + 0x05c] & 0x1F))
 
     # correct clock dividers
     pt.eng.config_clocks(pt.eng.tc.fps)
@@ -180,24 +185,24 @@ def start_state_machines(mode=pt.RUN):
 # ----------------------
 
 # The (only) button
-keyA = Pin(12,Pin.IN,Pin.PULL_UP)
+keyA = Pin(23,Pin.IN,Pin.PULL_UP)
 timerA = Neotimer(50)
 timerB = Neotimer(500)
 timerC = Neotimer(2000)
 timerH = Neotimer(2000)
 
 # Connector Detect, ie 3.5mm in socket
-keyD = Pin(27,Pin.IN,Pin.PULL_UP)
+keyD = Pin(7,Pin.IN,Pin.PULL_UP)
 timerD = Neotimer(50)
 
 # chip enable for Amp, low = on
-amp_cs = Pin(13,Pin.OUT)
+amp_cs = Pin(22,Pin.OUT)
 amp_cs.value(1)
 
 # force TX outputs differential high/low
-tx1 = Pin(9,Pin.OUT)
+tx1 = Pin(5,Pin.OUT)
 tx1.value(1)
-tx2 = Pin(10,Pin.OUT)
+tx2 = Pin(6,Pin.OUT)
 tx2.value(0)
 
 
@@ -251,12 +256,12 @@ def menu_run_logic():
         if LCD:
             LCD.lcd_fill(0)     # Black
 
-        # force pins 9 & 10 to mux to PIO
-        mem32[IO_BANK0_BASE + 0x04c] = (mem32[IO_BANK0_BASE + 0x04c] & 0xFFFFFFE0) + 0x6
-        mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x6
+        # force pins 5 & 6 to mux to PIO
+        mem32[IO_BANK0_BASE + 0x02c] = (mem32[IO_BANK0_BASE + 0x02c] & 0xFFFFFFE0) + 0x6
+        mem32[IO_BANK0_BASE + 0x034] = (mem32[IO_BANK0_BASE + 0x034] & 0xFFFFFFE0) + 0x6
         if high_output_level:
-            # pin 10 : force muxing to use GPIO block (ie force low)
-            mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x5
+            # pin 6 : force muxing to use GPIO block (ie force low)
+            mem32[IO_BANK0_BASE + 0x034] = (mem32[IO_BANK0_BASE + 0x034] & 0xFFFFFFE0) + 0x5
 
             print("HIGH level selected")
         else:
@@ -445,6 +450,7 @@ def menu_follow_logic():
             RGB[0] = (0, 0, 0)
             RGB.write()
     if LCD:
+        if now & 1:
             LCD.lcd_fill(0x6BEF)     # 1/2 grey
         else:
             LCD.lcd_fill(0)
@@ -586,12 +592,13 @@ def thrifty_display_thread():
     # Config the type of NeoPixel
     # note: different RGB order seen on 'WaveShare' boards
     RGB = False
-    rgb = Pin(16,Pin.OUT)
     try:
         neo = config.pt_thrifty['neopixel'][0]
         if neo == "RGB":
+            rgb = Pin(16,Pin.OUT)
             RGB = NeoPixel(rgb,3)
         elif neo == "GRB":
+            rgb = Pin(16,Pin.OUT)
             RGB = GRB_NeoPixel(rgb,3)
     except:
         pass
@@ -795,8 +802,10 @@ def thrifty_display_callback(sm=None):
                     pt.mtc.open_seen = 1
 
             disp_asc = asc
+            '''
             if pt.eng.mode == pt.RUN:
                 print("TX: %s" % asc)
+            '''
 
 
 #---------------------------------------------

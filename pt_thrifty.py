@@ -61,6 +61,7 @@ import gc
 # Set up (extra) globals
 high_output_level = 0       # MIC level
 
+powersave = False
 menu_active = False
 slate_HM = False
 slate_SF = False
@@ -567,10 +568,17 @@ class HT16K33Segment14_dbl(HT16K33Segment14):
 # ----------------------
 
 def slate_show_fps_df(index):
-    global slate_HM, slate_SF
+    global slate_HM, slate_SF, powersave
+
+    if powersave:
+        powersave = False
+
+        if slate_SF:
+            if slate_HM:
+                slate_HM.power_on()
+            slate_SF.power_on()
 
     asc = str(thrifty_available_fps_df[index][4])
-    print(asc)
 
     for i in range(4):
         slate_SF.set_character(asc[i+(1 if i>1 else 0)], \
@@ -606,12 +614,12 @@ def slate_show_fps_df(index):
 
 def thrifty_display_thread():
     global disp, slate_current_fps_df
-    global disp_asc #, slate_open
+    global disp_asc, slate_open
     global amp_cs, high_output_level
     global thrifty_calibration, calTimer
     global thrifty_current_fps
     global rgb, RGB
-    global slate_HM, slate_SF, timerS
+    global slate_HM, slate_SF, timerS, powersave
 
     pt.eng = pt.engine()
     pt.eng.mode = pt.RUN
@@ -774,6 +782,8 @@ def thrifty_display_thread():
 
     pt.eng.micro_adjust(thrifty_calibration, period * 1000) # period in ms
 
+    slate_open = False
+
     # register callbacks, functions to display TX data ASAP
     pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
 
@@ -787,6 +797,109 @@ def thrifty_display_thread():
         '''
 
         menu.run()
+
+        # Check for clapper closing
+        if slate_open and timerC.debounce_signal(keyC.value()==1):
+            if menu_active:
+                break
+
+            slate_open = False
+            timerS.start()
+
+            # 'LED blur' workaround, freeze TC display for 4 frames
+            if slate_HM:
+                slate_HM.set_character("-", 0)
+                slate_HM.draw()
+            sleep(4/pt.eng.tc.fps)
+
+            # display user bits, if possible
+            '''
+            C = 0 3 4 5     = 0x39
+            L = 3 4 5       = 0x38
+            A = 0 1 2 4 5 6 = 0x77
+            P = 0 1 4 5 6   = 0x73
+            - = 6           = 0x40
+            '''
+            if slate_SF:
+                if len(slate_SF.CHARSET) > 19:
+                    # include segment '7' on ECBUYING 14-segment
+                    clap = [0xC0,0xC0,0x39,0x38,0xF7,0xF3,0xC0,0xC0]
+                else:
+                    clap = [0x40,0x40,0x39,0x38,0x77,0x73,0x40,0x40]
+
+                ub = None
+                try:
+                    if config.userbits['userbits'][0] == "Name":
+                        ub = "  " + config.userbits['ub_name'] + "      "
+                    elif config.userbits['userbits'][0] == "Digits":
+                        ub = config.userbits['ub_digits'] + "        "
+                except:
+                    pass
+
+                if ub:
+                    # best effort to display Userbits
+                    try:
+                        for i in range(4):
+                            if slate_HM:
+                                slate_HM.set_character(ub[i], i)
+                                slate_SF.set_character(ub[i+4], i)
+                            else:
+                                slate_SF.set_character(ub[i+2], i)
+                        clap = None
+                    except:
+                        pass
+
+                if clap:
+                    # Unable to display User-Bits
+                    for i in range(4):
+                        if slate_HM:
+                            slate_HM.set_glyph(clap[i], i)
+                            slate_SF.set_glyph(clap[i+4], i)
+                        else:
+                            slate_SF.set_glyph(clap[i+2], i)
+
+                if slate_HM:
+                    slate_HM.draw()
+                slate_SF.draw()
+
+        # Once clapper has closed and timer expired, enter powersave
+        if not slate_open and timerS.finished() and \
+                not menu_active and not powersave:
+            if slate_SF:
+                if slate_HM:
+                    slate_HM.power_off()
+                slate_SF.power_off()
+
+            '''
+            pt.irq_callbacks[pt.SM_BLINK] = None
+            print("Entering powersave")
+            sleep(0.1)
+
+            pt.eng.set_powersave(True)
+            '''
+            powersave = True
+
+        # Display FPS on slate when clapper is first lifted
+        if not slate_open and timerC.debounce_signal(keyC.value()==0):
+            '''
+            if powersave:
+                print("Exiting powersave")
+                pt.eng.set_powersave(False)
+
+                pt.irq_callbacks[pt.SM_BLINK] = slate_display_callback
+                powersave = False
+
+                if slate_SF:
+                    if slate_HM:
+                        slate_HM.power_on()
+                    slate_SF.power_on()
+            '''
+
+            slate_open = True
+            timerS.start()
+
+            if slate_SF:
+                slate_show_fps_df(thrifty_current_fps)
 
         # Async display of external LTC during jam/monitoring
         if pt.eng.mode > pt.RUN:
@@ -879,7 +992,7 @@ def thrifty_display_callback(sm=None):
         # sync to 0th quarter (inc has happened)
         # send previously written frame
         if slate_SF and ((pt.quarters == 1) or not pt._hasUsbDevice) and \
-                    not menu_active and timerS.finished():# and slate_open == 1
+                not menu_active and timerS.finished() and slate_open == 1:
             #debug.on()
             slate_SF.draw()
             if slate_HM:
@@ -915,14 +1028,14 @@ def thrifty_display_callback(sm=None):
             if pt.eng.mode == pt.RUN:
                 print("TX: %s" % asc)
 
-                if slate_SF and not menu_active and timerS.finished(): # and slate_open == 1
+                if slate_SF and not menu_active and timerS.finished() and slate_open == 1:
                     # pre-write values for next frame
                     disp.next_frame()
                     asc = disp.to_ascii(False)
                     for i in range(4):
                         slate_SF.set_character(asc[4+i], i,
                                 has_dot=(True if i==1 else False))
-                        if slate_HM: # and slate_open == 1:
+                        if slate_HM and slate_open == 1:
                             slate_HM.set_character(asc[i], i,
                                     has_dot=False)
 

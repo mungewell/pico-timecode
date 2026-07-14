@@ -10,6 +10,7 @@
 #
 # GP02 - Onboard LED
 # GP03 - Onboard LED2 or Midi Qtr_Clock
+# GP13 - AMP_CS, low for disable
 #
 # We'll allocate the following to the PIO blocks
 #
@@ -23,21 +24,32 @@
 # GP10 - nTX: LTC_OUTPUT (physical connection)
 #
 
+# implement a Digi-Slate with Pico, swiches/buttons
+# and 2x I2C LED modules:
+#
+# Pin10 / GP14 - I2C1_SDA
+# Pin11 / GP15 - I2C1_CLK
+# Pin14 / GP28 - Clapper Switch, short-circuit to GND when 'open'
+# Pin15 / GP29 - Rotation Switch, short-circuit to GND when 'inverted'
+
 # We need to install the following modules
 # ---
 # https://github.com/aleppax/upyftsconf
 # https://github.com/m-lundberg/simple-pid
 # https://github.com/jrullan/micropython_neotimer
 # https://github.com/jrullan/micropython_statemachine
+# https://github.com/smittytone/HT16K33-Python
 
 from libs import config
 from libs.pid import *
 from libs.neotimer import *
 from libs.statemachine import *
+from libs.ht16k33segment import HT16K33Segment
+from libs.ht16k33segment14 import HT16K33Segment14
 
 import pico_timecode as pt
 
-from machine import Pin,freq,reset,mem32, ADC
+from machine import Pin,freq,reset,mem32,ADC,I2C
 from utime import sleep, ticks_ms
 from neopixel import NeoPixel
 from os import uname
@@ -48,6 +60,9 @@ import gc
 
 # Set up (extra) globals
 high_output_level = 0       # MIC level
+
+slate_HM = False
+slate_SF = False
 
 thrifty_new_fps = 0
 thrifty_current_fps = 0
@@ -508,15 +523,33 @@ class Temperature:
 class GRB_NeoPixel(NeoPixel):
     ORDER = (0, 1, 2, 3)
 
+#---------------------------------------------
+# Class to overload HT16K33Segment14
+# modify 'render' to double up characters for reduced flicker on ECBUYING display
+# https://github.com/smittytone/HT16K33-Python/issues/28
+
+class HT16K33Segment14_dbl(HT16K33Segment14):
+    def _render(self):
+        """
+        Write the display buffer out to I2C
+        """
+        buffer = bytearray(len(self.buffer) + 1)
+        buffer[1:] = self.buffer[:8]
+        buffer[9:] = self.buffer[:8]
+
+        buffer[0] = 0x00
+        self.i2c.writeto(self.address, bytes(buffer))
+
 # ----------------------
 
 def thrifty_display_thread():
     global disp, slate_current_fps_df
-    global disp_asc, slate_open
+    global disp_asc #, slate_open
     global amp_cs, high_output_level
     global thrifty_calibration, calTimer
     global thrifty_current_fps
     global rgb, RGB
+    global slate_HM, slate_SF, timerS
 
     pt.eng = pt.engine()
     pt.eng.mode = pt.RUN
@@ -559,6 +592,47 @@ def thrifty_display_thread():
             RGB = GRB_NeoPixel(rgb,3)
     except:
         pass
+
+    # Configure Digi-Slate controls
+    keyC = Pin(28,Pin.IN,Pin.PULL_UP)
+    keyR = Pin(29,Pin.IN,Pin.PULL_UP)
+    timerC = Neotimer(15)
+    timerR = Neotimer(50)
+    timerS = Neotimer(1000)
+
+    # Display is made from 2x 4-character I2C modules
+    # note: left module is mounted up-side-down
+    slate_R = None
+    slate_L = None
+
+    # preferred display, supports ASCII
+    setting = None
+    try:
+        setting = config.pt_thrifty['7seg'][0]
+    except:
+        pass
+
+    try:
+        if setting=="HT16K33Segment":
+            # Adafruit 7-segment
+            i2c = I2C(1, scl=Pin(15), sda=Pin(14), freq=1_200_000)
+            slate_R = HT16K33Segment(i2c, i2c_address=0x70)
+            slate_L = HT16K33Segment(i2c, i2c_address=0x71)
+        elif setting=="HT16K33Segment14":
+            # ECBUYING 14-segment
+            i2c = I2C(1, scl=Pin(15), sda=Pin(14), freq=1_200_000)
+            slate_R = HT16K33Segment14_dbl(i2c, i2c_address=0x70, board=HT16K33Segment14.ECBUYING_054)
+            slate_L = HT16K33Segment14_dbl(i2c, i2c_address=0x71, board=HT16K33Segment14.ECBUYING_054)
+    except OSError as e:
+        if e.args[0] == 5: # Errno 5 is EIO
+            print("One or more 7-seg/14-seg displays not found")
+        else:
+            raise e
+
+    slate_SF = slate_R
+    if slate_L:
+        slate_HM = slate_L
+        slate_HM.rotate()
 
     # Load/set the flashframe from config
     try:
@@ -614,7 +688,18 @@ def thrifty_display_thread():
     start_state_machines(pt.eng.mode)
 
     disp = pt.timecode()
-    disp_asc = "--:--:--:--"
+    #disp_asc = "--:--:--:--"
+    disp_asc = "--------"
+    if slate_SF:
+        for i in range(4):
+            if slate_HM:
+                slate_HM.set_character(disp_asc[i], i)
+            slate_SF.set_character(disp_asc[i+4], i)
+
+        if slate_HM:
+            slate_HM.draw()
+        slate_SF.draw()
+    timerS.start()
 
     monTimer = None
     calTimer = None
@@ -729,6 +814,16 @@ def thrifty_display_callback(sm=None):
     global disp, disp_asc
 
     if sm == pt.SM_BLINK:
+        # sync to 0th quarter (inc has happened)
+        # send previously written frame
+        if slate_SF and ((pt.quarters == 1) or not pt._hasUsbDevice): # and \
+            #    not menu_active and slate_open == 1 and timerS.finished():
+            #debug.on()
+            slate_SF.draw()
+            if slate_HM:
+                slate_HM.draw()
+            #debug.off()
+
         # MTC quarter packets
         if pt.mtc:
             if pt.mtc.is_open():
@@ -758,6 +853,16 @@ def thrifty_display_callback(sm=None):
             if pt.eng.mode == pt.RUN:
                 print("TX: %s" % asc)
 
+                if slate_SF: # and not menu_active and slate_open == 1 and timerS.finished():
+                    # pre-write values for next frame
+                    disp.next_frame()
+                    asc = disp.to_ascii(False)
+                    for i in range(4):
+                        slate_SF.set_character(asc[4+i], i,
+                                has_dot=(True if i==1 else False))
+                        if slate_HM: # and slate_open == 1:
+                            slate_HM.set_character(asc[i], i,
+                                    has_dot=False)
 
 #---------------------------------------------
 

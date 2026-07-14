@@ -61,6 +61,7 @@ import gc
 # Set up (extra) globals
 high_output_level = 0       # MIC level
 
+menu_active = False
 slate_HM = False
 slate_SF = False
 
@@ -70,13 +71,13 @@ thrifty_calibration = 0.0
 thrifty_synced = 0
 
 thrifty_available_fps_df = [
-        [30,     False,  (255, 0,   0  ), 0b11],      # Red
-        [30,     True,   (255, 0,   255), 0b10],      # Purple
-        [29.97,  False,  (255, 255, 0  ), 0b11],      # Yellow
-        [29.97,  True,   (255, 128, 0  ), 0b10],      # Orange
-        [25,     False,  (0,   255, 0  ), 0b01],      # Green
-        [24,     False,  (0,   0,   255), 0b00],      # Blue
-        [23.98,  False,  (0,   128, 128), 0b00],      # Cyan
+        [30,     False,  (255, 0,   0  ), 0b11, "30.00"],      # Red
+        [30,     True,   (255, 0,   255), 0b10, "30.00"],      # Purple
+        [29.97,  False,  (255, 255, 0  ), 0b11, "29.97"],      # Yellow
+        [29.97,  True,   (255, 128, 0  ), 0b10, "29.97"],      # Orange
+        [25,     False,  (0,   255, 0  ), 0b01, "25.00"],      # Green
+        [24,     False,  (0,   0,   255), 0b00, "24.00"],      # Blue
+        [23.98,  False,  (0,   128, 128), 0b00, "23.98"],      # Cyan
         ]
 
 # Pico2 uses different addressing
@@ -256,6 +257,7 @@ menu = StateMachine()
 
 def menu_run_logic():
     global calTimer
+    global menu_active
 
     if menu.execute_once:
         #print("menu run")
@@ -281,12 +283,23 @@ def menu_run_logic():
 
         calTimer = None
 
+        # allow slate counter to run
+        menu_active = False
+
     if pt.eng.mode == pt.MONITOR:
         pt.eng.mode = pt.RUN
 
 def menu_info_logic():
+    global menu_active
+
     if menu.execute_once:
         #print("menu info")
+
+        # prevent 7-seg counter running
+        menu_active = True
+        if slate_SF:
+            slate_show_fps_df(thrifty_current_fps)
+            timerS.start()
 
         for i in range(1 if thrifty_synced == 0 else 2):
             if RGB:
@@ -305,8 +318,15 @@ def menu_info_logic():
 
 def menu_select_logic():
     global thrifty_current_fps, thrifty_new_fps
+    global menu_active
 
     if menu.execute_once:
+        # prevent 7-seg counter running
+        menu_active = True
+        if slate_SF:
+            slate_show_fps_df(thrifty_current_fps)
+            timerS.start()
+
         #print("menu select")
         if RGB:
             RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
@@ -322,6 +342,10 @@ def menu_select_logic():
         thrifty_new_fps += 1
         if thrifty_new_fps >= len(thrifty_available_fps_df):
             thrifty_new_fps = 0
+
+        if slate_SF:
+            slate_show_fps_df(thrifty_new_fps)
+            timerS.start()
 
         if RGB:
             RGB[0] = thrifty_available_fps_df[thrifty_new_fps][2]
@@ -541,6 +565,44 @@ class HT16K33Segment14_dbl(HT16K33Segment14):
         self.i2c.writeto(self.address, bytes(buffer))
 
 # ----------------------
+
+def slate_show_fps_df(index):
+    global slate_HM, slate_SF
+
+    asc = str(thrifty_available_fps_df[index][4])
+    print(asc)
+
+    for i in range(4):
+        slate_SF.set_character(asc[i+(1 if i>1 else 0)], \
+                i, has_dot=(True if i==1 else False))
+
+    extend_glyph = 0
+    if len(slate_SF.CHARSET) > 19:
+        # include segment '7' on ECBUYING 14-segment
+        extend_glyph = 0x80
+
+    if thrifty_available_fps_df[index][1]:
+        '''
+        F = 0 4 5 6   = 0x71
+        P = 0 1 4 5 6 = 0x73
+        S = 0 2 3 5 6 = 0x6D
+
+        d = 1 2 3 4 6 = 0x5e
+        f = 0 4 5 6   = 0x71
+        '''
+        # overwrite last digits with 'df'
+        slate_SF.set_glyph(0x5e + extend_glyph, 2)
+        slate_SF.set_glyph(0x71 + extend_glyph, 3)
+
+    if slate_HM:
+        slate_HM.set_glyph(0x71 + extend_glyph, 0)
+        slate_HM.set_glyph(0x73 + extend_glyph, 1)
+        slate_HM.set_glyph(0x6d + extend_glyph, 2)
+        slate_HM.set_glyph(0x00, 3)
+        slate_HM.draw()
+
+    #slate_SF.set_colon(False)
+    slate_SF.draw()
 
 def thrifty_display_thread():
     global disp, slate_current_fps_df
@@ -816,8 +878,8 @@ def thrifty_display_callback(sm=None):
     if sm == pt.SM_BLINK:
         # sync to 0th quarter (inc has happened)
         # send previously written frame
-        if slate_SF and ((pt.quarters == 1) or not pt._hasUsbDevice): # and \
-            #    not menu_active and slate_open == 1 and timerS.finished():
+        if slate_SF and ((pt.quarters == 1) or not pt._hasUsbDevice) and \
+                    not menu_active and timerS.finished():# and slate_open == 1
             #debug.on()
             slate_SF.draw()
             if slate_HM:
@@ -853,7 +915,7 @@ def thrifty_display_callback(sm=None):
             if pt.eng.mode == pt.RUN:
                 print("TX: %s" % asc)
 
-                if slate_SF: # and not menu_active and slate_open == 1 and timerS.finished():
+                if slate_SF and not menu_active and timerS.finished(): # and slate_open == 1
                     # pre-write values for next frame
                     disp.next_frame()
                     asc = disp.to_ascii(False)

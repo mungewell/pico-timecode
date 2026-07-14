@@ -325,7 +325,7 @@ def menu_select_logic():
         # prevent 7-seg counter running
         menu_active = True
         if slate_SF:
-            slate_show_fps_df(thrifty_current_fps)
+            slate_show_fps_df(thrifty_current_fps, True)
             timerS.start()
 
         #print("menu select")
@@ -345,7 +345,7 @@ def menu_select_logic():
             thrifty_new_fps = 0
 
         if slate_SF:
-            slate_show_fps_df(thrifty_new_fps)
+            slate_show_fps_df(thrifty_new_fps, True)
             timerS.start()
 
         if RGB:
@@ -437,6 +437,9 @@ def menu_complete_logic():
         if RGB:
             RGB[0] = (127, 127, 127)
             RGB.write()
+
+        if slate_SF:
+            slate_SF.set_blink_rate(0)
 
         thrifty_synced = 1
 
@@ -567,7 +570,7 @@ class HT16K33Segment14_dbl(HT16K33Segment14):
 
 # ----------------------
 
-def slate_show_fps_df(index):
+def slate_show_fps_df(index, blink=False):
     global slate_HM, slate_SF, powersave
 
     if powersave:
@@ -611,6 +614,10 @@ def slate_show_fps_df(index):
 
     #slate_SF.set_colon(False)
     slate_SF.draw()
+    if blink:
+        slate_SF.set_blink_rate(2)
+    else:
+        slate_SF.set_blink_rate(0)
 
 def thrifty_display_thread():
     global disp, slate_current_fps_df
@@ -903,6 +910,40 @@ def thrifty_display_thread():
             asc = pt.eng.rc.to_ascii(False)
 
             if disp_asc != asc:
+                # update Digi-Slate
+                '''
+                S = 0 2 3 5 6 = 0x6D
+                Y = 1 2 3 5 6 = 0x6E
+                n = 2 4 6     = 0x54
+                c = 3 4 6     = 0x58
+                '''
+                if slate_SF:
+                    force_dp = False
+                    if slate_HM:
+                        if len(slate_SF.CHARSET) > 19:
+                            slate_HM.set_character("S", 0)
+                            slate_HM.set_character("Y", 1)
+                            slate_HM.set_character("N", 2)
+                            slate_HM.set_character("C", 3)
+                        else:
+                            # 7-seg
+                            slate_HM.set_glyph(0x6D, 0)
+                            slate_HM.set_glyph(0x6E, 1)
+                            slate_HM.set_glyph(0x54, 2)
+                            slate_HM.set_glyph(0x58, 3)
+                        slate_HM.draw()
+                    else:
+                        # indicate Sync with all decimal points lit
+                        force_dp = True
+
+                    # only display the SS:FF digits
+                    if slate_SF:
+                        for i in range(4):
+                            slate_SF.set_character(asc[4+i], i,
+                                        has_dot=(True if i==1 else force_dp))
+                        #slate_SF.set_colon(True)
+                        slate_SF.draw()
+
                 disp_asc = asc
 
                 if pt.eng.mode > pt.MONITOR:

@@ -799,10 +799,7 @@ def thrifty_display_thread():
         menu.run()
 
         # Check for clapper closing
-        if slate_open and timerC.debounce_signal(keyC.value()==1):
-            if menu_active:
-                break
-
+        if slate_open and timerC.debounce_signal(keyC.value()==1) and not menu_active:
             slate_open = False
             timerS.start()
 

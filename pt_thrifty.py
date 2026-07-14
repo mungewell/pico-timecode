@@ -618,6 +618,8 @@ def slate_show_fps_df(index, blink=False):
         slate_SF.set_blink_rate(2)
     else:
         slate_SF.set_blink_rate(0)
+    if slate_HM:
+        slate_HM.set_blink_rate(0)
 
 def thrifty_display_thread():
     global disp, slate_current_fps_df
@@ -790,6 +792,7 @@ def thrifty_display_thread():
     pt.eng.micro_adjust(thrifty_calibration, period * 1000) # period in ms
 
     slate_open = False
+    slate_rotated = False
 
     # register callbacks, functions to display TX data ASAP
     pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
@@ -804,6 +807,24 @@ def thrifty_display_thread():
         '''
 
         menu.run()
+
+        # Check for slate rotation
+        # rotation only possible with 2x displays
+        if slate_HM:
+            if not slate_rotated and timerR.debounce_signal(keyR.value()==0):
+                slate_HM = slate_R
+                slate_HM.rotate()
+                slate_HM.set_colon(False)
+                slate_SF = slate_L
+                slate_SF.rotate()
+                slate_rotated = True
+            elif slate_rotated and timerR.debounce_signal(keyR.value()==1):
+                slate_HM = slate_L
+                slate_HM.rotate()
+                slate_HM.set_colon(False)
+                slate_SF = slate_R
+                slate_SF.rotate()
+                slate_rotated = False
 
         # Check for clapper closing
         if slate_open and timerC.debounce_signal(keyC.value()==1) and not menu_active:

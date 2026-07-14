@@ -111,6 +111,9 @@ def start_state_machines(mode=pt.RUN):
 
     sm_freq = int(pt.eng.tc.fps + 0.1) * 80 * 32
 
+    # apparently this needs a pull up on the Touch-LEC.20 board
+    rx = Pin(11,Pin.IN,Pin.PULL_UP)
+
     if pt.eng.mode > pt.MONITOR:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.start_from_sync, freq=sm_freq,
                            in_base=Pin(4),
@@ -118,6 +121,9 @@ def start_state_machines(mode=pt.RUN):
     else:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_START, pt.auto_start, freq=sm_freq,
                            jmp_pin=Pin(4)))
+
+    # TX State Machines
+    if pt._hasUsbDevice:
 
     # TX State Machines
     if pt._hasUsbDevice:
@@ -795,9 +801,6 @@ def thrifty_display_callback(sm=None):
         asc = disp.to_ascii()
 
         if disp_asc != asc:
-            # MTC long packet, first frame only
-            if pt.mtc and pt.mtc.is_open():
-                if not pt.mtc.open_seen:
                     pt.mtc.send_long_mtc(pt.tx_raw)          # 'seek' to position
                     pt.mtc.open_seen = 1
 

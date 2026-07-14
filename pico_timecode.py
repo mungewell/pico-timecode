@@ -1109,7 +1109,6 @@ def pico_timecode_thread(eng, stop):
         CLOCKS_SLEEP_EN0 = None
         CLOCKS_SLEEP_EN1 = None
 
-
     # Main Loop, service FIFOs and increasing counter
     while not stop():
         # Empty RX FIFOs as they fill
@@ -1426,47 +1425,54 @@ def ascii_display_thread(init_mode = RUN):
         eng.sm = []
         sm_freq = int(eng.tc.fps + 0.1) * 80 * 32
 
+        # PT_thrifty boards needs AMP_CS forced low to Receive LTC
+        rx = Pin(11,Pin.IN,Pin.PULL_UP)
+        amp_cs = Pin(22,Pin.OUT)
+        amp_cs.value(1)
+
         # Note: we always want the 'sync' SM to be first in the list.
         if eng.mode > MONITOR:
+            amp_cs.value(0)
             # We will only start after a trigger pin goes high
             eng.sm.append(rp2.StateMachine(SM_START, start_from_sync, freq=sm_freq,
-                               in_base=Pin(21),
-                               jmp_pin=Pin(21)))        # RX Decoding
+                               in_base=Pin(4),
+                               jmp_pin=Pin(4)))        # RX Decoding
         else:
             eng.sm.append(rp2.StateMachine(SM_START, auto_start, freq=sm_freq,
-                               jmp_pin=Pin(21)))        # RX Decoding
+                               jmp_pin=Pin(4)))        # RX Decoding
 
         # TX State Machines
         if _hasUsbDevice:
             eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq_4x, freq=sm_freq,
-                                   jmp_pin=Pin(26),
-                                   out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+                                   jmp_pin=Pin(9),
+                                   out_base=Pin(8)))       # LED on Pico board + GPIO26/27/28
         else:
             eng.sm.append(rp2.StateMachine(SM_BLINK, shift_led_irq_1x, freq=sm_freq,
-                                   jmp_pin=Pin(26),
-                                   out_base=Pin(25)))       # LED on Pico board + GPIO26/27/28
+                                   jmp_pin=Pin(9),
+                                   out_base=Pin(8)))       # LED on Pico board + GPIO26/27/28
 
         eng.sm.append(rp2.StateMachine(SM_BUFFER, buffer_out, freq=sm_freq,
-                               out_base=Pin(22)))       # Output of 'raw' bitstream
-        eng.sm.append(rp2.StateMachine(SM_ENCODE, encode_dmc, freq=sm_freq,
-                               jmp_pin=Pin(22),
-                               in_base=Pin(13),         # same as pin as out
-                               out_base=Pin(13)))       # Encoded LTC Output
+                               out_base=Pin(21)))       # Output of 'raw' bitstream
+
+        eng.sm.append(rp2.StateMachine(SM_ENCODE, encode_dmc2, freq=sm_freq,
+                               jmp_pin=Pin(21),
+                               in_base=Pin(5),         # same as pin as out
+                               out_base=Pin(5)))       # Encoded LTC Output
 
         eng.sm.append(rp2.StateMachine(SM_TX_RAW, tx_raw_value, freq=sm_freq))
 
         # RX State Machines - note DEMO Mode
         eng.sm.append(rp2.StateMachine(SM_SYNC, sync_and_read, freq=sm_freq,
-                               jmp_pin=Pin(19),
-                               in_base=Pin(19),
-                               out_base=Pin(21),
-                               set_base=Pin(21)))       # 'sync' from RX bitstream
+                               jmp_pin=Pin(2),
+                               in_base=Pin(2),
+                               out_base=Pin(4),
+                               set_base=Pin(4)))       # 'sync' from RX bitstream
 
         if eng.mode > MONITOR:
             eng.sm.append(rp2.StateMachine(SM_DECODE, decode_dmc, freq=sm_freq,
-                               jmp_pin=Pin(18),
-                               in_base=Pin(18),
-                               set_base=Pin(19)))       # Decoded LTC Input
+                               jmp_pin=Pin(11),
+                               in_base=Pin(11),
+                               set_base=Pin(2)))       # Decoded LTC Input
             '''
             # for pt_thrifty board
             amp_cs = Pin(13,Pin.OUT)
@@ -1650,4 +1656,4 @@ if __name__ == "__main__":
         print("MTC enabled (will loose USB-UART connection)")
     sleep(2)
 
-    ascii_display_thread()#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above
+    ascii_display_thread(JAM)#RUN/MONITOR/JAM)       # Note: DEMO Mode(s) above

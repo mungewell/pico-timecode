@@ -81,11 +81,6 @@ thrifty_available_fps_df = [
         [23.98,  False,  (0,   128, 128), 0b00, "23.98"],      # Cyan
         ]
 
-# Pico2 uses different addressing
-if uname().machine[23:] == 'RP2040':
-    IO_BANK0_BASE = 0x40014000
-else:
-    IO_BANK0_BASE = 0x40028000
 # ----------------------
 
 def start_state_machines(mode=pt.RUN):
@@ -147,12 +142,6 @@ def start_state_machines(mode=pt.RUN):
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream
 
-    # always run differential outs (MIC level)
-    # outs can be static, and not interfer with incoming/RX LTC for jam'ing
-    # force pins 9 & 10 to mux to GPIO, muxing will be changed later
-    mem32[IO_BANK0_BASE + 0x04c] = (mem32[IO_BANK0_BASE + 0x04c] & 0xFFFFFFE0) + 0x5
-    mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x5
-
     pt.eng.sm.append(rp2.StateMachine(pt.SM_ENCODE, pt.encode_dmc2, freq=sm_freq,
                            jmp_pin=Pin(22),
                            in_base=Pin(9),         # same as pin as out
@@ -171,13 +160,6 @@ def start_state_machines(mode=pt.RUN):
                                in_base=Pin(11),         # ... from 'other' device
                                set_base=Pin(19)))       # Decoded LTC Input
 
-    '''
-    # DEBUG: check the PIO code space/addresses
-    for base in [0x50200000, 0x50300000]:
-        for offset in [0x0d4, 0x0ec, 0x104, 0x11c]:
-            print("0x%8.8x : 0x%8.8x = 0x%8.8x" % (base + offset, mem32[base + offset], mem32[base + offset + 4]))
-    '''
-
     # correct clock dividers
     pt.eng.config_clocks(pt.eng.tc.fps)
 
@@ -189,6 +171,31 @@ def start_state_machines(mode=pt.RUN):
         # set up MTC engine
         pt.mtc = pt.MTC()
         pt.mtc.init()
+
+    # use silicon to control output levels
+    if uname().machine[23:] == 'RP2040':
+        IO_BANK0_BASE = 0x40014000
+        PADS_BANK0_BASE = 0x4001c000
+        if high_output_level:
+            # GPIO-10 forced low
+            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x20200
+        else:
+            # GPIO-10 inverted
+            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x10100
+    else:
+        # Pico2 uses different addressing and bit field!!!
+        IO_BANK0_BASE = 0x40028000
+        PADS_BANK0_BASE = 0x40038000
+        if high_output_level:
+            # GPIO-10 forced low
+            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x22000
+        else:
+            # GPIO-10 inverted
+            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x11000
+
+    # reduce the drive strength to 2mA
+    mem32[PADS_BANK0_BASE + 0x028] = mem32[PADS_BANK0_BASE + 0x028] & 0xFFFFFFCF
+    mem32[PADS_BANK0_BASE + 0x02c] = mem32[PADS_BANK0_BASE + 0x02c] & 0xFFFFFFCF
 
     pt.stop = False
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
@@ -265,17 +272,6 @@ def menu_run_logic():
         if RGB:
             RGB[0] = (0, 0, 0)
             RGB.write()
-
-        # force pins 9 & 10 to mux to PIO
-        mem32[IO_BANK0_BASE + 0x04c] = (mem32[IO_BANK0_BASE + 0x04c] & 0xFFFFFFE0) + 0x6
-        mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x6
-        if high_output_level:
-            # pin 10 : force muxing to use GPIO block (ie force low)
-            mem32[IO_BANK0_BASE + 0x054] = (mem32[IO_BANK0_BASE + 0x054] & 0xFFFFFFE0) + 0x5
-
-            print("HIGH level selected")
-        else:
-            print("MIC level selected")
 
         # turn of RX amp
         amp_cs.value(1)

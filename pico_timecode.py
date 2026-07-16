@@ -209,8 +209,8 @@ def encode_dmc():
     mov(pins, invert(pins)) [15]    # Toggle pin to signal '1'
     wrap()
 
-# 'SM_ENCODE' State Machine for differential output
-@rp2.asm_pio(out_init=(rp2.PIO.OUT_HIGH, rp2.PIO.OUT_LOW))
+# 'SM_ENCODE' State Machine, multiple outs for differential output
+@rp2.asm_pio(out_init=(rp2.PIO.OUT_LOW,)*2)
 
 def encode_dmc2():
     irq(block, 4)                   # Wait for Sync'ed start

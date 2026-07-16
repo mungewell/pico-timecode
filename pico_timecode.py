@@ -1007,10 +1007,6 @@ class engine(object):
 def pico_timecode_thread(eng, stop):
     global tx_raw, rx_ticks
     global quarters
-    global debug
-
-    debug = Pin(28,Pin.OUT)
-    debug.off()
 
     eng.set_stopped(False)
     quarters = 0
@@ -1199,12 +1195,10 @@ def pico_timecode_thread(eng, stop):
             # lightsleep for longer than a frame is possible, with FIFOs, but
             # may cause IRQs to merged and thus corrupt reporting.
 
-            debug.on()
             try:
                 lightsleep(30, eng.ps_en0 | CLOCKS_SLEEP_EN0, eng.ps_en1 | CLOCKS_SLEEP_EN1)
             except:
                 eng.set_powersave(False)
-            debug.off()
 
             '''
             # DEMO - automatically exit powersave when TC is 30s
@@ -1607,7 +1601,6 @@ def mtc_display_callback(sm=None):
     global eng
     global tx_raw
     global disp, disp_asc
-    global debug
     global mtc
 
     if sm == SM_BLINK:

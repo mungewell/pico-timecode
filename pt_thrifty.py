@@ -669,9 +669,9 @@ def thrifty_display_thread():
         pass
 
     # Configure Digi-Slate controls
-    keyC = Pin(28,Pin.IN,Pin.PULL_UP)
+    keyK = Pin(28,Pin.IN,Pin.PULL_UP)
     keyR = Pin(29,Pin.IN,Pin.PULL_UP)
-    timerC = Neotimer(15)
+    timerK = Neotimer(15)
     timerR = Neotimer(50)
     timerS = Neotimer(1000)
 
@@ -823,7 +823,7 @@ def thrifty_display_thread():
                 slate_rotated = False
 
         # Check for clapper closing
-        if slate_open and timerC.debounce_signal(keyC.value()==1) and not menu_active:
+        if slate_open and timerK.debounce_signal(keyK.value()==1) and not menu_active:
             slate_open = False
             timerS.start()
 
@@ -901,7 +901,7 @@ def thrifty_display_thread():
             powersave = True
 
         # Display FPS on slate when clapper is first lifted
-        if not slate_open and timerC.debounce_signal(keyC.value()==0):
+        if not slate_open and timerK.debounce_signal(keyK.value()==0):
             '''
             if powersave:
                 print("Exiting powersave")

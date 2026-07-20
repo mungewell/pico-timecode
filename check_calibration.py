@@ -51,16 +51,27 @@ except:
 freqs = []
 for i in range(len(optimal)):
     print()
-    print("Checking", optimal[i][0], "fps")
-    try:
-        if int(optimal[i][0]) == optimal[i][0]:
-            setting = config.calibration[str(int(optimal[i][0]))]
-        else:
-            setting = config.calibration[str(optimal[i][0])]
 
+    setting = None
+    check = str(optimal[i][0])
+    print("Checking '%s' fps:" % check)
+    try:
+        setting = config.calibration[check]
+    except:
+        if int(optimal[i][0]) == optimal[i][0]:
+            # Note: '30.0' may also be written '30' or '30.00'
+            try:
+                print("Checking '%s' fps:" % (check.split('.')[0]))
+                setting = config.calibration[check.split('.')[0]]
+            except:
+                try:
+                    print("Checking '%s' fps:" % (check + '0'))
+                    setting = config.calibration[check + '0']
+                except:
+                    pass
+
+    if setting:
         print("Calibration    :", setting)
         ideal = find_ideal(optimal[i][0])
         if ideal:
             freqs.append(find_freq(float(setting), ideal))
-    except:
-        pass

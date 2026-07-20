@@ -95,13 +95,37 @@ def start_state_machines(mode=pt.RUN):
     gc.collect()
 
     # apply any calibration
+    period = None
     try:
-        setting = config.calibration[str(thrifty_available_fps_df[thrifty_current_fps][0])]
-        thrifty_calibration = float(setting)
+        period = config.calibration['period']
     except:
         pass
 
-    pt.eng.calval = thrifty_calibration
+    setting = None
+    check = str(thrifty_available_fps_df[thrifty_current_fps][0])
+    try:
+        setting = config.calibration[check]
+    except:
+        if int(thrifty_available_fps_df[thrifty_current_fps][0]) == \
+                thrifty_available_fps_df[thrifty_current_fps][0]:
+            # Note: '30.0' may also be written '30' or '30.00'
+            try:
+                setting = config.calibration[check.split('.')[0]]
+            except:
+                try:
+                    setting = config.calibration[check + '0']
+                except:
+                    pass
+
+    if period != None and setting != None:
+        thrifty_calibration = float(setting)
+        print("Applying calibration:", thrifty_calibration, period)
+
+        #pt.eng.calval = thrifty_calibration
+        pt.eng.micro_adjust(thrifty_calibration, period * 1000) # period in ms
+    else:
+        thrifty_calibration = 0.0
+        pt.eng.micro_adjust(0.0)
 
     # restart...
     try:
@@ -752,13 +776,6 @@ def thrifty_display_thread():
     except:
         pass
 
-    # apply any calibration
-    try:
-        setting = config.calibration[str(thrifty_available_fps_df[thrifty_current_fps][0])]
-        thrifty_calibration = float(setting)
-    except:
-        pass
-
     # load PIO blocks, and start pico_timecode thread
     start_state_machines(pt.eng.mode)
 
@@ -778,14 +795,6 @@ def thrifty_display_thread():
 
     monTimer = None
     calTimer = None
-
-    period = 1
-    try:
-        period = config.calibration['period']
-    except:
-        pass
-
-    pt.eng.micro_adjust(thrifty_calibration, period * 1000) # period in ms
 
     slate_open = False
     slate_rotated = False

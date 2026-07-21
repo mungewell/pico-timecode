@@ -69,6 +69,7 @@ slate_SF = False
 thrifty_new_fps = 0
 thrifty_current_fps = 0
 thrifty_calibration = 0.0
+thrifty_period = 10
 thrifty_synced = 0
 
 thrifty_available_fps_df = [
@@ -84,7 +85,7 @@ thrifty_available_fps_df = [
 # ----------------------
 
 def start_state_machines(mode=pt.RUN):
-    global thrifty_calibration
+    global thrifty_calibration, thrifty_period
 
     if pt.eng.is_running():
         pt.stop = True
@@ -98,6 +99,7 @@ def start_state_machines(mode=pt.RUN):
     period = None
     try:
         period = config.calibration['period']
+        thrifty_period = float(period)
     except:
         pass
 
@@ -1034,7 +1036,7 @@ def thrifty_display_thread():
                                 sleep(0.1)
 
                                 print("Calibration complete, writing to config file")
-                                config.set('calibration', 'period', period)
+                                config.set('calibration', 'period', thrifty_period)
                                 config.set('calibration', pt.eng.tc.fps, new_cal_value)
                                 pt.irq_callbacks[pt.SM_BLINK] = thrifty_display_callback
 
@@ -1046,7 +1048,7 @@ def thrifty_display_thread():
         else:
             if monTimer:
                 monTimer = None
-                pt.eng.micro_adjust(thrifty_calibration, 10000) # period in ms
+                pt.eng.micro_adjust(thrifty_calibration, thrifty_period * 1000) # period in ms
 
 
 def thrifty_display_callback(sm=None):

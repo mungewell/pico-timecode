@@ -83,6 +83,45 @@ thrifty_available_fps_df = [
         ]
 
 # ----------------------
+def set_output_levels(disable=0):
+    # use silicon to control output levels
+    print(high_output_level, disable)
+
+    if uname().machine[23:] == 'RP2040':
+        IO_BANK0_BASE = 0x40014000
+        PADS_BANK0_BASE = 0x4001c000
+        if high_output_level or disable:
+            # GPIO-10 forced low
+            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x20200
+        else:
+            # GPIO-10 inverted
+            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x10100
+
+        if disable:
+            #GPIO-9 forced high, sets divider to mid point (give or take)
+            mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCFCFF) | 0x30300
+        else:
+            mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCFCFF) # 0x00000
+    else:
+        # Pico2 uses different addressing and bit field!!!
+        IO_BANK0_BASE = 0x40028000
+        PADS_BANK0_BASE = 0x40038000
+        if high_output_level or disable:
+            # GPIO-10 forced low
+            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x22000
+        else:
+            # GPIO-10 inverted
+            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x11000
+
+        if disable:
+            #GPIO-9 forced high, sets divider to mid point (give or take)
+            mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCFCFF) | 0x30300
+        else:
+            mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCFCFF) # 0x00000
+
+    # reduce the drive strength to 2mA
+    mem32[PADS_BANK0_BASE + 0x028] = mem32[PADS_BANK0_BASE + 0x028] & 0xFFFFFFCF
+    mem32[PADS_BANK0_BASE + 0x02c] = mem32[PADS_BANK0_BASE + 0x02c] & 0xFFFFFFCF
 
 def start_state_machines(mode=pt.RUN):
     global thrifty_calibration, thrifty_period
@@ -198,30 +237,9 @@ def start_state_machines(mode=pt.RUN):
         pt.mtc = pt.MTC()
         pt.mtc.init()
 
-    # use silicon to control output levels
-    if uname().machine[23:] == 'RP2040':
-        IO_BANK0_BASE = 0x40014000
-        PADS_BANK0_BASE = 0x4001c000
-        if high_output_level:
-            # GPIO-10 forced low
-            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x20200
-        else:
-            # GPIO-10 inverted
-            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x10100
-    else:
-        # Pico2 uses different addressing and bit field!!!
-        IO_BANK0_BASE = 0x40028000
-        PADS_BANK0_BASE = 0x40038000
-        if high_output_level:
-            # GPIO-10 forced low
-            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x22000
-        else:
-            # GPIO-10 inverted
-            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x11000
-
-    # reduce the drive strength to 2mA
-    mem32[PADS_BANK0_BASE + 0x028] = mem32[PADS_BANK0_BASE + 0x028] & 0xFFFFFFCF
-    mem32[PADS_BANK0_BASE + 0x02c] = mem32[PADS_BANK0_BASE + 0x02c] & 0xFFFFFFCF
+    # set up output level
+    # note: we can't really 'monitor' as we only have one socket
+    set_output_levels(1 if pt.eng.mode > pt.MONITOR else 0)
 
     pt.stop = False
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
@@ -301,6 +319,10 @@ def menu_run_logic():
 
         # turn of RX amp
         amp_cs.value(1)
+
+        # set up output level
+        # note: we can't really 'monitor' as we only have one socket
+        set_output_levels()#1 if pt.eng.mode > pt.MONITOR else 0)
 
         timerH.start()
 

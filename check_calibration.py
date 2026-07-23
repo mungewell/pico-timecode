@@ -1,6 +1,9 @@
 
 from libs import config
 
+# set 'XTAL freq' to compute what the calibrations should be...
+freq = 0
+
 # optimal divider computed for CPU clock at 180MHz
 xtal = 12_000_000
 optimal = [
@@ -17,7 +20,6 @@ def find_ideal(fps):
     for i in range(len(optimal)):
         if optimal[i][0] == fps:
             ideal = optimal[i][1]
-            print("Ideal divider  : %f (at %f fps)" % (ideal,fps))
             break
 
     return ideal
@@ -38,6 +40,22 @@ def find_freq(cal, ideal):
     print("Calc XTAL freq :", cfreq)
 
     return cfreq
+
+def find_cal(freq, fps):
+    cal = 0.0
+
+    if int(fps) != fps:
+        # use true fps
+        tfps = int(fps+1) / 1.001
+    else:
+        tfps = fps
+
+    frame_freq = tfps * 80 * 32 # bits_in_frame and multipler
+    cdiv = (180_000_000 / frame_freq) * (xtal/freq)
+
+    #print("0x%8.8x" % ((int(cdiv * 256) << 8) & 0xFFFFFF00))
+    cal = (cdiv - find_ideal(fps)) * 256
+    return cal
 
 #------------------------
 
@@ -74,4 +92,17 @@ for i in range(len(optimal)):
         print("Calibration    :", setting)
         ideal = find_ideal(optimal[i][0])
         if ideal:
+            print("Ideal divider  : %f (at %f fps)" % (ideal,optimal[i][0]))
             freqs.append(find_freq(float(setting), ideal))
+
+if freq:
+    # compute the calibrations to match this frequency, ~ 12,000,000MHz
+    print("\n\nComputing calibrations for %f MHz:\n" % (freq / 1_000_000))
+
+    print("calibration = {")
+    for i in range(len(optimal)):
+        ideal = find_ideal(optimal[i][0])
+
+        if ideal:
+            print("\t'%2.2f' : %f," % (optimal[i][0], find_cal(freq, optimal[i][0])))
+    print("}")

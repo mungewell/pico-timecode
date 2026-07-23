@@ -11,14 +11,14 @@ requiring connecting/dis-connecting the 3.5mm jack.
 There is a 2nd LED next to the 3.5mm jack. This provides a 1PPS flash
 from the internal LTC timers at the start of Frame-0. As this is driven
 directly its timing is exact, but some commercial units (ie: UltraSync)
-choose to blink on Frame-11 for some reason...
+choose to blink on Frame-11 for some reason... this can be configured through the `libs/config.py' file.
 
-PT-Thifty is designed to be LOW COST, so does not include battery
+PT-Thifty is designed to be _LOW COST_, so does not include battery
 or other features that are technically possible (although these can 
-be DIY-ed). 
+be added to your DIY-ed version). The unit needs to be (and remain) externally powered for the duration 
+of the shoot. If power is lost the unit will need to be Jam-Synced again.
 
-The unit needs to be (and remain) externally powered for the duration 
-of the shoot.
+Note: the 'Info' RGB will double-flash if the unit has previously been Jam-Synced.
 
 [Video Demo](https://youtube.com/shorts/oo_elmEAXs4?feature=share)
 
@@ -46,6 +46,8 @@ Green	= 25.00fps, non-drop
 Blue	= 24.00fps, non-drop
 Cyan	= 23.98fps, non-drop
 
+Note: Some Pico boards use 'RGB' and some use 'GRB', this is configurable and should be changed if the sequence of FPS colours is not as above.
+
 At any time during 'Run' the user can press the button to be reminded
 of the current configuration ('Info').
 
@@ -61,16 +63,13 @@ to camera/recorder is remade. Then PT-Thrift will then output LTC.
 
 ## Output Level
 
-PT-Thrifty has two output levels, 'High' (1V pk-pk) and 'Mic' (~80mV pk-pk).
+PT-Thrifty has two output levels, by default 'Mic' (~80mV pk-pk) and optionally 'Line' (1V pk-pk).
 
 In order to change the output level the unit must be power-cycled. The
-output level is toggled 'High' <-> 'Mic' when the button is held during 
+output level is toggled 'Mic' <-> 'Line' when the button is held during 
 booting, and the current level is indicated during 'Info'.
 
-The 'Info' flash is longer (0.3s vs 0.1) when the output level is 'Mic'.
-
-Note: The 'Info' flash may be 2 flashes, this second flash indicates
-that there is a calibrarion active for this fps. See below...
+The 'Info' flash is longer (0.3s vs 0.1s) when the output level is 'Line'.
 
 
 ## Changing FPS and Drop-Frame configuration
@@ -92,7 +91,7 @@ Note: Although the LED will cycle through configurations, a long-press
 
 Note: If the unit enters the 'Jam' mode (flashing Colour) then the 
 internal LTC time is lost, and the unit will NOT be Synchronised until
-it is Jam-Synced with external unit.
+it is Jam-Synced with an external unit.
 
 
 ## Calibration
@@ -105,15 +104,17 @@ XTAL that the RP2040 boards normally have. This will be inaccurate, but
 can be 'Callibrated' to match a more accurate source such as commercial
 LTC device.
 
-A calibrated DIY unit is only 'good' for a few hours, and is likely 
+A calibrated DIY/XTAL unit is only 'good' for a few hours, and is likely 
 temperature dependant. If the user goes from a warm <-> cold ambient 
-temperature, the LTC will drift from correct value.
+temperature, the LTC will drift faster from the correct value.
 
 Once the 'Jam' has completed, shown by solid white LED, a button press
 will enter 'Follow' mode. During 'Follow' the LTC produced by PT-Thrifty
 will be adjusted to match incoming LTC.
 
 Disconnect the 3.5mm jack to return to 'Run' mode.
+
+Note: during 'Follow' the rate of the incoming LTC is tracked, PT-Thrifty does not update if there is a 'jump change' in the incoming LTC.
 
 Note: as the LTC is not output at this time, this is just informative
 and the relationship of RX vs. TX LTC will be relayed to the serial port.
@@ -126,9 +127,6 @@ After ~10mins of processing, the new calibration value will be stored and
 the unit will return to 'Follow' mode. Disconnect the 3.5mm jack to 
 return to 'Run' mode.
 
-Note: the 'Info' mode (button press from 'Run') will blink twice if 
-there is an active calibration value for this FPS.
-
 Note: To clear a calibration the user needs to enter 'Calibration' mode, 
 but then disconnect the 3.5mm jack BEFORE it completes the calibration 
 process.
@@ -139,10 +137,10 @@ process.
 To assist debug, there is information output from the UART/Console.
 
 In example below the 'unmodified' RP2040 is '3 / 640ths' of a frame
-ahead of incoming RX LTC. As 'follow' is active PT-Thrity will adjust
+ahead of incoming RX LTC. As 'Follow' is active PT-Thrity will adjust
 its clock frequency/rate so that the offset becomes zero.
 
-The 'bar-graph' shows a range of +/- 0.5 frames, it is only evaluating
+The 'bar-graph' shows a maximum range of +/- 0.5 frames, it is only evaluating
 the 'phase' of incoming LTC - it does not evaluate the LTC contents.
 
 ```

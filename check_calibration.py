@@ -104,5 +104,5 @@ if freq:
         ideal = find_ideal(optimal[i][0])
 
         if ideal:
-            print("\t'%2.2f' : %f," % (optimal[i][0], find_cal(freq, optimal[i][0])))
+            print("    '%2.2f' : %f," % (optimal[i][0], find_cal(freq, optimal[i][0])))
     print("}")

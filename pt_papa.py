@@ -147,21 +147,27 @@ def apply_calibration():
         pass
 
     check = displayfps
-    #print("checking '%s' fps" % check)
-    try:
-        setting = config.calibration[check]
-    except:
-        if int(float(displayfps)) == float(displayfps):
-            # Note: '30.00' may also be written '30' or '30.0'
+    if int(float(displayfps)) == float(displayfps):
+        # Note: '30.00' may also be written '30' or '30.0'
+        root = check.split('.')[0]
+        try:
+            setting = config.calibration[root]
+        except:
             try:
-                #print("checking '%s' fps" % check.split('.')[0])
-                setting = config.calibration[check.split('.')[0]]
+                setting = config.calibration[root+"."]
             except:
                 try:
-                    #print("checking '%s' fps" % check[:-1])
-                    setting = config.calibration[check[:-1]]
+                    setting = config.calibration[root+".0"]
                 except:
-                    pass
+                    try:
+                        setting = config.calibration[root+".00"]
+                    except:
+                        pass
+    else:
+        try:
+            setting = config.calibration[check]
+        except:
+            pass
 
     if period != None and setting != None:
         pt.eng.micro_adjust(setting, period * 1000) # in ms

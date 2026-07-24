@@ -977,7 +977,7 @@ class engine(object):
             tlock.release()
 
             self.timers = False
-            return
+            return 0
 
         self.next_calval = calval
         if period > 0:
@@ -996,6 +996,7 @@ class engine(object):
             # trigger re-init, as if timer2 had completed
             timer_re_init(timer2)
 
+        return self.calval
 
     def set_flashtime(self, ft):
         self.dlock.acquire()

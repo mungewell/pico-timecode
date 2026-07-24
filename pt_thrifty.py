@@ -142,29 +142,37 @@ def start_state_machines(mode=pt.RUN):
 
     setting = None
     check = str(thrifty_available_fps_df[thrifty_current_fps][0])
-    try:
-        setting = config.calibration[check]
-    except:
-        if int(thrifty_available_fps_df[thrifty_current_fps][0]) == \
-                thrifty_available_fps_df[thrifty_current_fps][0]:
-            # Note: '30.0' may also be written '30' or '30.00'
+
+    if int(thrifty_available_fps_df[thrifty_current_fps][0]) == \
+            thrifty_available_fps_df[thrifty_current_fps][0]:
+        # Note: '30.0' may also be written '30' or '30.00'
+        root = check.split('.')[0]
+        try:
+            setting = config.calibration[root]
+        except:
             try:
-                setting = config.calibration[check.split('.')[0]]
+                setting = config.calibration[root+"."]
             except:
                 try:
-                    setting = config.calibration[check + '0']
+                    setting = config.calibration[root+".0"]
                 except:
-                    pass
+                    try:
+                        setting = config.calibration[root+".00"]
+                    except:
+                        pass
+    else:
+        try:
+            setting = config.calibration[check]
+        except:
+            pass
 
     if period != None and setting != None:
         thrifty_calibration = float(setting)
         print("Applying calibration:", thrifty_calibration, period)
 
-        #pt.eng.calval = thrifty_calibration
-        pt.eng.micro_adjust(thrifty_calibration, period * 1000) # period in ms
+        # note: calibration can only be set on a running engine...
     else:
         thrifty_calibration = 0.0
-        pt.eng.micro_adjust(0.0)
 
     # restart...
     try:
@@ -242,6 +250,11 @@ def start_state_machines(mode=pt.RUN):
     pt.stop = False
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
+    # calibration timers can only be set/started on a running engine...
+    if thrifty_calibration:
+        while not pt.eng.micro_adjust(thrifty_calibration, thrifty_period * 1000):
+            sleep(0.1)
+
 # ----------------------
 
 # The (only) button
@@ -310,17 +323,19 @@ def menu_run_logic():
     global menu_active
 
     if menu.execute_once:
-        #print("menu run")
+        # set up output level
+        # note: we can't really 'monitor' as we only have one socket
+        set_output_levels(1 if pt.eng.mode > pt.MONITOR else 0)
+
+        if pt.eng.mode > pt.MONITOR:
+            menu.force_transition_to(menu_jam_state)
+
         if RGB:
             RGB[0] = (0, 0, 0)
             RGB.write()
 
         # turn of RX amp
         amp_cs.value(1)
-
-        # set up output level
-        # note: we can't really 'monitor' as we only have one socket
-        set_output_levels()#1 if pt.eng.mode > pt.MONITOR else 0)
 
         timerH.start()
 
@@ -663,7 +678,7 @@ def slate_show_fps_df(index, blink=False):
     if slate_HM:
         slate_HM.set_blink_rate(0)
 
-def thrifty_display_thread():
+def thrifty_display_thread(mode=pt.RUN):
     global disp, slate_current_fps_df
     global disp_asc, slate_open
     global amp_cs, high_output_level
@@ -673,7 +688,7 @@ def thrifty_display_thread():
     global slate_HM, slate_SF, timerS, powersave
 
     pt.eng = pt.engine()
-    pt.eng.mode = pt.RUN
+    pt.eng.mode = mode
     pt.eng.set_stopped(True)
 
     menu_init()
@@ -1136,4 +1151,4 @@ if __name__ == "__main__":
         print("MTC enabled (will loose USB-UART connection)")
     sleep(2)
 
-    thrifty_display_thread()
+    thrifty_display_thread()#pt.JAM)

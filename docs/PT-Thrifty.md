@@ -13,7 +13,7 @@ from the internal LTC timers at the start of Frame-0. As this is driven
 directly its timing is exact, but some commercial units (ie: UltraSync)
 choose to blink on Frame-11 for some reason... this can be configured through the `libs/config.py' file.
 
-PT-Thifty is designed to be _LOW COST_, so does not include battery
+PT-Thifty is designed to be _LOW COST_, so it does not include battery
 or other features that are technically possible (although these can 
 be added to your DIY-ed version). The unit needs to be (and remain) externally powered for the duration 
 of the shoot. If power is lost the unit will need to be Jam-Synced again.
@@ -38,13 +38,13 @@ clock/counter.
 Upon power up the RGB LED will flash a colour to inform the user what 
 FPS and DropFrame configuration is active:
 
-Red 	= 30.00fps, non-drop
-Purple	= 30.00fps, drop-frame
-Yellow	= 29.97fps, non-drop
-Orange	= 29.97fps, drop-frame
-Green	= 25.00fps, non-drop
-Blue	= 24.00fps, non-drop
-Cyan	= 23.98fps, non-drop
+- Red 	= 30.00fps, non-drop
+- Purple	= 30.00fps, drop-frame
+- Yellow	= 29.97fps, non-drop
+- Orange	= 29.97fps, drop-frame
+- Green	= 25.00fps, non-drop
+- Blue	= 24.00fps, non-drop
+- Cyan	= 23.98fps, non-drop
 
 Note: Some Pico boards use 'RGB' and some use 'GRB', this is configurable and should be changed if the sequence of FPS colours is not as above.
 
@@ -63,19 +63,19 @@ to camera/recorder is remade. Then PT-Thrift will then output LTC.
 
 ## Output Level
 
-PT-Thrifty has two output levels, by default 'Mic' (~80mV pk-pk) and optionally 'Line' (1V pk-pk).
+PT-Thrifty has two output levels: by default 'Mic' (~80mV pk-pk) and, optionally, 'Line' (1V pk-pk).
 
 In order to change the output level the unit must be power-cycled. The
 output level is toggled 'Mic' <-> 'Line' when the button is held during 
 booting, and the current level is indicated during 'Info'.
 
-The 'Info' flash is longer (0.3s vs 0.1s) when the output level is 'Line'.
+The 'Info' flash is longer (0.3s vs 0.1s) when the output level is 'Line'. *The 2nd 'Jam-Synced' flash will remain at 0.1s duration, as a comparison aid.*
 
 
 ## Changing FPS and Drop-Frame configuration
 
 As part of the 'Jam' process the FPS and Drop-Frame configuration can
-be changed. From 'Run' hold the button until LED is solid colour, then
+be changed. From 'Run', hold the button until LED is solid colour and then
 each press of the button will cycle through the available configurations.
 
 When the desired configuration is reached, connect the 3.5mm jack to 
@@ -83,14 +83,11 @@ start jamming with the new configuration. This new configuration will be
 remembered for the next time PT-Thrifty powers on.
 
 Note: During this 'Pre-Jam' selection, the internal LTC time is still
-correct, if a user entered this state and changes their mind they can 
-long-press the button to return to the 'Run' state. 
+correct. If a user enters this state and changes their mind they can 
+long-press the button to return to the 'Run' state, without loosing LTC synchronization. 
 
-Note: Although the LED will cycle through configurations, a long-press 
-'Cancel' will NOT affect the current configuration. 
-
-Note: If the unit enters the 'Jam' mode (flashing Colour) then the 
-internal LTC time is lost, and the unit will NOT be Synchronised until
+Note: If the unit enters the 'Jam' mode (flashing Colour), then the 
+internal **LTC time is lost** and the unit will NOT be Synchronised until
 it is Jam-Synced with an external unit.
 
 
@@ -101,12 +98,12 @@ frames of drift over a 12 hour period.
 
 However if the user has DIY-ed a board, they may be using the stock/passive
 XTAL that the RP2040 boards normally have. This will be inaccurate, but
-can be 'Callibrated' to match a more accurate source such as commercial
+can be 'Calibrated' to match a more accurate source such as commercial
 LTC device.
 
-A calibrated DIY/XTAL unit is only 'good' for a few hours, and is likely 
-temperature dependant. If the user goes from a warm <-> cold ambient 
-temperature, the LTC will drift faster from the correct value.
+A calibrated DIY/XTAL unit is only accurate for a few hours, and is likely 
+temperature dependant. If the user goes between a warm and cold ambient 
+temperature, the LTC will drift away faster from the correct value.
 
 Once the 'Jam' has completed, shown by solid white LED, a button press
 will enter 'Follow' mode. During 'Follow' the LTC produced by PT-Thrifty
@@ -114,13 +111,13 @@ will be adjusted to match incoming LTC.
 
 Disconnect the 3.5mm jack to return to 'Run' mode.
 
-Note: during 'Follow' the rate of the incoming LTC is tracked, PT-Thrifty does not update if there is a 'jump change' in the incoming LTC.
+Note: during 'Follow' the rate of the incoming LTC is tracked, PT-Thrifty does not update if there is a "jump change" in the incoming LTC.
 
 Note: as the LTC is not output at this time, this is just informative
 and the relationship of RX vs. TX LTC will be relayed to the serial port.
 
-A long-press will enter 'Calibration' mode, like 'Follow' the internal 
-LTC rate will be steered to match incoming LTC. This is indicated with 
+A long-press will enter 'Calibrate' mode, which like 'Follow', the internal 
+LTC rate will be adjusted to match incoming LTC rate. This is indicated with 
 alternate White/Colour flashing.
 
 After ~10mins of processing, the new calibration value will be stored and 
@@ -130,27 +127,4 @@ return to 'Run' mode.
 Note: To clear a calibration the user needs to enter 'Calibration' mode, 
 but then disconnect the 3.5mm jack BEFORE it completes the calibration 
 process.
-
-
-## Debug
-
-To assist debug, there is information output from the UART/Console.
-
-In example below the 'unmodified' RP2040 is '3 / 640ths' of a frame
-ahead of incoming RX LTC. As 'Follow' is active PT-Thrity will adjust
-its clock frequency/rate so that the offset becomes zero.
-
-The 'bar-graph' shows a maximum range of +/- 0.5 frames, it is only evaluating
-the 'phase' of incoming LTC - it does not evaluate the LTC contents.
-
-```
-RX: 00:02:51:01 (  -3           :          ) (37.5, -150.75, -0.1)
-RX: 00:02:52:03 (  -4           :          ) (37.5, -150.0, -0.0)
-RX: 00:02:53:04 (  -4           :          ) (50.0, -149.0, 0.1)
-RX: 00:02:54:06 (  -3           :          ) (50.0, -148.0, -0.0)
-RX: 00:02:55:07 (  -3           :          ) (37.5, -147.25, -0.1)
-RX: 00:02:56:09 (  -3           :          ) (37.5, -146.5, -0.0)
-RX: 00:02:57:10 (  -3           :          ) (37.5, -145.0, -0.0)
-RX: 00:02:58:11 (  -3           :          ) (37.5, -144.25, -0.0)
-```
 

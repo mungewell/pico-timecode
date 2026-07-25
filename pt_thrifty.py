@@ -364,7 +364,7 @@ def menu_info_logic():
                 RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
                 RGB.write()
 
-            if high_output_level:
+            if high_output_level and not i:
                 sleep(0.3)
             else:
                 sleep(0.1)

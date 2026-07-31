@@ -7,19 +7,19 @@ _LTC (sometimes refered to as SMPTE Timecode) is used in the TV/Movie industry a
 
 Some pro-consumer/professional Timecode devices use wireless links; Pico-Timecode is 'old skool' it uses a cabled connection to record the LTC signal onto an audio track of your camera or audio recorder. This audio waveform can later be processed and used to align multiple clips. If your device supports a true LTC input the data will be written directly as meta-data into the file(s).
 
+For more information, check out the [Wiki.](https://github.com/mungewell/pico-timecode/wiki)
+
 # Hardware
 
 This technology has been implemented in 2 custom PCBs; Firstly the (now renamed) 'PT-Papa' board based around the (full sized) Raspberry Pico board, with Waveshare OLED screen module and input/output connectors.
 
 !['pt-papa' board](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/first_board.jpg)
 
-Secondly with the 'pt-thrifty' board based around the (mini sized) Waveshare RP2040-Zero. 'PT-Thrifty' aims to be the **lowest cost timecode device** (less than $25 per device) to make LTC accessible to DIY/budget film-makers, and thus it uses a minimum of components. It has a UI with single button and RGB LED, the control of the device is achieved by navigating through a [UI 'map'](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/PT_Thrifty_UI.png) of states. 
+Secondly with the 'PT-Thrifty' board based around the (mini sized) Waveshare RP2040-Zero. 'PT-Thrifty' aims to make LTC accessible to DIY/budget film-makers, and thus it uses a minimum of components. It has a UI with single button and RGB LED, the control of the device is achieved by navigating through a [UI 'map'](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/PT_Thrifty_UI.png) of states. 
 
 !['pt-thrifty' board](https://github.com/mungewell/pico-timecode/blob/main/docs/pics/PT_Thrifty_PCB.JPG)
 
-There are some demonstrations of 'pt-thrifty' here:
-
-https://www.youtube.com/playlist?list=PL1t1GwpUNc-VbEAXxscaxrPQlrt16c4yX
+There are some demonstrations of 'PT-Thrifty' [here.](https://www.youtube.com/playlist?list=PL1t1GwpUNc-VbEAXxscaxrPQlrt16c4yX)
 
 # DIY yours now...
 
@@ -35,9 +35,7 @@ To install the code to your Pico from source, at minimum you need to copy/instal
 
 # Why?
 
-Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while and the PIO blocks on the Pico are very powerfull. I am debating whether to offer pre-built hardware for purchase, at very reasonable costs.
+Why am doing this? Primarily because it's a fun challenge. I've been interested in Timecode for a while and the PIO blocks on the Pico are very powerfull. I am debating whether to offer pre-built hardware for purchase, *at very reasonable costs*.
 
-You can follow the project on Instagram:
-
-https://www.instagram.com/picotimecode/
+You can follow the project on [Instagram.](https://www.instagram.com/picotimecode/)
 

@@ -6778,7 +6778,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "LTST_S220GKT:LED_LTST-S220GKT_LTO"
+		(property "Footprint" "LTST_S220GKT:LED_LTST-S220GKT_LTO-L"
 			(at 62.23 172.72 0)
 			(hide yes)
 			(show_name no)

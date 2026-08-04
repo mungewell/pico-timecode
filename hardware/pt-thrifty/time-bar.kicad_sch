@@ -7088,7 +7088,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Displays:KWA-541XVB"
+		(property "Footprint" "DeliveryBos LEDs:KWA-541XVB"
 			(at 240.03 123.19 0)
 			(hide yes)
 			(show_name no)
@@ -7373,7 +7373,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Displays:KWA-541XVB"
+		(property "Footprint" "DeliveryBos LEDs:KWA-541XVB"
 			(at 168.91 66.04 0)
 			(hide yes)
 			(show_name no)
@@ -10189,7 +10189,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Displays:KWA-541XVB"
+		(property "Footprint" "DeliveryBos LEDs:KWA-541XVB"
 			(at 240.03 66.04 0)
 			(hide yes)
 			(show_name no)
@@ -10317,7 +10317,7 @@
 				)
 			)
 		)
-		(property "Footprint" "Displays:KWA-541XVB"
+		(property "Footprint" "DeliveryBos LEDs:KWA-541XVB"
 			(at 168.91 123.19 0)
 			(hide yes)
 			(show_name no)

@@ -5452,7 +5452,7 @@
 				)
 			)
 		)
-		(property "Footprint" "CUI_SJ-43514-SMT-TR"
+		(property "Footprint" "SJ-43514-SMT-TR:CUI_SJ-43514-SMT-TR"
 			(at 60.96 116.84 0)
 			(hide yes)
 			(show_name no)
@@ -6600,7 +6600,7 @@
 				)
 			)
 		)
-		(property "Footprint" "SOT-23-6_MC_MCH"
+		(property "Footprint" "MCP6273T_E_CH:SOT-23-6_MC_MCH-L"
 			(at 215.9 144.78 0)
 			(hide yes)
 			(show_name no)
@@ -6778,7 +6778,7 @@
 				(justify left)
 			)
 		)
-		(property "Footprint" "LED_LTST-S220GKT_LTO"
+		(property "Footprint" "LTST_S220GKT:LED_LTST-S220GKT_LTO"
 			(at 62.23 172.72 0)
 			(hide yes)
 			(show_name no)
@@ -8295,7 +8295,7 @@
 				)
 			)
 		)
-		(property "Footprint" "SOT-23-6_MC_MCH"
+		(property "Footprint" "MCP6273T_E_CH:SOT-23-6_MC_MCH-L"
 			(at 187.96 90.17 0)
 			(hide yes)
 			(show_name no)

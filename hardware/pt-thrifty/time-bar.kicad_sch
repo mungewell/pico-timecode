@@ -379,6 +379,406 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "DeliveryBox - LEDs:KWA-541XVB"
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "DI?"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "KWA-541XVB"
+				(at 0.635 -4.445 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" "Displays:KWA-541XVB"
+				(at 0 -2.54 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "KWA-541XVB_0_1"
+				(rectangle
+					(start -11.43 13.97)
+					(end 11.43 -13.97)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "KWA-541XVB_1_1"
+				(pin input line
+					(at -16.51 10.16 0)
+					(length 5.08)
+					(name "E"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 7.62 0)
+					(length 5.08)
+					(name "L"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin no_connect line
+					(at -16.51 5.08 0)
+					(length 5.08)
+					(name "NC"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 2.54 0)
+					(length 5.08)
+					(name "M"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "4"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 0 0)
+					(length 5.08)
+					(name "N"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "5"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 -2.54 0)
+					(length 5.08)
+					(name "G2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "6"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 -5.08 0)
+					(length 5.08)
+					(name "D"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "7"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 -7.62 0)
+					(length 5.08)
+					(name "DP"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "8"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at -16.51 -10.16 0)
+					(length 5.08)
+					(name "C"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "9"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 -10.16 180)
+					(length 5.08)
+					(name "B"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "10"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 -7.62 180)
+					(length 5.08)
+					(name "COM2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "11"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 -5.08 180)
+					(length 5.08)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "12"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 -2.54 180)
+					(length 5.08)
+					(name "G1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "13"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 0 180)
+					(length 5.08)
+					(name "K"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "14"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 2.54 180)
+					(length 5.08)
+					(name "J"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "15"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 5.08 180)
+					(length 5.08)
+					(name "COM1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "16"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 7.62 180)
+					(length 5.08)
+					(name "H"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "17"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin input line
+					(at 16.51 10.16 180)
+					(length 5.08)
+					(name "F"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "18"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "Device:C"
 			(pin_numbers
 				(hide yes)
@@ -862,7 +1262,106 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "HT16K33:HT16K33A-28SSOP"
+		(symbol "Mechanical:MountingHole"
+			(pin_names
+				(offset 1.016)
+			)
+			(exclude_from_sim no)
+			(in_bom no)
+			(on_board yes)
+			(in_pos_files yes)
+			(duplicate_pin_numbers_are_jumpers no)
+			(property "Reference" "H"
+				(at 0 5.08 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "MountingHole"
+				(at 0 3.175 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Description" "Mounting Hole without connection"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_keywords" "mounting hole"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "ki_fp_filters" "MountingHole*"
+				(at 0 0 0)
+				(show_name no)
+				(do_not_autoplace no)
+				(hide yes)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(symbol "MountingHole_0_1"
+				(circle
+					(center 0 0)
+					(radius 1.27)
+					(stroke
+						(width 1.27)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
+		(symbol "SnpadEDA HT16K33 (modified):HT16K33A-28SOIC"
 			(pin_names
 				(offset 1.016)
 			)
@@ -882,7 +1381,7 @@
 					(justify left bottom)
 				)
 			)
-			(property "Value" "HT16K33A-28SSOP"
+			(property "Value" "HT16K33A-28SOIC"
 				(at -22.86 -33.02 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -893,7 +1392,7 @@
 					(justify left bottom)
 				)
 			)
-			(property "Footprint" "HT16K33A-28SSOP:SOP63P600X175-28N"
+			(property "Footprint" "HT16K33A-28SSOP:SOIC28-1.27-11.5X17.5MM"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -916,7 +1415,7 @@
 					)
 				)
 			)
-			(property "Description" "SSOP-28 LCD Drivers"
+			(property "Description" "SOIC-28 LCD Drivers"
 				(at 0 0 0)
 				(show_name no)
 				(do_not_autoplace no)
@@ -1084,7 +1583,7 @@
 					(justify bottom)
 				)
 			)
-			(symbol "HT16K33A-28SSOP_0_0"
+			(symbol "HT16K33A-28SOIC_0_0"
 				(rectangle
 					(start -22.86 -30.48)
 					(end 22.86 30.48)
@@ -1598,505 +2097,6 @@
 								(size 1.016 1.016)
 							)
 						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "LED_Displys:KWA-541XVB"
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "DI?"
-				(at 0 -2.54 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "KWA-541XVB"
-				(at 0.635 -4.445 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" "Displays:KWA-541XVB"
-				(at 0 -2.54 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "KWA-541XVB_0_1"
-				(rectangle
-					(start -11.43 13.97)
-					(end 11.43 -13.97)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "KWA-541XVB_1_1"
-				(pin input line
-					(at -16.51 10.16 0)
-					(length 5.08)
-					(name "E"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -16.51 7.62 0)
-					(length 5.08)
-					(name "L"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin no_connect line
-					(at -16.51 5.08 0)
-					(length 5.08)
-					(name "NC"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "3"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -16.51 2.54 0)
-					(length 5.08)
-					(name "M"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "4"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -16.51 0 0)
-					(length 5.08)
-					(name "N"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "5"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -16.51 -2.54 0)
-					(length 5.08)
-					(name "G2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "6"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -16.51 -5.08 0)
-					(length 5.08)
-					(name "D"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "7"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -16.51 -7.62 0)
-					(length 5.08)
-					(name "DP"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "8"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at -16.51 -10.16 0)
-					(length 5.08)
-					(name "C"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "9"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 -10.16 180)
-					(length 5.08)
-					(name "B"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "10"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 -7.62 180)
-					(length 5.08)
-					(name "COM2"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "11"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 -5.08 180)
-					(length 5.08)
-					(name "A"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "12"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 -2.54 180)
-					(length 5.08)
-					(name "G1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "13"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 0 180)
-					(length 5.08)
-					(name "K"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "14"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 2.54 180)
-					(length 5.08)
-					(name "J"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "15"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 5.08 180)
-					(length 5.08)
-					(name "COM1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "16"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 7.62 180)
-					(length 5.08)
-					(name "H"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "17"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-				(pin input line
-					(at 16.51 10.16 180)
-					(length 5.08)
-					(name "F"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "18"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
-		(symbol "Mechanical:MountingHole"
-			(pin_names
-				(offset 1.016)
-			)
-			(exclude_from_sim no)
-			(in_bom no)
-			(on_board yes)
-			(in_pos_files yes)
-			(duplicate_pin_numbers_are_jumpers no)
-			(property "Reference" "H"
-				(at 0 5.08 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Value" "MountingHole"
-				(at 0 3.175 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Description" "Mounting Hole without connection"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_keywords" "mounting hole"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "ki_fp_filters" "MountingHole*"
-				(at 0 0 0)
-				(show_name no)
-				(do_not_autoplace no)
-				(hide yes)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(symbol "MountingHole_0_1"
-				(circle
-					(center 0 0)
-					(radius 1.27)
-					(stroke
-						(width 1.27)
-						(type default)
-					)
-					(fill
-						(type none)
 					)
 				)
 			)
@@ -6134,6 +6134,322 @@
 		(uuid "e481582d-1edc-430f-8575-1a8f6f0ff87a")
 	)
 	(symbol
+		(lib_id "SnpadEDA HT16K33 (modified):HT16K33A-28SOIC")
+		(at 64.77 52.07 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "05b26c17-8c2d-48df-938a-a44461660ca2")
+		(property "Reference" "U4"
+			(at 64.77 16.51 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "HT16K33A-28SOIC"
+			(at 64.77 19.05 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "HT16K33A-28SSOP:SOIC28-1.27-11.5X17.5MM"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Datasheet" ""
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "SOIC-28 LCD Drivers"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "MF" "Holtek"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "MAXIMUM_PACKAGE_HEIGHT" "1.75 mm"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "CREATOR" "AAMIR"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Price" "None"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Package" "None"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Check_prices" "https://www.snapeda.com/parts/HT16K33A-28SSOP/Holtek/view-part/?ref=eda"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "STANDARD" "IPC-7351B"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "PARTREV" "1.02"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "VERIFIER" "RODRIGO"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "SnapEDA_Link" "https://www.snapeda.com/parts/HT16K33A-28SSOP/Holtek/view-part/?ref=snap"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "MP" "HT16K33A-28SSOP"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "Availability" "Not in stock"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(property "MANUFACTURER" "Holtek"
+			(at 64.77 52.07 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify bottom)
+			)
+		)
+		(pin "14"
+			(uuid "d7ab3b42-a156-40a8-bc91-64a130ae7b74")
+		)
+		(pin "22"
+			(uuid "83740b96-3e7d-460f-9029-d60d4dacc13b")
+		)
+		(pin "18"
+			(uuid "f8558f34-9e8e-43d5-a70b-a024a399ba57")
+		)
+		(pin "17"
+			(uuid "fb5b2871-d0f6-4d73-9e7c-173a53476dfb")
+		)
+		(pin "24"
+			(uuid "94a119f9-bcba-4546-99ea-f05daa104b75")
+		)
+		(pin "26"
+			(uuid "89bc8699-8a92-4f6b-995a-76839c94b649")
+		)
+		(pin "27"
+			(uuid "17276db8-4e5b-42f1-9ff1-48a729346870")
+		)
+		(pin "25"
+			(uuid "00f52e17-0eae-492d-b4e8-cc7009f5bd1d")
+		)
+		(pin "28"
+			(uuid "dd85ba63-d5ad-441e-bb72-23ea7a66bd84")
+		)
+		(pin "1"
+			(uuid "9e7ee5f6-f8ea-493e-8486-ba0653ee0724")
+		)
+		(pin "2"
+			(uuid "cfce018e-a54a-423c-af35-defa451c6cc4")
+		)
+		(pin "3"
+			(uuid "d520ba9d-c976-4775-af83-7d32a39beb25")
+		)
+		(pin "8"
+			(uuid "a521e608-3e5b-4e87-a030-00d48c543c7a")
+		)
+		(pin "9"
+			(uuid "36a3913d-3a55-4fa2-9516-91b686f75537")
+		)
+		(pin "12"
+			(uuid "edfb3275-00e3-46dd-a790-5409e9d5bdfc")
+		)
+		(pin "5"
+			(uuid "4aab3e05-0db9-470c-91fc-e3c465a959a3")
+		)
+		(pin "13"
+			(uuid "d16b8388-f81d-4a13-b7f3-35ac0d4d73f4")
+		)
+		(pin "4"
+			(uuid "0ef44b08-ae28-494f-a4d5-cec0a032895a")
+		)
+		(pin "7"
+			(uuid "cef71710-9f78-4ce2-abcd-fb4f438b3ef2")
+		)
+		(pin "11"
+			(uuid "e86da838-d1f7-4016-9622-b5336b26d548")
+		)
+		(pin "6"
+			(uuid "6d3cf042-931a-4f11-bccf-60708350ae83")
+		)
+		(pin "19"
+			(uuid "cbae6c57-c49b-4fec-b9b0-8166191bc0e9")
+		)
+		(pin "20"
+			(uuid "6a6d4926-2dd1-4761-bf7c-62af4a75ae30")
+		)
+		(pin "10"
+			(uuid "0c9479ee-d3f7-4c25-87b0-bdeb06de9af7")
+		)
+		(pin "15"
+			(uuid "868abb35-7f4a-433b-8313-c5a7d02cb1d5")
+		)
+		(pin "16"
+			(uuid "1a53d45e-07fd-4b8e-bce6-ad354bc9e17f")
+		)
+		(pin "21"
+			(uuid "1b1dbfcc-94d9-4794-8eb8-b51c6aa8cea4")
+		)
+		(pin "23"
+			(uuid "2f5eb8d1-9ffc-4f67-81dd-66f500590a6f")
+		)
+		(instances
+			(project "pt_thrifty"
+				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
+					(reference "U4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Switch:SW_Push_Shielded")
 		(at 157.48 181.61 0)
 		(mirror y)
@@ -6557,450 +6873,6 @@
 		)
 	)
 	(symbol
-		(lib_id "LED_Displys:KWA-541XVB")
-		(at 168.91 63.5 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "12bce304-8af9-4f74-ab3f-0d8ca21c7295")
-		(property "Reference" "DI3"
-			(at 168.91 44.45 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "KWA-541XVB"
-			(at 168.91 46.99 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Displays:KWA-541XVB"
-			(at 168.91 66.04 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 168.91 63.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 168.91 63.5 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "17"
-			(uuid "e4eda4b0-28b3-4bfe-b056-9a825bcaa6df")
-		)
-		(pin "16"
-			(uuid "20af2a80-be5e-4284-aaf4-4b2e46abf469")
-		)
-		(pin "13"
-			(uuid "de088a1b-f0ae-440d-90b3-a47dfd7be5f9")
-		)
-		(pin "15"
-			(uuid "9614a3cd-aef2-475c-8419-d70d506f8719")
-		)
-		(pin "10"
-			(uuid "b50a024a-bfcf-428f-8ba4-10255e6c4400")
-		)
-		(pin "11"
-			(uuid "34c1291c-8685-4512-9a4a-8a509eac1a68")
-		)
-		(pin "12"
-			(uuid "07395df2-7b22-4f5c-9f46-8e77c61a88cd")
-		)
-		(pin "14"
-			(uuid "d37685b3-abba-43d5-88b4-a8c0d9d5ad4c")
-		)
-		(pin "18"
-			(uuid "80078fdb-4c5e-4719-a9b2-aedf4c9af188")
-		)
-		(pin "7"
-			(uuid "e3126fa0-f3dd-406c-80de-0f7c524ea6c0")
-		)
-		(pin "1"
-			(uuid "6fc932ad-4043-46a5-a1f9-bdb81dd42a45")
-		)
-		(pin "2"
-			(uuid "2f55d66c-be51-46d0-a37f-7e3aeea3fe2f")
-		)
-		(pin "9"
-			(uuid "076e514f-a470-4c81-8b9b-1473290f54bf")
-		)
-		(pin "5"
-			(uuid "f084b282-d623-4508-af69-b4419750f130")
-		)
-		(pin "3"
-			(uuid "50c624d1-4b7e-4c52-ad95-b1aa642b5506")
-		)
-		(pin "6"
-			(uuid "cb3d40e6-9f7c-43d4-b5be-a457d747aef1")
-		)
-		(pin "4"
-			(uuid "37086eb5-9678-4cb9-b962-19e1354783d5")
-		)
-		(pin "8"
-			(uuid "386446d1-2c75-4bbc-95b0-6f222e4fc041")
-		)
-		(instances
-			(project "pt_thrifty"
-				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
-					(reference "DI3")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "HT16K33:HT16K33A-28SSOP")
-		(at 64.77 52.07 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "20281bb8-65f4-4548-8360-e465e28f1b5c")
-		(property "Reference" "U4"
-			(at 64.77 16.51 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "HT16K33A-28SSOP"
-			(at 64.77 19.05 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "HT9170D:SOIC28-1.27-11.5X17.5MM"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "Datasheet" ""
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "SSOP-28 LCD Drivers"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "MF" "Holtek"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "MAXIMUM_PACKAGE_HEIGHT" "1.75 mm"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "CREATOR" "AAMIR"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "Price" "None"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "Package" "None"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "Check_prices" "https://www.snapeda.com/parts/HT16K33A-28SSOP/Holtek/view-part/?ref=eda"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "STANDARD" "IPC-7351B"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "PARTREV" "1.02"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "VERIFIER" "RODRIGO"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "SnapEDA_Link" "https://www.snapeda.com/parts/HT16K33A-28SSOP/Holtek/view-part/?ref=snap"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "MP" "HT16K33A-28SSOP"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "Availability" "Not in stock"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(property "MANUFACTURER" "Holtek"
-			(at 64.77 52.07 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify bottom)
-			)
-		)
-		(pin "19"
-			(uuid "b6905c3c-b5f8-4865-9b87-c5465bef7131")
-		)
-		(pin "11"
-			(uuid "77e70da0-3ef4-45db-902a-9e743a9bf4ca")
-		)
-		(pin "12"
-			(uuid "b5826b33-9a4f-4a3a-8334-64b2ad6b605c")
-		)
-		(pin "1"
-			(uuid "cd8d29e0-ce45-4321-a535-51a4558d4b27")
-		)
-		(pin "3"
-			(uuid "b946cbdf-db7e-47b2-9010-8f38004f6187")
-		)
-		(pin "15"
-			(uuid "b031cc64-8587-4792-ac8c-28a815a78f58")
-		)
-		(pin "6"
-			(uuid "b5621c14-e4eb-4f51-9957-08a4dde820db")
-		)
-		(pin "13"
-			(uuid "3c8ec8d7-e4b1-4add-b14d-cecefa245210")
-		)
-		(pin "17"
-			(uuid "09c847d2-2f63-45f0-8766-cf541f0d85a2")
-		)
-		(pin "18"
-			(uuid "4ce4fe38-d19a-4f02-b579-9f338ee19673")
-		)
-		(pin "10"
-			(uuid "34ffde0e-c853-4140-87a8-175e719ffb45")
-		)
-		(pin "2"
-			(uuid "685c56b7-b489-4e0d-a10f-2316c109d827")
-		)
-		(pin "4"
-			(uuid "2fdcab6f-24fe-45d7-8b77-67937765b6cf")
-		)
-		(pin "5"
-			(uuid "dc1412ef-8e9a-4e69-9412-858d6ad91c44")
-		)
-		(pin "7"
-			(uuid "3302e649-26b8-4c2e-a8b5-b3e8e9d456e2")
-		)
-		(pin "8"
-			(uuid "79799ea1-4bb3-4864-8898-129ac599dbb0")
-		)
-		(pin "9"
-			(uuid "3307403d-44b4-4060-a703-24faef810548")
-		)
-		(pin "14"
-			(uuid "0e6ae172-7cc9-483b-bc24-ec797f82419c")
-		)
-		(pin "16"
-			(uuid "af47bc2d-60ab-41a8-a420-667cdd33be38")
-		)
-		(pin "23"
-			(uuid "b1cccf5a-e8ce-4de0-9ccf-ead1f85bb9db")
-		)
-		(pin "25"
-			(uuid "ae49964c-fd9e-4835-8166-cd0943873c52")
-		)
-		(pin "26"
-			(uuid "dec4d315-fca9-4d42-97fe-389b6d91647c")
-		)
-		(pin "27"
-			(uuid "24c10b87-a348-4e69-af81-be9080548794")
-		)
-		(pin "28"
-			(uuid "1a0e612d-9f89-4d9e-9bd3-52c3dc5f3e2d")
-		)
-		(pin "20"
-			(uuid "49624028-fe68-4b9a-9e79-8dab4b0c7279")
-		)
-		(pin "21"
-			(uuid "33b25020-0061-4acf-9328-cc4570dc26b0")
-		)
-		(pin "24"
-			(uuid "bd1f45a7-6cf5-4458-945f-dc071fe4a887")
-		)
-		(pin "22"
-			(uuid "5a0c742e-3bfe-46ba-9e88-ebda4367e1c1")
-		)
-		(instances
-			(project "pt_thrifty"
-				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
-					(reference "U4")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "Device:D")
 		(at 119.38 134.62 90)
 		(unit 1)
@@ -7185,6 +7057,134 @@
 		)
 	)
 	(symbol
+		(lib_id "DeliveryBox - LEDs:KWA-541XVB")
+		(at 240.03 120.65 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "2ef70d3e-6f68-40e8-9708-ac8462de68ea")
+		(property "Reference" "DI2"
+			(at 240.03 101.6 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "KWA-541XVB"
+			(at 240.03 104.14 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Displays:KWA-541XVB"
+			(at 240.03 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 240.03 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 240.03 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "17"
+			(uuid "99f24be4-8b34-480b-b91f-1e10d504338e")
+		)
+		(pin "13"
+			(uuid "b825947e-b221-4661-a5af-b76f9d5ea690")
+		)
+		(pin "4"
+			(uuid "10e82ba9-2b58-41ed-a593-0fdd12cbc737")
+		)
+		(pin "16"
+			(uuid "d435557d-acd1-4511-b073-5b5d303762d1")
+		)
+		(pin "18"
+			(uuid "27cded42-5217-4411-a13c-cac0ca99aef9")
+		)
+		(pin "15"
+			(uuid "51d3f979-edd7-4faf-9479-e70dd7902723")
+		)
+		(pin "10"
+			(uuid "708a6dfc-7acd-40e7-8c05-730aa16abc5f")
+		)
+		(pin "12"
+			(uuid "c86fdcc4-70b3-44c8-b6bb-6789df4a63fc")
+		)
+		(pin "9"
+			(uuid "eb1d81fc-172b-464a-9bb5-bcc077b39792")
+		)
+		(pin "14"
+			(uuid "1aab5029-0632-4a7b-bba6-e846859e43bb")
+		)
+		(pin "1"
+			(uuid "431b5263-a828-4cdf-b5ae-14a4680bc282")
+		)
+		(pin "6"
+			(uuid "abd9d9e3-53fe-45da-bcdb-191cef4e63f3")
+		)
+		(pin "3"
+			(uuid "a1424e79-f077-4e41-b3a1-501c198cb93a")
+		)
+		(pin "5"
+			(uuid "2c4ecbe3-21c6-4c8e-8369-695c5973e89a")
+		)
+		(pin "7"
+			(uuid "4d1f95f6-6b2c-4bb3-ba9f-fd70fb6b603b")
+		)
+		(pin "11"
+			(uuid "9ae28660-0b6a-41e7-b887-f08460af4294")
+		)
+		(pin "2"
+			(uuid "d40361d2-c1ed-4c8f-8148-cb5820d1de38")
+		)
+		(pin "8"
+			(uuid "aad01812-d22e-4ad0-9a1c-2b897976ab84")
+		)
+		(instances
+			(project "pt_thrifty"
+				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
+					(reference "DI2")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "Device:R")
 		(at 105.41 128.27 90)
 		(unit 1)
@@ -7342,8 +7342,8 @@
 		)
 	)
 	(symbol
-		(lib_id "LED_Displys:KWA-541XVB")
-		(at 240.03 120.65 0)
+		(lib_id "DeliveryBox - LEDs:KWA-541XVB")
+		(at 168.91 63.5 0)
 		(unit 1)
 		(body_style 1)
 		(exclude_from_sim no)
@@ -7352,9 +7352,9 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "55a32dc1-ecd8-47e6-bcbf-465111282ad1")
-		(property "Reference" "DI2"
-			(at 240.03 101.6 0)
+		(uuid "5031669c-79c4-4738-83cd-6f8fcd683f4f")
+		(property "Reference" "DI3"
+			(at 168.91 44.45 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7364,7 +7364,7 @@
 			)
 		)
 		(property "Value" "KWA-541XVB"
-			(at 240.03 104.14 0)
+			(at 168.91 46.99 0)
 			(show_name no)
 			(do_not_autoplace no)
 			(effects
@@ -7374,7 +7374,7 @@
 			)
 		)
 		(property "Footprint" "Displays:KWA-541XVB"
-			(at 240.03 123.19 0)
+			(at 168.91 66.04 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7385,7 +7385,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 240.03 120.65 0)
+			(at 168.91 63.5 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7396,7 +7396,7 @@
 			)
 		)
 		(property "Description" ""
-			(at 240.03 120.65 0)
+			(at 168.91 63.5 0)
 			(hide yes)
 			(show_name no)
 			(do_not_autoplace no)
@@ -7407,63 +7407,63 @@
 			)
 		)
 		(pin "17"
-			(uuid "2666d62b-6acc-48b0-9532-e705ce472375")
-		)
-		(pin "16"
-			(uuid "fd721c72-939f-425e-8ead-ab64c3daca63")
+			(uuid "633e8e4f-25e2-4869-9ae5-8fe5a0ab89ff")
 		)
 		(pin "13"
-			(uuid "f8568142-6532-4082-9bda-9f45e3619daf")
-		)
-		(pin "15"
-			(uuid "bee7207a-56ae-481a-ae4d-69b72d072ee8")
-		)
-		(pin "10"
-			(uuid "b81f5a88-1502-4684-9dce-bfed7812344c")
-		)
-		(pin "11"
-			(uuid "79f33e2d-4bf3-4cc0-82a2-d1f3f83c2132")
-		)
-		(pin "12"
-			(uuid "eb6df404-108d-4ba6-983a-d927e6ba2534")
-		)
-		(pin "14"
-			(uuid "38711b33-9f6b-4575-93a5-788ce31ba76f")
-		)
-		(pin "18"
-			(uuid "320a6c54-8b5b-4cf7-b30b-ce0694a7dd16")
-		)
-		(pin "7"
-			(uuid "8edd5f5b-80a3-46c6-8b43-c0ce6c38086b")
-		)
-		(pin "1"
-			(uuid "2b5482d8-b0b4-414a-b155-cfbe2351a6d9")
-		)
-		(pin "2"
-			(uuid "0aa8aa9b-2cad-4aff-8f5f-61941dea6eb6")
-		)
-		(pin "9"
-			(uuid "c102cf8a-3e00-436b-9608-66e102ecc861")
-		)
-		(pin "5"
-			(uuid "14234ae1-85b4-4429-ba45-c6ef536826ac")
-		)
-		(pin "3"
-			(uuid "d7fe11c3-894f-4907-8f3e-2ed42f8e75ec")
-		)
-		(pin "6"
-			(uuid "53106c20-c6d5-45b3-8127-41a184a8158b")
+			(uuid "50454c90-4919-45c1-80c8-739e6bdb3a0b")
 		)
 		(pin "4"
-			(uuid "2ee834f7-f966-4454-93cf-b8478512564d")
+			(uuid "ff2f8fcd-f8d8-49f5-8283-8c94457d2a5c")
+		)
+		(pin "16"
+			(uuid "98bd1771-ab19-4945-a6e4-2a014c483d21")
+		)
+		(pin "18"
+			(uuid "83cae137-87ed-4acd-bcf8-d4b8a17dacc5")
+		)
+		(pin "15"
+			(uuid "092f77f9-fbe7-4213-9042-6632ec079e19")
+		)
+		(pin "10"
+			(uuid "d68d770c-6cfd-428c-9176-456b021b3efb")
+		)
+		(pin "12"
+			(uuid "920603a6-e5a0-4655-810c-adc93d10617e")
+		)
+		(pin "9"
+			(uuid "ce4a833c-7b9d-4012-ac07-4618f090e019")
+		)
+		(pin "14"
+			(uuid "cfd6c610-2a9d-4ce3-8281-c2aad06a676b")
+		)
+		(pin "1"
+			(uuid "d23c9bb0-3beb-41fb-84e1-cf76fd2ca769")
+		)
+		(pin "6"
+			(uuid "6f6b4bf1-cde1-4326-8228-81e4e45c1556")
+		)
+		(pin "3"
+			(uuid "a0af1e1a-e79b-466e-a9b0-bbb637c60685")
+		)
+		(pin "5"
+			(uuid "abc8952e-fa24-4c88-8057-31da22824c19")
+		)
+		(pin "7"
+			(uuid "14c84b7a-0e93-4fc2-b4c2-87901b6299ea")
+		)
+		(pin "11"
+			(uuid "95e080e8-32e3-44a6-b789-f5c8e0cda788")
+		)
+		(pin "2"
+			(uuid "1413b733-af57-49e3-b62b-71f5f2338ad8")
 		)
 		(pin "8"
-			(uuid "3ff525a7-a5b0-4795-aa6d-969a403d7a8d")
+			(uuid "8b86476a-24bb-47b2-8a74-46bf69a346bb")
 		)
 		(instances
 			(project "pt_thrifty"
 				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
-					(reference "DI2")
+					(reference "DI3")
 					(unit 1)
 				)
 			)
@@ -8567,86 +8567,7 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:R")
-		(at 107.95 73.66 90)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp yes)
-		(uuid "a9e13e8b-ae75-45c7-8a30-b20fe1ced1a1")
-		(property "Reference" "R32"
-			(at 101.346 72.136 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "47K"
-			(at 114.554 72.136 90)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
-			(at 107.95 75.438 90)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 107.95 73.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" "Resistor"
-			(at 107.95 73.66 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "2"
-			(uuid "d3805071-bec1-45f0-bc46-423dfa717ac5")
-		)
-		(pin "1"
-			(uuid "a86d5348-2681-41f4-94df-15a6c267499a")
-		)
-		(instances
-			(project "pt_thrifty"
-				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
-					(reference "R32")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "HT16K33:HT16K33A-28SSOP")
+		(lib_id "SnpadEDA HT16K33 (modified):HT16K33A-28SOIC")
 		(at 64.77 125.73 0)
 		(unit 1)
 		(body_style 1)
@@ -8656,7 +8577,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "ac01eb5d-28f2-437d-a62e-6a1f25a81d89")
+		(uuid "a93eeabc-9e0b-42f3-89bf-4d24815c0d32")
 		(property "Reference" "U5"
 			(at 64.77 90.17 0)
 			(show_name no)
@@ -8667,7 +8588,7 @@
 				)
 			)
 		)
-		(property "Value" "HT16K33A-28SSOP"
+		(property "Value" "HT16K33A-28SOIC"
 			(at 64.77 92.71 0)
 			(show_name no)
 			(do_not_autoplace no)
@@ -8677,7 +8598,7 @@
 				)
 			)
 		)
-		(property "Footprint" "HT9170D:SOIC28-1.27-11.5X17.5MM"
+		(property "Footprint" "HT16K33A-28SSOP:SOIC28-1.27-11.5X17.5MM"
 			(at 64.77 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -8700,7 +8621,7 @@
 				)
 			)
 		)
-		(property "Description" "SSOP-28 LCD Drivers"
+		(property "Description" "SOIC-28 LCD Drivers"
 			(at 64.77 125.73 0)
 			(hide yes)
 			(show_name no)
@@ -8868,94 +8789,173 @@
 				(justify bottom)
 			)
 		)
-		(pin "19"
-			(uuid "ff6072a0-1835-4f05-a83b-ffdc713a0dc8")
-		)
-		(pin "11"
-			(uuid "0bff729e-692a-44c4-adf3-bf07c89a252d")
-		)
-		(pin "12"
-			(uuid "c376e298-a277-4cc2-83dc-f32be30ab671")
-		)
-		(pin "1"
-			(uuid "9f2a08f0-ae69-4657-a40b-f3c49d30b42d")
-		)
-		(pin "3"
-			(uuid "bde9dc02-5952-480e-8e54-97ad74ad3e1e")
-		)
-		(pin "15"
-			(uuid "77112d15-7f71-46f3-995c-40988b7da76e")
-		)
-		(pin "6"
-			(uuid "d582fee0-9055-4767-a084-e6ce7245b343")
-		)
-		(pin "13"
-			(uuid "b5c1b962-0124-41a2-b656-06e05b055403")
-		)
-		(pin "17"
-			(uuid "12c909fd-f335-41e2-876d-0f427fbf478c")
-		)
-		(pin "18"
-			(uuid "8a5495f4-cd4f-48d8-9a00-67d185e6bd13")
-		)
-		(pin "10"
-			(uuid "4e0cb51f-351b-462d-8f0b-1929ae3a6825")
-		)
 		(pin "2"
-			(uuid "de0a39a2-0777-44bb-affa-0f49d00a23a7")
-		)
-		(pin "4"
-			(uuid "5d00db1e-9c8a-4d4d-9123-7d8f1bbeb7f8")
-		)
-		(pin "5"
-			(uuid "8de66982-88e7-41d8-b2ec-63fa94413941")
-		)
-		(pin "7"
-			(uuid "7fefa2a1-36f1-41c3-b746-4cb28cd68a96")
-		)
-		(pin "8"
-			(uuid "b587e26d-81e8-47aa-bf6c-8dcf63375232")
-		)
-		(pin "9"
-			(uuid "40704874-562a-4565-83d1-4bea6f46d34e")
+			(uuid "ab13e2f2-363e-403c-baba-bfd7aa55a5bb")
 		)
 		(pin "14"
-			(uuid "c1d8377b-b26e-4696-81d2-d5a9be736579")
+			(uuid "beb141a1-3904-4670-888e-cbbe3cb4bc17")
 		)
-		(pin "16"
-			(uuid "bdf170d2-4c53-45cf-8c8d-22d1aa4de091")
-		)
-		(pin "23"
-			(uuid "321eb69d-2029-4073-a707-e9aa06d999ad")
-		)
-		(pin "25"
-			(uuid "f5be1f29-31ec-4603-8127-640bb54cabe6")
-		)
-		(pin "26"
-			(uuid "bbf35208-5a31-4f6f-9894-396f9bab1366")
-		)
-		(pin "27"
-			(uuid "1a9cd037-e90d-44a9-8f0a-39599dec1826")
-		)
-		(pin "28"
-			(uuid "87584735-9ec4-4840-b9af-8c2311916a50")
+		(pin "18"
+			(uuid "29c7d1e1-2caa-49ec-84f7-9633607d7dcf")
 		)
 		(pin "20"
-			(uuid "fb23e19f-8827-41df-9c44-cf631f09d53f")
+			(uuid "b4cf7d90-b54b-4b55-9f67-7986d3824852")
 		)
-		(pin "21"
-			(uuid "26db8a95-6cf4-4b54-9c6d-20ebc697c6e9")
+		(pin "3"
+			(uuid "3bb1eb15-4f14-49e9-9d68-ba45dfa34a35")
 		)
-		(pin "24"
-			(uuid "eb8fc3af-3efc-43e4-aabd-41915bb57e04")
+		(pin "28"
+			(uuid "483542b9-3717-496f-b36f-038d4129476f")
+		)
+		(pin "12"
+			(uuid "a1d966b8-6277-40ed-826d-d0318a49caaa")
+		)
+		(pin "8"
+			(uuid "80343a03-4ccb-41a2-865f-221d7d029473")
+		)
+		(pin "7"
+			(uuid "dd1569fb-64cf-49ad-8af4-e902f1755c3c")
+		)
+		(pin "9"
+			(uuid "84cf966e-5554-455e-8eae-d82cd839a128")
 		)
 		(pin "22"
-			(uuid "d415b6b4-fdee-48f0-b80d-da38980e0a4f")
+			(uuid "a9814389-1100-485c-a7f3-247cbbecb339")
+		)
+		(pin "25"
+			(uuid "13678a80-fd7f-4d91-b3cb-0fb59e9540cd")
+		)
+		(pin "4"
+			(uuid "7662bacb-4942-4692-b554-646ea3d7be29")
+		)
+		(pin "26"
+			(uuid "df110a6a-44e4-4318-8369-bd65ab03d6ae")
+		)
+		(pin "19"
+			(uuid "2c52af0a-ee52-4d73-8287-f661566f524e")
+		)
+		(pin "1"
+			(uuid "a0bdd726-5b16-47e7-a084-58cc874f8037")
+		)
+		(pin "11"
+			(uuid "3bb697b4-2c86-4ec6-8d28-1881fbe0cd6f")
+		)
+		(pin "15"
+			(uuid "16238fe9-76b5-4c47-9afe-69ec07c40d83")
+		)
+		(pin "17"
+			(uuid "053bcb1e-616f-4455-89d2-288abac49083")
+		)
+		(pin "5"
+			(uuid "506d4568-4123-4087-931a-04d1eff273cc")
+		)
+		(pin "23"
+			(uuid "b14e8f07-9c4a-4f87-8249-f742d13f1a2d")
+		)
+		(pin "27"
+			(uuid "12d5b329-fd97-44cb-a30c-35ad0d875ba3")
+		)
+		(pin "10"
+			(uuid "471de3a1-814d-4fcb-b7bd-097ef1b9a6a5")
+		)
+		(pin "24"
+			(uuid "21df199a-6d69-4181-82d8-565e74d75acf")
+		)
+		(pin "6"
+			(uuid "f1283c65-e770-493b-867a-3b90af7a35ce")
+		)
+		(pin "16"
+			(uuid "49ff0e42-e33c-40eb-9355-0b50120bf017")
+		)
+		(pin "13"
+			(uuid "0a2bf491-44e9-4183-8df9-772ed9752193")
+		)
+		(pin "21"
+			(uuid "4e188de2-210a-4dbf-b477-33c192f6c075")
 		)
 		(instances
 			(project "pt_thrifty"
 				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
 					(reference "U5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 107.95 73.66 90)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp yes)
+		(uuid "a9e13e8b-ae75-45c7-8a30-b20fe1ced1a1")
+		(property "Reference" "R32"
+			(at 101.346 72.136 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "47K"
+			(at 114.554 72.136 90)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Resistor_SMD:R_0603_1608Metric"
+			(at 107.95 75.438 90)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 107.95 73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" "Resistor"
+			(at 107.95 73.66 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "2"
+			(uuid "d3805071-bec1-45f0-bc46-423dfa717ac5")
+		)
+		(pin "1"
+			(uuid "a86d5348-2681-41f4-94df-15a6c267499a")
+		)
+		(instances
+			(project "pt_thrifty"
+				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
+					(reference "R32")
 					(unit 1)
 				)
 			)
@@ -10158,135 +10158,7 @@
 		)
 	)
 	(symbol
-		(lib_id "LED_Displys:KWA-541XVB")
-		(at 168.91 120.65 0)
-		(unit 1)
-		(body_style 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(in_pos_files yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "f42422f9-9612-4e30-a465-c381fe6ed20a")
-		(property "Reference" "DI1"
-			(at 168.91 101.6 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Value" "KWA-541XVB"
-			(at 168.91 104.14 0)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" "Displays:KWA-541XVB"
-			(at 168.91 123.19 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Datasheet" ""
-			(at 168.91 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Description" ""
-			(at 168.91 120.65 0)
-			(hide yes)
-			(show_name no)
-			(do_not_autoplace no)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(pin "17"
-			(uuid "d23982f6-bd79-48c3-a818-5453e553f648")
-		)
-		(pin "16"
-			(uuid "ef556527-7354-4ab3-b599-c41991f4d69c")
-		)
-		(pin "13"
-			(uuid "303b7163-f5e5-4d34-89f3-94599c575e81")
-		)
-		(pin "15"
-			(uuid "49d3de1a-a4e8-4a57-8752-207507dd5f62")
-		)
-		(pin "10"
-			(uuid "fda43340-a6cc-493e-be6d-f5f65734e275")
-		)
-		(pin "11"
-			(uuid "2dccfaf8-4694-4d2f-b76a-760b49b307ea")
-		)
-		(pin "12"
-			(uuid "e3acd6bc-4563-49d6-a3d0-a15ceb05ddde")
-		)
-		(pin "14"
-			(uuid "7fb0b3ec-c0e9-4a17-a205-4e08e00cc8a1")
-		)
-		(pin "18"
-			(uuid "5b42f7d5-bb15-40bd-b880-46055d402a03")
-		)
-		(pin "7"
-			(uuid "10daea8e-b114-49be-92da-a22b3a8a708c")
-		)
-		(pin "1"
-			(uuid "bc6c2cb4-99ed-4bc4-933c-2056745ac805")
-		)
-		(pin "2"
-			(uuid "11db66c4-306b-4776-858f-a85897375f67")
-		)
-		(pin "9"
-			(uuid "f38b3e77-08e0-45d2-b472-41944b5cdb21")
-		)
-		(pin "5"
-			(uuid "4f1d3416-3241-4728-b286-b70226325f97")
-		)
-		(pin "3"
-			(uuid "ce34aa02-c74b-40c6-b69b-a27b35462c92")
-		)
-		(pin "6"
-			(uuid "7885299c-4224-48f7-a6d4-89e9c397d324")
-		)
-		(pin "4"
-			(uuid "169fc667-49d1-4be8-8809-12d15a9ec139")
-		)
-		(pin "8"
-			(uuid "e168c152-754f-4793-bdfe-d2cb3f06078a")
-		)
-		(instances
-			(project "pt_thrifty"
-				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
-					(reference "DI1")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "LED_Displys:KWA-541XVB")
+		(lib_id "DeliveryBox - LEDs:KWA-541XVB")
 		(at 240.03 63.5 0)
 		(unit 1)
 		(body_style 1)
@@ -10296,7 +10168,7 @@
 		(in_pos_files yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "f98bb30f-f974-46ba-b28e-9c2ed64ad9fe")
+		(uuid "f04c1028-1339-46a5-b227-e8ab60cf515c")
 		(property "Reference" "DI4"
 			(at 240.03 44.45 0)
 			(show_name no)
@@ -10351,63 +10223,191 @@
 			)
 		)
 		(pin "17"
-			(uuid "53fe652f-8907-48f9-8445-fe65778efc61")
-		)
-		(pin "16"
-			(uuid "15436251-2678-496e-8b5c-6f48036b5ff7")
+			(uuid "a5540c8c-1689-4370-8b36-92d582b8a429")
 		)
 		(pin "13"
-			(uuid "48cda49c-145d-4ed1-9859-a6700114e2f3")
-		)
-		(pin "15"
-			(uuid "f48f628f-f6e6-424b-8d77-e7ceaa1dd51d")
-		)
-		(pin "10"
-			(uuid "3f9db3e8-db9e-45bb-b426-4cad669984e9")
-		)
-		(pin "11"
-			(uuid "41395b04-d63d-4d69-8ea8-1c4b574c34a7")
-		)
-		(pin "12"
-			(uuid "8b4f495d-47d9-4405-98fd-d28b9e2e8ef3")
-		)
-		(pin "14"
-			(uuid "fa0825e4-dd66-435f-8b87-a83ef3b263ee")
-		)
-		(pin "18"
-			(uuid "f3087991-04ba-40f6-bd2d-b22e8d162310")
-		)
-		(pin "7"
-			(uuid "13d84ed3-31e2-4337-8aad-6282b81171fe")
-		)
-		(pin "1"
-			(uuid "3fd14da0-b259-4f03-b0eb-ecce8eb4863c")
-		)
-		(pin "2"
-			(uuid "76916c9c-1417-4247-8748-68eaffa5e7e5")
-		)
-		(pin "9"
-			(uuid "9546fca4-1a5c-4621-a449-4986d54fca0a")
-		)
-		(pin "5"
-			(uuid "2b4d56e2-dcd8-4840-b4dd-49640f326c26")
-		)
-		(pin "3"
-			(uuid "b7380c67-4456-48de-9fb1-66a39b6d02c5")
-		)
-		(pin "6"
-			(uuid "2f5061f2-7acc-4198-af81-6fbabfd2a658")
+			(uuid "c42d7807-7856-4780-959d-55c0413c9849")
 		)
 		(pin "4"
-			(uuid "d9242196-5ab4-4e12-ad4a-06412f3e1681")
+			(uuid "8cc862c3-ce49-4d8d-93f1-ae84750bc8cd")
+		)
+		(pin "16"
+			(uuid "640fc4f9-6595-4773-a806-b79d61fa8363")
+		)
+		(pin "18"
+			(uuid "a6db1abf-d54b-4fbe-9036-6851ece09f3a")
+		)
+		(pin "15"
+			(uuid "ecd33cb4-e3de-4530-a327-cf51eea4bf37")
+		)
+		(pin "10"
+			(uuid "3b5be03a-297d-4be2-9357-9c24792ae5ee")
+		)
+		(pin "12"
+			(uuid "a0d839b9-2072-4996-97c1-26d7d11bb9b5")
+		)
+		(pin "9"
+			(uuid "7d5631ee-a0ad-4adc-ab46-5d9421b0582d")
+		)
+		(pin "14"
+			(uuid "ee4e00c8-ce93-4717-8ab2-7da5b799b499")
+		)
+		(pin "1"
+			(uuid "6f26e2e9-d742-4559-b823-9e00d01c011d")
+		)
+		(pin "6"
+			(uuid "29196bad-70dd-4ffd-bb31-b983914beb2c")
+		)
+		(pin "3"
+			(uuid "54c7588f-2120-4b86-84ec-f6b1eccc235d")
+		)
+		(pin "5"
+			(uuid "56f228ac-f465-4d27-ad89-695acce74c6d")
+		)
+		(pin "7"
+			(uuid "041073c8-6093-456f-abdd-d1fb8c06c556")
+		)
+		(pin "11"
+			(uuid "b1281d84-1fbd-4296-9480-0bcac0b63ab1")
+		)
+		(pin "2"
+			(uuid "2db9d85b-eba6-465e-91f4-1fc284f01056")
 		)
 		(pin "8"
-			(uuid "540c5cc8-d3f3-48f1-9df6-4e84a77036e7")
+			(uuid "de90d769-d0db-41ed-9e8e-9c284f199f6e")
 		)
 		(instances
 			(project "pt_thrifty"
 				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
 					(reference "DI4")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "DeliveryBox - LEDs:KWA-541XVB")
+		(at 168.91 120.65 0)
+		(unit 1)
+		(body_style 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(in_pos_files yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "f8567006-fba7-4651-bc85-684f5c1677ac")
+		(property "Reference" "DI1"
+			(at 168.91 101.6 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "KWA-541XVB"
+			(at 168.91 104.14 0)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" "Displays:KWA-541XVB"
+			(at 168.91 123.19 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Datasheet" ""
+			(at 168.91 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Description" ""
+			(at 168.91 120.65 0)
+			(hide yes)
+			(show_name no)
+			(do_not_autoplace no)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(pin "17"
+			(uuid "9a17bd51-ab91-441d-b2b7-586080c4929c")
+		)
+		(pin "13"
+			(uuid "f215aa24-dff0-46fc-84fe-629feaffe4e5")
+		)
+		(pin "4"
+			(uuid "546b2040-e81c-443d-b3a9-2c8e277fcfbe")
+		)
+		(pin "16"
+			(uuid "d1bc95a1-3fb2-4e58-91d9-d3b4438eb58c")
+		)
+		(pin "18"
+			(uuid "689b8106-7d5c-4e4c-add9-27de93713079")
+		)
+		(pin "15"
+			(uuid "9bec67a3-0a71-4ece-94ee-36983eb3e527")
+		)
+		(pin "10"
+			(uuid "6e3e7f3c-cf14-41cf-8f36-0117d8d10d67")
+		)
+		(pin "12"
+			(uuid "97584b70-bd91-41d9-a124-c592a063328a")
+		)
+		(pin "9"
+			(uuid "8dcea6a5-04d1-4cf3-8f59-eee2ee791624")
+		)
+		(pin "14"
+			(uuid "b43eaf5e-2f43-44bf-a151-46ebccaaabe0")
+		)
+		(pin "1"
+			(uuid "06212eee-e735-4e05-a44a-3d341a9426b0")
+		)
+		(pin "6"
+			(uuid "e8c58cf0-f6ac-40b2-b63e-9c4f8e5ff212")
+		)
+		(pin "3"
+			(uuid "9305fbe7-0234-47a9-9906-1cfc079c5aee")
+		)
+		(pin "5"
+			(uuid "51a2ffe5-53ac-4f36-b965-95b79af5be12")
+		)
+		(pin "7"
+			(uuid "3455eabe-0f2d-41f1-86c8-c0f4b944f095")
+		)
+		(pin "11"
+			(uuid "3a455b5b-2fce-4327-8f4c-3e738f524042")
+		)
+		(pin "2"
+			(uuid "f038b882-1fe9-4def-bf7f-e012d2ed4e5c")
+		)
+		(pin "8"
+			(uuid "c0c6e19a-93af-4cfa-bf79-fd360ab7f0e6")
+		)
+		(instances
+			(project "pt_thrifty"
+				(path "/7dbc2a85-cb3c-4d3a-bdba-59e847c9868c/56c5a6bf-baee-493e-a0b8-136b2cf96bdb"
+					(reference "DI1")
 					(unit 1)
 				)
 			)

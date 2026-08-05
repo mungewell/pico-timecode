@@ -71,6 +71,7 @@ thrifty_current_fps = 0
 thrifty_calibration = 0.0
 thrifty_period = 10
 thrifty_synced = 0
+thrifty_pcb_rev = 2
 
 thrifty_available_fps_df = [
         [30,     False,  (255, 0,   0  ), 0b11, "30.00"],      # Red
@@ -686,6 +687,7 @@ def thrifty_display_thread(mode=pt.RUN):
     global thrifty_current_fps
     global rgb, RGB
     global slate_HM, slate_SF, timerS, powersave
+    global thrifty_pcb_rev
 
     pt.eng = pt.engine()
     pt.eng.mode = mode
@@ -740,6 +742,12 @@ def thrifty_display_thread(mode=pt.RUN):
     # note: left module is mounted up-side-down
     slate_R = None
     slate_L = None
+
+    # check which PCB is in use
+    try:
+        thrifty_pcb_rev = config.pt_thrifty['pcb_rev']
+    except:
+        pass
 
     # preferred display, supports ASCII
     setting = None

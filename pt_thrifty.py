@@ -324,6 +324,10 @@ def menu_run_logic():
     global menu_active
 
     if menu.execute_once:
+        # Cause MTC to output a 'long packet'
+        if pt.mtc and pt.mtc.is_open():
+            pt.mtc.open_seen = 0
+
         # set up output level
         # note: we can't really 'monitor' as we only have one socket
         set_output_levels(1 if pt.eng.mode > pt.MONITOR else 0)
@@ -352,8 +356,6 @@ def menu_info_logic():
     global menu_active
 
     if menu.execute_once:
-        #print("menu info")
-
         # prevent 7-seg counter running
         menu_active = True
         if slate_SF:
@@ -507,7 +509,9 @@ def menu_follow_logic():
     # PID will 'follow' RX LTC, keeping TX aligned
 
     if menu.execute_once:
-        #print("menu follow")
+        # Cause MTC to output a 'long packet'
+        if pt.mtc and pt.mtc.is_open():
+            pt.mtc.open_seen = 0
 
         calTimer = None
 
@@ -1128,10 +1132,11 @@ def thrifty_display_callback(sm=None):
         asc = disp.to_ascii()
 
         if disp_asc != asc:
-            # MTC long packet, first frame only
+            # MTC long packet, first frame only sync'ed to frame 0
             if pt.mtc and pt.mtc.is_open():
-                if not pt.mtc.open_seen:
+                if not pt.mtc.open_seen and not (pt.tx_raw & 0x0000007F):
                     pt.mtc.send_long_mtc(pt.tx_raw)          # 'seek' to position
+                    pt.mtc.count = 0
                     pt.mtc.open_seen = 1
 
             disp_asc = asc

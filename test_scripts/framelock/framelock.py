@@ -177,6 +177,7 @@ def main():
                     if sys.platform == "win32":
                         kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
                     result = subprocess.run(command, **kwargs)
+
                     LTC = get_ltcdump("framelock.wav", options.vch, FPS[0], FPS[1])
                 except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
                     pass
@@ -189,9 +190,9 @@ def main():
                     LTC = get_ltcdump(target, options.ach)
 
             if LTC:
-                    parts = LTC.split(' ')
-                    tc_str = list(parts[3])
-                    sample_str = parts[8]
+                    parts = LTC.split()
+                    tc_str = list(parts[1])
+                    sample_str = parts[3]
 
                     df = False
                     if tc_str[8] == '.':

@@ -4,9 +4,12 @@ RATE="30000/1001"
 # create 60s audio file, with randomly offset LTC (by upto 1s)
 OFFSET=`awk -v min=0 -v max=1 'BEGIN{srand(); print min+rand()*(max-min+1)}'`
 echo generating offset of $OFFSET
-ltcgen -f $RATE"df" -s 48000 -t $BASETC -l 1:00:00 ltc.wav 2>&1 >> /dev/null
-sox -n -r 48000 silent.wav trim 0.0 $OFFSET
-sox silent.wav ltc.wav audio.wav
+
+# mix LTC to one side of stero file
+ltcgen -f $RATE"df" -s 48000 -t $BASETC -l 1:00:00 ltc_m.wav 2>&1 >> /dev/null
+sox ltc_m.wav -c 2 ltc_s.wav remix 1 0
+sox -n -r 48000 -c 2 silent.wav trim 0.0 $OFFSET
+sox silent.wav ltc_s.wav audio.wav
 
 # check the first reported TC, and make 'labels' for audacity
 ltcdump -a audio.wav > audio.txt

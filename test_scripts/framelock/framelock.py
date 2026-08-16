@@ -186,111 +186,111 @@ def main():
                 pass
 
             if LTC:
-                    parts = LTC.split()
-                    tc_str = list(parts[1])
-                    sample_str = parts[3]
+                parts = LTC.split()
+                tc_str = list(parts[1])
+                sample_str = parts[3]
 
-                    df = False
-                    if tc_str[8] == '.':
-                        df = True
-                        tc_str[8] = ';'
+                df = False
+                if tc_str[8] == '.':
+                    df = True
+                    tc_str[8] = ';'
 
-                    tc = None
-                    if REF_FPS:
-                        parts = REF_FPS.split('/')
-                    else:
-                        parts = FPS.split('/')
+                tc = None
+                if REF_FPS:
+                    parts = REF_FPS.split('/')
+                else:
+                    parts = FPS.split('/')
 
-                    if len(parts) > 1:
-                        tc = DfttTimecode("".join(tc_str), \
-                                fps=Fraction(int(parts[0]), int(parts[1])), \
-                                drop_frame = df)
-                    else:
-                        tc = DfttTimecode("".join(tc_str), \
-                                fps=int(parts[0]), \
-                                drop_frame = df)
+                if len(parts) > 1:
+                    tc = DfttTimecode("".join(tc_str), \
+                            fps=Fraction(int(parts[0]), int(parts[1])), \
+                            drop_frame = df)
+                else:
+                    tc = DfttTimecode("".join(tc_str), \
+                            fps=int(parts[0]), \
+                            drop_frame = df)
 
-                    if tc:
-                        print("Found LTC Packet:", tc, "@", sample_str)
-                        frames = int((int(sample_str) / SR) * tc.fps)
-                        OFFSET = int(sample_str) - int(frames * SR / tc.fps)
+                if tc:
+                    print("Found LTC Packet:", tc, "@", sample_str)
+                    frames = int((int(sample_str) / SR) * tc.fps)
+                    OFFSET = int(sample_str) - int(frames * SR / tc.fps)
 
-                        correction = 0
-                        if options.correction:
-                            correction = options.correction
-                        elif REF_OFFSET:
-                            correction = REF_OFFSET - OFFSET
-                        if correction:
-                            print("Correction:", correction)
+                    correction = 0
+                    if options.correction:
+                        correction = options.correction
+                    elif REF_OFFSET:
+                        correction = REF_OFFSET - OFFSET
+                    if correction:
+                        print("Correction:", correction)
 
-                        tc2 = tc - frames
-                        print("Writing Start TC:", tc2)
+                    tc2 = tc - frames
+                    print("Writing Start TC:", tc2)
 
-                        # build command to write a copy of file
-                        command = [
-                            "ffmpeg",
-                            "-v", "error", "-y",
-                            "-i", str(target),
-                            "-map", "0", "-map_metadata", "0"
-                        ]
-                        if FPS:
-                            # video
-                            command += [
-                                "-map_metadata:s:v", "0:s:v"
-                            ]
+                    # build command to write a copy of file
+                    command = [
+                        "ffmpeg",
+                        "-v", "error", "-y",
+                        "-i", str(target),
+                        "-map", "0", "-map_metadata", "0"
+                    ]
+                    if FPS:
+                        # video
                         command += [
-                            "-map_metadata:s:a", "0:s:a"
+                            "-map_metadata:s:v", "0:s:v"
                         ]
+                    command += [
+                        "-map_metadata:s:a", "0:s:a"
+                    ]
 
-                        if correction > 0:
-                            # have to re-encode in order to trim
-                            command += [
-                                "-af", "atrim=start_sample=" + \
-                                str(correction) + ",apad=pad_len=" + \
-                                str(correction)
-                            ]
-                        elif correction < 0:
-                            command += [
-                                "-af", "adelay=delays=" + \
-                                str(0-correction) + "S:all=1"
-                            ]
-                            # leaves the extra samples at end..
-                        else:
-                            command += [
-                                "-c", "copy",
-                            ]
-
-                        if FPS:
-                            # video
-                            command += [
-                                "-timecode", str(tc2),
-                            ]
-                        else:
-                            # audio, samples since midnight
-                            command += [
-                                "-write_bext", "1",
-                                "-metadata", "time_reference="+str(tc2.time * SR)
-                            ]
-
+                    if correction > 0:
+                        # have to re-encode in order to trim
                         command += [
-                            os.path.join(out_path, target)
+                            "-af", "atrim=start_sample=" + \
+                            str(correction) + ",apad=pad_len=" + \
+                            str(correction)
                         ]
-                        try:
-                            kwargs = {"stdin": subprocess.DEVNULL}
-                            if sys.platform == "win32":
-                                kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-                            result = subprocess.run(command, **kwargs)
+                    elif correction < 0:
+                        command += [
+                            "-af", "adelay=delays=" + \
+                            str(0-correction) + "S:all=1"
+                        ]
+                        # leaves the extra samples at end..
+                    else:
+                        command += [
+                            "-c", "copy",
+                        ]
 
-                            # store reference for processing other files
-                            if not options.noref and not REF_SR:
-                                print("File used as Reference.\n")
-                                if FPS:
-                                    REF_FPS = FPS
-                                REF_SR = SR
-                                REF_OFFSET = OFFSET
+                    if FPS:
+                        # video
+                        command += [
+                            "-timecode", str(tc2),
+                        ]
+                    else:
+                        # audio, samples since midnight
+                        command += [
+                            "-write_bext", "1",
+                            "-metadata", "time_reference="+str(tc2.time * SR)
+                        ]
 
-                        except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
-                            pass
+                    command += [
+                        os.path.join(out_path, target)
+                    ]
+                    try:
+                        kwargs = {"stdin": subprocess.DEVNULL}
+                        if sys.platform == "win32":
+                            kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+                        result = subprocess.run(command, **kwargs)
+
+                        # store reference for processing other files
+                        if not options.noref and not REF_SR:
+                            print("File used as Reference.\n")
+                            if FPS:
+                                REF_FPS = FPS
+                            REF_SR = SR
+                            REF_OFFSET = OFFSET
+
+                    except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
+                        pass
 
 if __name__ == "__main__":
     main()

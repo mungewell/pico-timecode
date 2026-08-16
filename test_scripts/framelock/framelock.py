@@ -30,15 +30,10 @@ def get_framerate(filepath):
         result = subprocess.run(command, **kwargs)
         fps_str = result.stdout.strip()
         if fps_str:
-            parts = fps_str.split('/')
-            if len(parts) == 2:
-                return [int(parts[0]), int(parts[1])]
-            else:
-                return [int(fps_str), 1]
-            return int(round(fps))
+            return fps_str
     except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
         pass
-    return [None,None]
+    return None
 
 def get_samplerate(filepath):
     """Reads the samplerate of a video/audio file using ffprobe."""
@@ -62,23 +57,15 @@ def get_samplerate(filepath):
         pass
     return None
 
-def get_ltcdump(filepath, channel=1, numerator=None, denominator=None):
+def get_ltcdump(filepath, channel=1, fps=None):
     """Reads the first LTC frame of audio file using ltcdump."""
-    if numerator:
-        if denominator:
-            command = [
-                "ltcdump",
-                "-f", str(numerator) + "/" + str(denominator),
-                "-c", str(channel),
-                str(filepath)
-            ]
-        else:
-            command = [
-                "ltcdump",
-                "-f", str(numerator),
-                "-c", str(channel),
-                str(filepath)
-            ]
+    if fps:
+        command = [
+            "ltcdump",
+            "-f", str(fps),
+            "-c", str(channel),
+            str(filepath)
+        ]
     else:
         command = [
             "ltcdump",
@@ -135,7 +122,7 @@ def main():
     options = parser.parse_args()
 
     if not len(options.files):
-        parser.error("FILE not specified")
+        parser.error("FILE(s) not specified")
     else:
         now = datetime.now()
         now_str = now.strftime("%m-%d-%Y_%H-%M-%S-%f")
@@ -149,6 +136,7 @@ def main():
             print("Created directory: ./" + out_path + "/")
         except OSError as error:
             print("Error! Unable to create directory: ./" + out_path + "/")
+            exit()
 
     # itterate though list of files
     # 1st file is used as reference for others
@@ -168,36 +156,34 @@ def main():
                 continue
 
             FPS = get_framerate(target)
-            if FPS != [None, None]:
+            if FPS:
                 print("Video FPS:", FPS)
                 if REF_FPS and REF_FPS != FPS:
                     print("Framerate does not match reference, skipping")
                     continue
 
-                # need to extract the audio track(s) as a '.wav'
-                command = [
-                    "ffmpeg",
-                    "-v", "error", "-y",
-                    "-i", str(target),
-                    "-vn", "-c:a", "pcm_s16le",
-                    "framelock.wav"
-                ]
-                try:
-                    kwargs = {"stdin": subprocess.DEVNULL}
-                    if sys.platform == "win32":
-                        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
-                    result = subprocess.run(command, **kwargs)
+            # extract/re-encode the audio track(s) as a '.wav'
+            command = [
+                "ffmpeg",
+                "-v", "error", "-y",
+                "-i", str(target),
+                "-vn", "-c:a", "pcm_s16le",
+                "framelock.wav"
+            ]
+            try:
+                kwargs = {"stdin": subprocess.DEVNULL}
+                if sys.platform == "win32":
+                    kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+                result = subprocess.run(command, **kwargs)
 
-                    LTC = get_ltcdump("framelock.wav", options.vch, FPS[0], FPS[1])
-                except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
-                    pass
-            else:
-                # process audio file directly
                 # do we need to itterate chanels?
                 if REF_FPS:
-                    LTC = get_ltcdump(target, options.ach, REF_FPS[0], REF_FPS[1])
+                    LTC = get_ltcdump("framelock.wav", options.ach, REF_FPS)
                 else:
-                    LTC = get_ltcdump(target, options.ach)
+                    LTC = get_ltcdump("framelock.wav", options.ach)
+
+            except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
+                pass
 
             if LTC:
                     parts = LTC.split()
@@ -211,14 +197,18 @@ def main():
 
                     tc = None
                     if REF_FPS:
+                        parts = REF_FPS.split('/')
+                    else:
+                        parts = FPS.split('/')
+
+                    if len(parts) > 1:
                         tc = DfttTimecode("".join(tc_str), \
-                                fps=Fraction(REF_FPS[0], REF_FPS[1]), \
+                                fps=Fraction(int(parts[0]), int(parts[1])), \
                                 drop_frame = df)
                     else:
-                        if FPS and FPS[0] and FPS[1]:
-                            tc = DfttTimecode("".join(tc_str), \
-                                    fps=Fraction(FPS[0], FPS[1]), \
-                                    drop_frame = df)
+                        tc = DfttTimecode("".join(tc_str), \
+                                fps=int(parts[0]), \
+                                drop_frame = df)
 
                     if tc:
                         print("Found LTC Packet:", tc, "@", sample_str)
@@ -236,14 +226,15 @@ def main():
                         tc2 = tc - frames
                         print("Writing Start TC:", tc2)
 
-                        # write TC meta-data to copy of file
+                        # build command to write a copy of file
                         command = [
                             "ffmpeg",
                             "-v", "error", "-y",
                             "-i", str(target),
                             "-map", "0", "-map_metadata", "0"
                         ]
-                        if FPS[0]:
+                        if FPS:
+                            # video
                             command += [
                                 "-map_metadata:s:v", "0:s:v"
                             ]
@@ -269,7 +260,7 @@ def main():
                                 "-c", "copy",
                             ]
 
-                        if FPS[0]:
+                        if FPS:
                             # video
                             command += [
                                 "-timecode", str(tc2),

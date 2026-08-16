@@ -9,7 +9,10 @@ echo generating offset of $OFFSET
 ltcgen -f $RATE"df" -s 48000 -t $BASETC -l 1:00:00 ltc_m.wav 2>&1 >> /dev/null
 sox ltc_m.wav -c 2 ltc_s.wav remix 1 0
 sox -n -r 48000 -c 2 silent.wav trim 0.0 $OFFSET
-sox silent.wav ltc_s.wav audio.wav
+
+# sox silent.wav ltc_s.wav audio.wav
+ffmpeg -y -i silent.wav -i ltc_s.wav -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" -c:a pcm_s16le -write_bext 1 -metadata description="sSPEED=029.970-DF" audio.wav
+
 
 # check the first reported TC, and make 'labels' for audacity
 ltcdump -a audio.wav > audio.txt

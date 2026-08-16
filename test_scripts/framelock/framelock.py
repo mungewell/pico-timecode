@@ -11,6 +11,7 @@ import os
 
 REF_FPS = None
 REF_SR = None
+REF_OFFSET = None
 
 def get_framerate(filepath):
     """Reads the framerate of a video file using ffprobe."""
@@ -108,7 +109,7 @@ def get_ltcdump(filepath, channel=1, numerator=None, denominator=None):
 
 
 def main():
-    global REF_FPS, REF_SR
+    global REF_FPS, REF_SR, REF_OFFSET
 
     parser = ArgumentParser(prog="framelock")
 
@@ -122,6 +123,14 @@ def main():
     parser.add_argument("-v", "--vch",
         type=int, default=1, dest="vch",
         help="LTC audio channel, for video files")
+
+    parser.add_argument("-c", "--correction",
+        type=int, default=0, dest="correction",
+        help="force correction for audio channel(s), ie move by +/- n samples")
+
+    parser.add_argument("-n", "--no-ref",
+        action="store_true", dest="noref",
+        help="prevent correction of audio channel(s)")
 
     options = parser.parse_args()
 
@@ -141,7 +150,8 @@ def main():
         except OSError as error:
             print("Error! Unable to create directory: ./" + out_path + "/")
 
-    # itterate though list of files, 1st file is the reference
+    # itterate though list of files
+    # 1st file is used as reference for others
     for target in options.files:
         print("\nProcessing:", target)
 
@@ -164,7 +174,7 @@ def main():
                     print("Framerate does not match reference, skipping")
                     continue
 
-                # need to extract the audio portion as a '.wav'
+                # need to extract the audio track(s) as a '.wav'
                 command = [
                     "ffmpeg",
                     "-v", "error", "-y",
@@ -201,33 +211,29 @@ def main():
 
                     tc = None
                     if REF_FPS:
-                        '''
-                        if FPS and FPS != REF_FPS:
-                            print("Framerate does not match reference, skipping")
-                            continue
-                        '''
-
                         tc = DfttTimecode("".join(tc_str), \
                                 fps=Fraction(REF_FPS[0], REF_FPS[1]), \
                                 drop_frame = df)
-
-                        print("\nFound LTC Packet:", tc, "@", sample_str)
-
-                        # process current file to align properly...
-                        continue
                     else:
-                        # computing reference
                         if FPS and FPS[0] and FPS[1]:
                             tc = DfttTimecode("".join(tc_str), \
                                     fps=Fraction(FPS[0], FPS[1]), \
                                     drop_frame = df)
 
                     if tc:
-                        print("\nReference:")
                         print("Found LTC Packet:", tc, "@", sample_str)
-                        correction = int((int(sample_str) / SR) * tc.fps)
+                        frames = int((int(sample_str) / SR) * tc.fps)
+                        OFFSET = int(sample_str) - int(frames * SR / tc.fps)
 
-                        tc2 = tc - correction
+                        correction = 0
+                        if options.correction:
+                            correction = options.correction
+                        elif REF_OFFSET:
+                            correction = REF_OFFSET - OFFSET
+                        if correction:
+                            print("Correction:", correction)
+
+                        tc2 = tc - frames
                         print("Writing Start TC:", tc2)
 
                         # write TC meta-data to copy of file
@@ -235,11 +241,47 @@ def main():
                             "ffmpeg",
                             "-v", "error", "-y",
                             "-i", str(target),
-                            "-map", "0", "-map_metadata", "0",
-                            "-map_metadata:s:v", "0:s:v",
-                            "-map_metadata:s:a", "0:s:a",
-                            "-c", "copy",
-                            "-timecode", str(tc2),
+                            "-map", "0", "-map_metadata", "0"
+                        ]
+                        if FPS[0]:
+                            command += [
+                                "-map_metadata:s:v", "0:s:v"
+                            ]
+                        command += [
+                            "-map_metadata:s:a", "0:s:a"
+                        ]
+
+                        if correction > 0:
+                            # have to re-encode in order to trim
+                            command += [
+                                "-af", "atrim=start_sample=" + \
+                                str(correction) + ",apad=pad_len=" + \
+                                str(correction)
+                            ]
+                        elif correction < 0:
+                            command += [
+                                "-af", "adelay=delays=" + \
+                                str(0-correction) + "S:all=1"
+                            ]
+                            # leaves the extra samples at end..
+                        else:
+                            command += [
+                                "-c", "copy",
+                            ]
+
+                        if FPS[0]:
+                            # video
+                            command += [
+                                "-timecode", str(tc2),
+                            ]
+                        else:
+                            # audio, samples since midnight
+                            command += [
+                                "-write_bext", "1",
+                                "-metadata", "time_reference="+str(tc2.time * SR)
+                            ]
+
+                        command += [
                             os.path.join(out_path, target)
                         ]
                         try:
@@ -248,15 +290,16 @@ def main():
                                 kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
                             result = subprocess.run(command, **kwargs)
 
-                            if FPS:
-                                REF_FPS = FPS
-                            REF_SR = SR
+                            # store reference for processing other files
+                            if not options.noref and not REF_SR:
+                                print("File used as Reference.\n")
+                                if FPS:
+                                    REF_FPS = FPS
+                                REF_SR = SR
+                                REF_OFFSET = OFFSET
 
                         except (subprocess.CalledProcessError, ValueError, ZeroDivisionError):
                             pass
-
-
-
 
 if __name__ == "__main__":
     main()

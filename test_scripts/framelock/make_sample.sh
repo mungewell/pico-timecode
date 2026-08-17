@@ -1,22 +1,27 @@
+# Test script: generates a WAV and MP4 file which look like a recording
+# with audio-LTC on one channel. The audio is randomly delayed, and used
+# for testing 'framelock.py' script
+
 BASETC="01:00:00:00"
 RATE="30000/1001"
 
 # create 60s audio file, with randomly offset LTC (by upto 1s)
 OFFSET=`awk -v min=0 -v max=1 'BEGIN{srand(); print min+rand()*(max-min+1)}'`
-echo generating offset of $OFFSET
-
-# mix LTC to one side of stero file
 ltcgen -f $RATE"df" -s 48000 -t $BASETC -l 1:00:00 ltc_m.wav 2>&1 >> /dev/null
+
+# mix LTC to one side of a stero file
 sox ltc_m.wav -c 2 ltc_s.wav remix 1 0
 sox -n -r 48000 -c 2 silent.wav trim 0.0 $OFFSET
 
-# sox silent.wav ltc_s.wav audio.wav
-ffmpeg -y -i silent.wav -i ltc_s.wav -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" -c:a pcm_s16le -write_bext 1 -metadata description="sSPEED=029.970-DF" audio.wav
+sox silent.wav ltc_s.wav sample.wav
 
+# or generate one with 'bext' data using ffmpeg
+#
+#ffmpeg -y -i silent.wav -i ltc_s.wav -filter_complex "[0:a][1:a]concat=n=2:v=0:a=1[out]" -map "[out]" -c:a pcm_s16le -write_bext 1 -metadata description="sSPEED=029.970-DF" sample.wav
 
 # check the first reported TC, and make 'labels' for audacity
-ltcdump -a audio.wav > audio.txt
-TC=`ltcdump audio.wav | grep -v -e "^#" | head -n 1`
+ltcdump -a sample.wav > sample.txt
+TC=`ltcdump sample.wav | grep -v -e "^#" | head -n 1`
 echo $TC
 
 # render image to 60s 1080p video, with LTC audio track
@@ -38,5 +43,5 @@ fi
 if [[ -f "sample.mp4" ]]; then
     echo "sample exists."
 else
-    ffmpeg -y -i video.mp4 -i audio.wav -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 sample.mp4
+    ffmpeg -y -i video.mp4 -i sample.wav -c:v copy -c:a aac -map 0:v:0 -map 1:a:0 sample.mp4
 fi

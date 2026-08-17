@@ -179,6 +179,8 @@ def main():
                 # do we need to itterate chanels?
                 if REF_FPS:
                     LTC = get_ltcdump("framelock.wav", options.ach, REF_FPS)
+                elif FPS:
+                    LTC = get_ltcdump("framelock.wav", options.ach, FPS)
                 else:
                     LTC = get_ltcdump("framelock.wav", options.ach)
 
@@ -188,7 +190,7 @@ def main():
             if LTC:
                 parts = LTC.split()
                 tc_str = list(parts[1])
-                sample_str = parts[3]
+                sample = int(parts[3])
 
                 df = False
                 if tc_str[8] == '.':
@@ -211,9 +213,11 @@ def main():
                             drop_frame = df)
 
                 if tc:
-                    print("Found LTC Packet:", tc, "@", sample_str)
-                    frames = int((int(sample_str) / SR) * tc.fps)
-                    OFFSET = int(sample_str) - int(frames * SR / tc.fps)
+                    print("Found LTC Packet:", tc, "@", sample)
+                    samples_per_frame = SR / tc.fps
+
+                    frames = sample / samples_per_frame
+                    OFFSET = int(sample - (int(frames) * samples_per_frame))
 
                     correction = 0
                     if options.correction:
@@ -223,7 +227,7 @@ def main():
                     if correction:
                         print("Correction:", correction)
 
-                    tc2 = tc - frames
+                    tc2 = tc - int(frames)
                     print("Writing Start TC:", tc2)
 
                     # build command to write a copy of file
@@ -242,31 +246,34 @@ def main():
                         "-map_metadata:s:a", "0:s:a"
                     ]
 
+                    # have to re-encode audio in order to trim/delay
                     if correction > 0:
-                        # have to re-encode in order to trim
                         command += [
-                            "-af", "atrim=start_sample=" + \
-                            str(correction) + ",apad=pad_len=" + \
-                            str(correction)
-                        ]
-                    elif correction < 0:
-                        command += [
+                            "-c:v", "copy",
                             "-af", "adelay=delays=" + \
-                            str(0-correction) + "S:all=1"
+                            str(correction) + "S:all=1" + \
+                            ",asetpts=PTS-STARTPTS[a]"
                         ]
                         # leaves the extra samples at end..
+                    elif correction < 0:
+                        command += [
+                            "-c:v", "copy",
+                            "-af", "atrim=start_sample=" + \
+                            str(0-correction) + ",apad=pad_len=" + \
+                            str(0-correction) + ",asetpts=PTS-STARTPTS[a]"
+                        ]
                     else:
                         command += [
                             "-c", "copy",
                         ]
 
                     if FPS:
-                        # video
+                        # video, uses TC
                         command += [
                             "-timecode", str(tc2),
                         ]
                     else:
-                        # audio, samples since midnight
+                        # audio, uses samples since midnight
                         command += [
                             "-write_bext", "1",
                             "-metadata", "time_reference="+str(tc2.time * SR)
@@ -283,7 +290,7 @@ def main():
 
                         # store reference for processing other files
                         if not options.noref and not REF_SR:
-                            print("File used as Reference.\n")
+                            print("\nFile '%s' used as Reference." % target)
                             if FPS:
                                 REF_FPS = FPS
                             REF_SR = SR

@@ -85,6 +85,14 @@ thrifty_available_fps_df = [
 
 # ----------------------
 def set_output_levels(disable=0):
+    if thrifty_pcb_rev >= 3:
+        # chip enable for TX Amp, low = on
+        amp_cs1 = Pin(8,Pin.OUT)
+        if disable:
+            amp_cs1.value(1)
+        else:
+            amp_cs1.value(0)
+
     # use silicon to control output levels
     if uname().machine[23:] == 'RP2040':
         IO_BANK0_BASE = 0x40014000

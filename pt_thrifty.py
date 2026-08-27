@@ -90,8 +90,12 @@ def set_output_levels(disable=0):
         IO_BANK0_BASE = 0x40014000
         PADS_BANK0_BASE = 0x4001c000
         if high_output_level or disable:
-            # GPIO-10 forced low
-            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x20200
+            if thrifty_pcb_rev >= 3:
+                # GPIO-10 forced high
+                mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x30300
+            else:
+                # GPIO-10 forced low
+                mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x20200
         else:
             # GPIO-10 inverted
             mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x10100
@@ -102,21 +106,25 @@ def set_output_levels(disable=0):
         else:
             mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCFCFF) # 0x00000
     else:
-        # Pico2 uses different addressing and bit field!!!
+        # Pico2 uses different addressing and bit fields!!!
         IO_BANK0_BASE = 0x40028000
         PADS_BANK0_BASE = 0x40038000
         if high_output_level or disable:
-            # GPIO-10 forced low
-            mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x22000
+            if thrifty_pcb_rev >= 3:
+                # GPIO-10 forced high
+                mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x33000
+            else:
+                # GPIO-10 forced low
+                mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x22000
         else:
             # GPIO-10 inverted
             mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x11000
 
         if disable:
             #GPIO-9 forced high, sets divider to mid point (give or take)
-            mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCFCFF) | 0x30300
+            mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCCFFF) | 0x33000
         else:
-            mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCFCFF) # 0x00000
+            mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCCFFF) # 0x00000
 
     # reduce the drive strength to 2mA
     mem32[PADS_BANK0_BASE + 0x028] = mem32[PADS_BANK0_BASE + 0x028] & 0xFFFFFFCF

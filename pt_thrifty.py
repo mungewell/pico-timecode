@@ -1132,12 +1132,17 @@ def thrifty_display_callback(sm=None):
         # MTC quarter packets
         if pt.mtc:
             if pt.mtc.is_open():
-                # sync to 0th quarter (inc has happened)
+                # MTC Short Packet(s), sync to 0th quarter (inc has happened)
                 if pt.quarters==1 and pt.mtc.open_seen==1:
                     pt.mtc.open_seen=2
 
                 if pt.mtc.open_seen==2:
-                    pt.mtc.send_quarter_mtc(pt.tx_raw)
+                    if pt.quarters == (pt.mtc.count + 1) & 0x3:
+                        pt.mtc.send_quarter_mtc(pt.tx_raw)
+                    else:
+                        # Abort/restart, rather than send bad data
+                        pt.mtc.open_seen = 0
+                        pt.mtc.count = 0
             else:
                 # reset, ready for being USB attached again
                 pt.mtc.open_seen = 0

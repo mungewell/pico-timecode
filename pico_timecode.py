@@ -344,26 +344,6 @@ def irq_handler(m):
     core_dis[mem32[0xd0000000]] = disable_irq()
     ticks = ticks_us()
 
-    if m==eng.sm[SM_BLINK]:
-        if quarters==0 and eng.sm[SM_TX_RAW].rx_fifo():
-            # only read RX FIFO every 4th interrupt
-            tx_raw = eng.sm[SM_TX_RAW].get()
-
-        if _hasUsbDevice:
-            quarters += 1
-            if quarters==4:
-                quarters = 0
-
-        tx_ticks_us = ticks
-
-    if m==eng.sm[SM_SYNC]:
-        rx_ticks_us = ticks
-
-    if m==eng.sm[SM_BUFFER]:
-        # Buffer Underflow
-        stop = 1
-        eng.mode = HALTED
-
     # check/schedule any registered callbacks
     for i in range(len(eng.sm)):
         if irq_callbacks[i] and m==eng.sm[i]:
@@ -377,6 +357,25 @@ def irq_handler(m):
             except:
                 pass
             '''
+
+    if m==eng.sm[SM_BLINK]:
+        # possible race condition, if FIFO is late to recieve data
+        if quarters==0 and eng.sm[SM_TX_RAW].rx_fifo():
+            # only read RX FIFO every 4th interrupt
+            tx_raw = eng.sm[SM_TX_RAW].get()
+
+        if _hasUsbDevice:
+            quarters = (quarters + 1) & 0x03
+
+        tx_ticks_us = ticks
+
+    if m==eng.sm[SM_SYNC]:
+        rx_ticks_us = ticks
+
+    if m==eng.sm[SM_BUFFER]:
+        # Buffer Underflow
+        stop = 1
+        eng.mode = HALTED
 
     enable_irq(core_dis[mem32[0xd0000000]])
 
@@ -1359,6 +1358,7 @@ if _hasUsbDevice:
             w[0] = 0x6 # _CIN_SYSEX_END_2BYTE
             w[1] = 0xF1
 
+            # "The arrival of the F1 0X and F1 4X messages always denote frame boundaries."
             # figure the right packet to send
             if not self.count & 0x4:
                 if not self.count & 0x2:

@@ -1153,9 +1153,9 @@ def thrifty_display_callback(sm=None):
         asc = disp.to_ascii()
 
         if disp_asc != asc:
-            # MTC long packet, first frame only sync'ed to frame 0
+            # MTC full/long packet, sync'ed to odd frame so 1st short packet is even frame
             if pt.mtc and pt.mtc.is_open():
-                if not pt.mtc.open_seen and not (pt.tx_raw & 0x0000007F):
+                if not pt.mtc.open_seen and (pt.tx_raw & 0x01):
                     pt.mtc.send_long_mtc(pt.tx_raw)          # 'seek' to position
                     pt.mtc.count = 0
                     pt.mtc.open_seen = 1

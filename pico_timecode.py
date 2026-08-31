@@ -344,20 +344,6 @@ def irq_handler(m):
     core_dis[mem32[0xd0000000]] = disable_irq()
     ticks = ticks_us()
 
-    # check/schedule any registered callbacks
-    for i in range(len(eng.sm)):
-        if irq_callbacks[i] and m==eng.sm[i]:
-            schedule(irq_callbacks[i], i)
-            '''
-            # prevent "Uncaught exception in IRQ callback handler"
-            # which I believe is due to code overloading the CPU,
-            # but this will invalidate the actual timecode...
-            try:
-                schedule(irq_callbacks[i], i)
-            except:
-                pass
-            '''
-
     if m==eng.sm[SM_BLINK]:
         # possible race condition, if FIFO is late to recieve data
         if quarters==0 and eng.sm[SM_TX_RAW].rx_fifo():
@@ -376,6 +362,20 @@ def irq_handler(m):
         # Buffer Underflow
         stop = 1
         eng.mode = HALTED
+
+    # check/schedule any registered callbacks
+    for i in range(len(eng.sm)):
+        if irq_callbacks[i] and m==eng.sm[i]:
+            schedule(irq_callbacks[i], i)
+            '''
+            # prevent "Uncaught exception in IRQ callback handler"
+            # which I believe is due to code overloading the CPU,
+            # but this will invalidate the actual timecode...
+            try:
+                schedule(irq_callbacks[i], i)
+            except:
+                pass
+            '''
 
     enable_irq(core_dis[mem32[0xd0000000]])
 
@@ -1328,13 +1328,14 @@ if _hasUsbDevice:
         def send_long_mtc(self, raw):
             # determine FPS encoding
             fps = eng.tc.fps
-            if fps == 30.00:
-                self.mtc_fps = 0b11
-            elif fps == 29.97:
-                self.mtc_fps = 0b10
+            if fps > 25.00:         # 29.97 and 30.00
+                if eng.tc.df:
+                    self.mtc_fps = 0b10
+                else:
+                    self.mtc_fps = 0b11
             elif fps == 25.00:
                 self.mtc_fps = 0b01
-            else:   # 24.00
+            else:                   # 24.00 and 23.98
                 self.mtc_fps = 0b00
 
             p = bytearray(b"\xF0\x7F\x7F\x01\x01")

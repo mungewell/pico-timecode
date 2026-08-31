@@ -1119,9 +1119,12 @@ def thrifty_display_callback(sm=None):
     global disp, disp_asc
 
     if sm == pt.SM_BLINK:
+        raw = pt.tx_raw
+        quarters = pt.quarters
+
         # sync to 0th quarter (inc has happened)
         # send previously written frame
-        if slate_SF and ((pt.quarters == 1) or not pt._hasUsbDevice) and \
+        if slate_SF and ((quarters == 1) or not pt._hasUsbDevice) and \
                 not menu_active and timerS.finished() and slate_open == 1:
             #debug.on()
             slate_SF.draw()
@@ -1133,12 +1136,12 @@ def thrifty_display_callback(sm=None):
         if pt.mtc:
             if pt.mtc.is_open():
                 # MTC Short Packet(s), sync to 0th quarter (inc has happened)
-                if pt.quarters==1 and pt.mtc.open_seen==1:
+                if quarters==1 and pt.mtc.open_seen==1:
                     pt.mtc.open_seen=2
 
                 if pt.mtc.open_seen==2:
-                    if pt.quarters == (pt.mtc.count + 1) & 0x3:
-                        pt.mtc.send_quarter_mtc(pt.tx_raw)
+                    if quarters == (pt.mtc.count + 1) & 0x3:
+                        pt.mtc.send_quarter_mtc(raw)
                     else:
                         # Abort/restart, rather than send bad data
                         pt.mtc.open_seen = 0
@@ -1149,14 +1152,14 @@ def thrifty_display_callback(sm=None):
                 pt.mtc.count = 0
 
         # Figure out what TX frame to display
-        disp.from_raw(pt.tx_raw)
+        disp.from_raw(raw)
         asc = disp.to_ascii()
 
         if disp_asc != asc:
             # MTC full/long packet, sync'ed to odd frame so 1st short packet is even frame
             if pt.mtc and pt.mtc.is_open():
-                if not pt.mtc.open_seen and (pt.tx_raw & 0x01):
-                    pt.mtc.send_long_mtc(pt.tx_raw)          # 'seek' to position
+                if quarters==1 and not pt.mtc.open_seen and (raw & 0x01):
+                    pt.mtc.send_long_mtc(raw)           # 'seek' to position
                     pt.mtc.count = 0
                     pt.mtc.open_seen = 1
 

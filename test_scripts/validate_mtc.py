@@ -32,11 +32,23 @@ with mido.open_input(inport) as port:
         if message.type=='sysex':
             print(message)
 
-            # reset everything
+            # reset
             miss = -1
-            packet = [None]*8
-            packets = 0
             last = None
+
+            # sysex data=(127,127,1,1,65,0,9,15) time=0
+            packet = [
+                    message.data[7] & 0x0F,
+                    message.data[7] >> 4,
+                    message.data[6] & 0x0F,
+                    message.data[6] >> 4,
+                    message.data[5] & 0x0F,
+                    message.data[5] >> 4,
+                    message.data[4] & 0x0F,
+                    message.data[4] >> 4
+                    ]
+            print(packet)
+            packets = 16
 
 
         if message.type=='quarter_frame':
@@ -65,14 +77,18 @@ with mido.open_input(inport) as port:
 
                     lim = fps[packet[7] >> 1]
 
-                    # need to evaluate the frame rollover(s)
-                    if message.frame_type == 3 and ff == 0 and ss == 0:
-                        mm += 1
-                        if mm >= 60:
-                            mm = 0
-                            hh += 1
-                            if hh >= 24:
-                                hh = 0
+                    # need to evaluate the minute rollover(s), which may be drop-frame
+                    if message.frame_type == 3 and last:
+                        if int(last.timestamp) != int((last+1).timestamp):
+                            print("frame rollover")
+                            if ss == 0:
+                                mm += 1
+                                if mm >= 60:
+                                    mm = 0
+                                    hh += 1
+                                    if hh >= 24:
+                                        hh = 0
+                    '''
                     if message.frame_type == 7:
                         ff += 1
                         if ff >= int(lim + 0.5):
@@ -81,10 +97,11 @@ with mido.open_input(inport) as port:
                             if ss >= 60:
                                 ss = 0
                                 # don't need to propergate further as the sent hh and mm should be correct
+                    '''
 
                     if lim == 29.97:
                         try:
-                            tc = DfttTimecode("%2.2d:%2.2d:%2.2d:%2.2d" % (hh, mm, ss, ff),
+                            tc = DfttTimecode("%2.2d:%2.2d:%2.2d;%2.2d" % (hh, mm, ss, ff),
                                     fps=Fraction(30000/1001),
                                     drop_frame = True)
                         except:
@@ -97,8 +114,10 @@ with mido.open_input(inport) as port:
                         except:
                             tc = None
                     if tc:
+                        if message.frame_type == 7:
+                            tc += 1
                         t = time_ns()
-                        print(tc, t - last_t, tc.timestamp)
+                        print(tc, message.frame_type, t - last_t, tc.timestamp)
                         last_t = t
                     else:
                         print("\nDfttTimecode Error:")
@@ -109,14 +128,13 @@ with mido.open_input(inport) as port:
                         exit()
 
                     # santity check
-                    if last and last + 1 != tc:
+                    if last and (last + 1) != tc:
                         print("TC glitched:")
                         print("%d = %2.2d:%2.2d:%2.2d:%2.2d" % (message.frame_type, hh, mm, ss, ff))
                         for i in range(8):
                             print("\t0xF0 0x%2.2x" % ((i<<4) + packet[i]))
 
-                        # assume it's a one off
-                        last += 1
-                    else:
-                        last = tc
+                        exit(0)
+
+                    last = tc
 

@@ -79,15 +79,15 @@ with mido.open_input(inport) as port:
 
                     # need to evaluate the minute rollover(s), which may be drop-frame
                     if message.frame_type == 3 and last:
-                        if int(last.timestamp) != int((last+1).timestamp):
-                            print("frame rollover")
-                            if ss == 0:
-                                mm += 1
-                                if mm >= 60:
-                                    mm = 0
-                                    hh += 1
-                                    if hh >= 24:
-                                        hh = 0
+                        s = str(last).split(":")
+                        if ss <  int(s[2].split(";")[0]):
+                            print("minute rollover")
+                            mm += 1
+                            if mm >= 60:
+                                mm = 0
+                                hh += 1
+                                if hh >= 24:
+                                    hh = 0
                     '''
                     if message.frame_type == 7:
                         ff += 1

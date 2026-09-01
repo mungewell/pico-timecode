@@ -1115,6 +1115,8 @@ def thrifty_display_thread(mode=pt.RUN):
                 pt.eng.micro_adjust(thrifty_calibration, thrifty_period * 1000) # period in ms
 
 
+debug = Pin(7,Pin.OUT)
+
 def thrifty_display_callback(sm=None):
     global disp, disp_asc
 
@@ -1126,11 +1128,11 @@ def thrifty_display_callback(sm=None):
         # send previously written frame
         if slate_SF and ((quarters == 1) or not pt._hasUsbDevice) and \
                 not menu_active and timerS.finished() and slate_open == 1:
-            #debug.on()
+            debug.on()
             slate_SF.draw()
             if slate_HM:
                 slate_HM.draw()
-            #debug.off()
+            debug.off()
 
         # MTC quarter packets
         if pt.mtc:
@@ -1140,12 +1142,19 @@ def thrifty_display_callback(sm=None):
                     pt.mtc.open_seen=2
 
                 if pt.mtc.open_seen==2:
+                    debug.on()
                     if quarters == (pt.mtc.count + 1) & 0x3:
                         pt.mtc.send_quarter_mtc(raw)
+
+                        if quarters == 3:
+                            # Force Garbage collection
+                            gc.collect()
                     else:
                         # Abort/restart, rather than send bad data
                         pt.mtc.open_seen = 0
                         pt.mtc.count = 0
+
+                    debug.off()
             else:
                 # reset, ready for being USB attached again
                 pt.mtc.open_seen = 0

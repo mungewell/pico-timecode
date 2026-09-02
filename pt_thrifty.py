@@ -1146,8 +1146,8 @@ def thrifty_display_callback(sm=None):
                     if quarters == (pt.mtc.count + 1) & 0x3:
                         pt.mtc.send_quarter_mtc(raw)
 
-                        if quarters == 3:
-                            # Force Garbage collection
+                        # Force Garbage collection every 4 frames
+                        if quarters == 3 and not (raw & 0x03):
                             gc.collect()
                     else:
                         # Abort/restart, rather than send bad data

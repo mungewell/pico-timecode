@@ -1146,6 +1146,7 @@ def thrifty_display_callback(sm=None):
                 # MTC Short Packet(s), sync to 0th quarter (inc has happened)
                 if quarters==1 and pt.mtc.open_seen==1:
                     pt.mtc.open_seen=2
+                    gc.disable()
 
                 if pt.mtc.open_seen==2:
                     debug.on()
@@ -1159,12 +1160,14 @@ def thrifty_display_callback(sm=None):
                         # Abort/restart, rather than send bad data
                         pt.mtc.open_seen = 0
                         pt.mtc.count = 0
+                        gc.enable()
 
                     debug.off()
             else:
                 # reset, ready for being USB attached again
                 pt.mtc.open_seen = 0
                 pt.mtc.count = 0
+                gc.enable()
 
         # Figure out what TX frame to display
         if disp_raw != raw:

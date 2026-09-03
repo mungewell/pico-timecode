@@ -700,8 +700,8 @@ def slate_show_fps_df(index, blink=False):
         slate_HM.set_blink_rate(0)
 
 def thrifty_display_thread(mode=pt.RUN):
-    global disp, slate_current_fps_df
-    global disp_asc, slate_open
+    global slate_current_fps_df, slate_open
+    global disp, disp_raw, disp_asc
     global amp_cs, high_output_level
     global thrifty_calibration, calTimer
     global thrifty_current_fps
@@ -845,13 +845,16 @@ def thrifty_display_thread(mode=pt.RUN):
     start_state_machines(pt.eng.mode)
 
     disp = pt.timecode()
-    #disp_asc = "--:--:--:--"
-    disp_asc = "--------"
+    disp_raw = disp.to_raw()
+    disp_asc = "--:--:--:--"
+
+    # clear slate display
     if slate_SF:
+        asc = "--------"
         for i in range(4):
             if slate_HM:
-                slate_HM.set_character(disp_asc[i], i)
-            slate_SF.set_character(disp_asc[i+4], i)
+                slate_HM.set_character(asc[i], i)
+            slate_SF.set_character(asc[i+4], i)
 
         if slate_HM:
             slate_HM.draw()
@@ -1118,7 +1121,7 @@ def thrifty_display_thread(mode=pt.RUN):
 debug = Pin(7,Pin.OUT)
 
 def thrifty_display_callback(sm=None):
-    global disp, disp_asc
+    global disp, disp_raw, disp_asc
 
     if sm == pt.SM_BLINK:
         raw = pt.tx_raw
@@ -1161,10 +1164,11 @@ def thrifty_display_callback(sm=None):
                 pt.mtc.count = 0
 
         # Figure out what TX frame to display
-        disp.from_raw(raw)
-        asc = disp.to_ascii()
+        if disp_raw != raw:
+            disp_raw = raw
+            disp.from_raw(raw)
+            disp_asc = disp.to_ascii()
 
-        if disp_asc != asc:
             # MTC full/long packet, sync'ed to odd frame so 1st short packet is even frame
             if pt.mtc and pt.mtc.is_open():
                 if quarters==1 and not pt.mtc.open_seen and (raw & 0x01):
@@ -1172,9 +1176,8 @@ def thrifty_display_callback(sm=None):
                     pt.mtc.count = 0
                     pt.mtc.open_seen = 1
 
-            disp_asc = asc
             if pt.eng.mode == pt.RUN:
-                print("TX: %s" % asc)
+                print("TX:", disp_asc)
 
                 if slate_SF and not menu_active and timerS.finished() and slate_open == 1:
                     # pre-write values for next frame

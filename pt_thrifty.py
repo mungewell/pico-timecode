@@ -420,6 +420,12 @@ def menu_select_logic():
         if thrifty_new_fps >= len(thrifty_available_fps_df):
             thrifty_new_fps = 0
 
+            # blink-off to indicate wrap around
+            if RGB:
+                RGB[0] = (0, 0, 0)
+                RGB.write()
+                sleep(0.25)
+
         if slate_SF:
             slate_show_fps_df(thrifty_new_fps, True)
             timerS.start()
@@ -465,9 +471,8 @@ def menu_jam_logic():
         timerC.start()
 
     # ~1/2sec ticks to flash LED
-    now = ticks_ms() >> 9
     if RGB:
-        if now & 1:
+        if (ticks_ms() >> 9) & 1:
             RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
             RGB.write()
         else:
@@ -532,9 +537,8 @@ def menu_follow_logic():
         calTimer = None
 
     # ~1/2sec ticks
-    now = ticks_ms() >> 9
     if RGB:
-        if now & 1:
+        if (ticks_ms() >> 9) & 1:
             RGB[0] = (127, 127, 127)
             RGB.write()
         else:
@@ -566,9 +570,8 @@ def menu_cal_logic():
         calTimer.start()
 
     # ~1/2sec ticks
-    now = ticks_ms() >> 9
     if RGB:
-        if now & 1:
+        if (ticks_ms() >> 9) & 1:
             RGB[0] = thrifty_available_fps_df[thrifty_current_fps][2]
             RGB.write()
         else:

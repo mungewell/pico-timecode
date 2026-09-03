@@ -448,6 +448,10 @@ def menu_jam_logic():
 
         if pt.eng.is_running():
             pt.stop = True
+            if pt.mtc and pt.mtc.is_open():
+                gc.enable()
+                pt.mtc.open_seen = 0
+
             while pt.eng.is_running():
                 print("stopping")
                 sleep(0.1)
@@ -1047,6 +1051,10 @@ def thrifty_display_thread(mode=pt.RUN):
                 if pt.eng.mode > pt.MONITOR:
                     print("Jamming:", pt.eng.mode)
 
+                    if pt.mtc and pt.mtc.is_open():
+                        gc.enable()
+                        pt.mtc.open_seen = 0
+
                 if monTimer == None:
                     # Display data every second
                     monTimer = Neotimer(1000 - (1000/pt.eng.tc.fps))
@@ -1146,6 +1154,7 @@ def thrifty_display_callback(sm=None):
                 # MTC Short Packet(s), sync to 0th quarter (inc has happened)
                 if quarters==1 and pt.mtc.open_seen==1:
                     pt.mtc.open_seen=2
+                    gc.collect()
                     gc.disable()
 
                 if pt.mtc.open_seen==2:

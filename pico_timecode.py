@@ -479,14 +479,14 @@ class timecode(object):
         self.bgf0 = True     # 4 ASCII characters
         self.bgf2 = False
 
-        self.uf1 = 0x0       # 'PICO'
-        self.uf2 = 0x5
-        self.uf3 = 0x9
+        self.uf1 = 0xF       # 'PICO'
+        self.uf2 = 0x4
+        self.uf3 = 0x3
         self.uf4 = 0x4
-        self.uf5 = 0x3
+        self.uf5 = 0x9
         self.uf6 = 0x4
-        self.uf7 = 0xF
-        self.uf8 = 0x4
+        self.uf7 = 0x0
+        self.uf8 = 0x5
 
         # Lock for multithreading
         self.lock = _thread.allocate_lock()
@@ -760,10 +760,10 @@ class timecode(object):
             # Userbits are BCD/Hex
             dehex = [0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37, \
                     0x38,0x39,0x41,0x42,0x43,0x44,0x45,0x46]
-            user = [dehex[self.uf8], dehex[self.uf7], \
-                    dehex[self.uf6], dehex[self.uf5], \
-                    dehex[self.uf4], dehex[self.uf3], \
-                    dehex[self.uf2], dehex[self.uf1]]
+            user = [dehex[self.uf1], dehex[self.uf2], \
+                    dehex[self.uf3], dehex[self.uf4], \
+                    dehex[self.uf5], dehex[self.uf6], \
+                    dehex[self.uf7], dehex[self.uf8]]
         elif self.bgf0==False and self.bgf2==True:
             # Userbits are Date/Timezone
             user = [0x59, 0x30+self.uf6, 0x30+self.uf5, 0x2D, \
@@ -771,10 +771,10 @@ class timecode(object):
                     0x44, 0x30+self.uf2, 0x30+self.uf1]
         else:
             # Userbits are ASCII
-            user = [(self.uf2 << 4) + self.uf1,
-                    (self.uf4 << 4) + self.uf3,
+            user = [(self.uf8 << 4) + self.uf7,
                     (self.uf6 << 4) + self.uf5,
-                    (self.uf8 << 4) + self.uf7]
+                    (self.uf4 << 4) + self.uf3,
+                    (self.uf2 << 4) + self.uf1]
 
         for x in user:
             new += chr(x)
@@ -795,14 +795,14 @@ class timecode(object):
         self.acquire()
         self.bgf0 = True
         self.bgf2 = False
-        self.uf1 = (user[0] >> 0) & 0x0F
-        self.uf2 = (user[0] >> 4) & 0x0F
-        self.uf3 = (user[1] >> 0) & 0x0F
-        self.uf4 = (user[1] >> 4) & 0x0F
-        self.uf5 = (user[2] >> 0) & 0x0F
-        self.uf6 = (user[2] >> 4) & 0x0F
-        self.uf7 = (user[3] >> 0) & 0x0F
-        self.uf8 = (user[3] >> 4) & 0x0F
+        self.uf1 = (user[3] >> 0) & 0x0F
+        self.uf2 = (user[3] >> 4) & 0x0F
+        self.uf3 = (user[2] >> 0) & 0x0F
+        self.uf4 = (user[2] >> 4) & 0x0F
+        self.uf5 = (user[1] >> 0) & 0x0F
+        self.uf6 = (user[1] >> 4) & 0x0F
+        self.uf7 = (user[0] >> 0) & 0x0F
+        self.uf8 = (user[0] >> 4) & 0x0F
         self.release()
 
         return True
@@ -820,14 +820,14 @@ class timecode(object):
         self.acquire()
         self.bgf0 = False
         self.bgf2 = False
-        self.uf1 = (user[7] & 0x0F)
-        self.uf2 = (user[6] & 0x0F)
-        self.uf3 = (user[5] & 0x0F)
-        self.uf4 = (user[4] & 0x0F)
-        self.uf5 = (user[3] & 0x0F)
-        self.uf6 = (user[2] & 0x0F)
-        self.uf7 = (user[1] & 0x0F)
-        self.uf8 = (user[0] & 0x0F)
+        self.uf1 = (user[0] & 0x0F)
+        self.uf2 = (user[1] & 0x0F)
+        self.uf3 = (user[2] & 0x0F)
+        self.uf4 = (user[3] & 0x0F)
+        self.uf5 = (user[4] & 0x0F)
+        self.uf6 = (user[5] & 0x0F)
+        self.uf7 = (user[6] & 0x0F)
+        self.uf8 = (user[7] & 0x0F)
         self.release()
 
         return True

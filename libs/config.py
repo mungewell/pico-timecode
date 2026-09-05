@@ -10,7 +10,7 @@ userbits = {
     'userbits'  : ['Name', ['Name', 'Digits', 'Date']],
     'ub_name'   : "PICO",
     'ub_digits' : "00000000",
-    'ub_date'   : "Y74-M01-D01+0000",
+    'ub_date'   : "Y74-M02-D01+0000",
 }
 
 hwconfig = {

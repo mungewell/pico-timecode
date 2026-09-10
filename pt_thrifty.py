@@ -939,6 +939,9 @@ def thrifty_display_thread(mode=pt.RUN):
                             ub = "  " + config.userbits['ub_name'] + "      "
                         elif config.userbits['userbits'][0] == "Digits":
                             ub = config.userbits['ub_digits'] + "        "
+                        elif config.userbits['userbits'][0] == "Date":
+                            ub = config.userbits['ub_date']
+                            ub = ub[1:3] + "-" + ub[5:7] + "-" + ub[9:11] + "        "
                     except:
                         pass
 

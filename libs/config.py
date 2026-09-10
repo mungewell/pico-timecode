@@ -9,7 +9,7 @@ setting = {
 userbits = {
     'userbits'  : ['Name', ['Name', 'Digits', 'Date']],
     'ub_name'   : "PICO",
-    'ub_digits' : "00000000",
+    'ub_digits' : "12345678",
     'ub_date'   : "Y74-M02-D01+0000",
 }
 

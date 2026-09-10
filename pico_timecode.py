@@ -450,13 +450,13 @@ def timer_re_init(timer):
 # SMPTE doc https://pub.smpte.org/doc/st309/20121005-pub/
 
 tzs = [ \
-    "+0000","-0100","-0200","-0300","-0400","-0500","-0600","-0700","-0800","-0900", \  # 0x00..09
-    "-0030","-0130","-0230","-0330","-0430","-0530", \                                  # 0x0A..0F
-    "-1000","-1100","-1200","+1300","+1200","+1100","+1000","+0900","+0800","+0700", \  # 0x10..19
-    "-0630","-0730","-0830","-0930","-1030","-1130", \                                  # 0x1A..1F
-    "+0600","+0500","+0400","+0300","+0200","+0100","Undef","Undef","TP-03","TP-02", \  # 0x20..29
-    "+1130","+1030","+0930","+0830","+0730","+0630", \                                  # 0x2A..2F
-    "TP-01","TP-00","+1245","Undef","Undef","Undef","Undef","Undef","+XXXX","Undef", \  # 0x30..39
+    "+0000","-0100","-0200","-0300","-0400","-0500","-0600","-0700","-0800","-0900",    # 0x00..09
+    "-0030","-0130","-0230","-0330","-0430","-0530",                                    # 0x0A..0F
+    "-1000","-1100","-1200","+1300","+1200","+1100","+1000","+0900","+0800","+0700",    # 0x10..19
+    "-0630","-0730","-0830","-0930","-1030","-1130",                                    # 0x1A..1F
+    "+0600","+0500","+0400","+0300","+0200","+0100","Undef","Undef","TP-03","TP-02",    # 0x20..29
+    "+1130","+1030","+0930","+0830","+0730","+0630",                                    # 0x2A..2F
+    "TP-01","TP-00","+1245","Undef","Undef","Undef","Undef","Undef","+XXXX","Undef",    # 0x30..39
     "+0530","+0430","+0330","+0230","+0130","+0030"]                                    # 0x3A..3F
 
 
@@ -762,10 +762,10 @@ class timecode(object):
             # Userbits are BCD/Hex
             dehex = [0x30,0x31,0x32,0x33,0x34,0x35,0x36,0x37, \
                     0x38,0x39,0x41,0x42,0x43,0x44,0x45,0x46]
-            user = [dehex[self.uf1], dehex[self.uf2], \
-                    dehex[self.uf3], dehex[self.uf4], \
-                    dehex[self.uf5], dehex[self.uf6], \
-                    dehex[self.uf7], dehex[self.uf8]]
+            user = [dehex[self.uf8], dehex[self.uf7], \
+                    dehex[self.uf6], dehex[self.uf5], \
+                    dehex[self.uf4], dehex[self.uf3], \
+                    dehex[self.uf2], dehex[self.uf1]]
         elif self.bgf0==False and self.bgf2==True:
             # Userbits are Date/Timezone
             user = [0x59, 0x30+self.uf6, 0x30+self.uf5, 0x2D, \
@@ -822,14 +822,14 @@ class timecode(object):
         self.acquire()
         self.bgf0 = False
         self.bgf2 = False
-        self.uf1 = (user[0] & 0x0F)
-        self.uf2 = (user[1] & 0x0F)
-        self.uf3 = (user[2] & 0x0F)
-        self.uf4 = (user[3] & 0x0F)
-        self.uf5 = (user[4] & 0x0F)
-        self.uf6 = (user[5] & 0x0F)
-        self.uf7 = (user[6] & 0x0F)
-        self.uf8 = (user[7] & 0x0F)
+        self.uf1 = (user[7] & 0x0F)
+        self.uf2 = (user[6] & 0x0F)
+        self.uf3 = (user[5] & 0x0F)
+        self.uf4 = (user[4] & 0x0F)
+        self.uf5 = (user[3] & 0x0F)
+        self.uf6 = (user[2] & 0x0F)
+        self.uf7 = (user[1] & 0x0F)
+        self.uf8 = (user[0] & 0x0F)
         self.release()
 
         return True

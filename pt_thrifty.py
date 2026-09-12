@@ -72,6 +72,7 @@ thrifty_calibration = 0.0
 thrifty_period = 10
 thrifty_synced = 0
 thrifty_pcb_rev = 2
+thrifty_mon_mute = 1
 
 thrifty_available_fps_df = [
         [30,     False,  (255, 0,   0  ), 0b11, "30.00"],      # Red
@@ -84,11 +85,11 @@ thrifty_available_fps_df = [
         ]
 
 # ----------------------
-def set_output_levels(disable=0):
+def set_output_levels(mute=0):
     if thrifty_pcb_rev >= 3:
         # chip enable for TX Amp, low = on
         amp_cs1 = Pin(8,Pin.OUT)
-        if disable:
+        if mute:
             amp_cs1.value(1)
         else:
             amp_cs1.value(0)
@@ -97,7 +98,7 @@ def set_output_levels(disable=0):
     if uname().machine[23:] == 'RP2040':
         IO_BANK0_BASE = 0x40014000
         PADS_BANK0_BASE = 0x4001c000
-        if high_output_level or disable:
+        if high_output_level or (mute and thrifty_pcb_rev < 3):
             if thrifty_pcb_rev >= 3:
                 # GPIO-10 forced high
                 mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x30300
@@ -108,7 +109,8 @@ def set_output_levels(disable=0):
             # GPIO-10 inverted
             mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCFCFF) | 0x10100
 
-        if disable:
+        # On Rev3 and above 'mute' is done with AMP_nCS pin (above)
+        if mute and thrifty_pcb_rev < 3:
             #GPIO-9 forced high, sets divider to mid point (give or take)
             mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCFCFF) | 0x30300
         else:
@@ -117,7 +119,7 @@ def set_output_levels(disable=0):
         # Pico2 uses different addressing and bit fields!!!
         IO_BANK0_BASE = 0x40028000
         PADS_BANK0_BASE = 0x40038000
-        if high_output_level or disable:
+        if high_output_level or (mute and thrifty_pcb_rev < 3):
             if thrifty_pcb_rev >= 3:
                 # GPIO-10 forced high
                 mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x33000
@@ -128,7 +130,8 @@ def set_output_levels(disable=0):
             # GPIO-10 inverted
             mem32[IO_BANK0_BASE + 0x54] = (mem32[IO_BANK0_BASE + 0x54] & 0xFFFCCFFF) | 0x11000
 
-        if disable:
+        # On Rev3 and above 'mute' is done with AMP_nCS pin (above)
+        if mute and thrifty_pcb_rev < 3:
             #GPIO-9 forced high, sets divider to mid point (give or take)
             mem32[IO_BANK0_BASE + 0x4c] = (mem32[IO_BANK0_BASE + 0x4c] & 0xFFFCCFFF) | 0x33000
         else:
@@ -262,7 +265,7 @@ def start_state_machines(mode=pt.RUN):
 
     # set up output level
     # note: we can't really 'monitor' as we only have one socket
-    set_output_levels(1 if pt.eng.mode > pt.MONITOR else 0)
+    set_output_levels(thrifty_mon_mute if pt.eng.mode > pt.MONITOR else 0)
 
     pt.stop = False
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
@@ -346,7 +349,7 @@ def menu_run_logic():
 
         # set up output level
         # note: we can't really 'monitor' as we only have one socket
-        set_output_levels(1 if pt.eng.mode > pt.MONITOR else 0)
+        set_output_levels(thrifty_mon_mute if pt.eng.mode > pt.MONITOR else 0)
 
         if pt.eng.mode > pt.MONITOR:
             menu.force_transition_to(menu_jam_state)
@@ -714,7 +717,7 @@ def thrifty_display_thread(mode=pt.RUN):
     global thrifty_current_fps
     global rgb, RGB
     global slate_HM, slate_SF, timerS, powersave
-    global thrifty_pcb_rev
+    global thrifty_pcb_rev, thrifty_mon_mute
 
     pt.eng = pt.engine()
     pt.eng.mode = mode
@@ -799,6 +802,16 @@ def thrifty_display_thread(mode=pt.RUN):
             print("One or more 7-seg/14-seg displays not found")
         else:
             raise e
+
+    # check whether to mute TX during Jam/Monitor
+    try:
+        setting = config.pt_thrifty['mon_mute']
+        if setting[0] == "Yes":
+            thrifty_mon_mute = 1
+        else:
+            thrifty_mon_mute = 0
+    except:
+        pass
 
     slate_SF = slate_R
     if slate_L:

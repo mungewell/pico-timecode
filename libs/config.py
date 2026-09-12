@@ -27,6 +27,7 @@ pt_thrifty = {
     'pcb_rev'   : 2,
     'neopixel'  : ['GRB', ['None', 'RGB', 'GRB']],
     '7seg'      : ['None', ['None', 'HT16K33Segment', 'HT16K33Segment14']],
+    'mon_mute'  : ['Yes', ['No', 'Yes']],
 }
 
 #################################################

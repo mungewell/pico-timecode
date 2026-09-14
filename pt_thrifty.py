@@ -95,7 +95,7 @@ def set_output_levels(mute=0):
             amp_cs1.value(0)
 
     # use silicon to control output levels
-    if uname().machine[23:] == 'RP2040':
+    if 'RP2040' in uname().machine:
         IO_BANK0_BASE = 0x40014000
         PADS_BANK0_BASE = 0x4001c000
         if high_output_level or (mute and thrifty_pcb_rev < 3):

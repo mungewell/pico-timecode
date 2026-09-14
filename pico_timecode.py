@@ -1079,7 +1079,7 @@ def pico_timecode_thread(eng, stop):
     eng.micro_adjust(eng.calval)
 
     # Defines used later in 'lightsleep()'
-    if uname().machine[-6:] == 'RP2040':
+    if 'RP2040' in uname().machine:
         # RP2040
         CLOCKS_SLEEP_EN0_CLK_SYS_PIO0_BITS = 0x00001000
         CLOCKS_SLEEP_EN0_CLK_SYS_PIO1_BITS = 0x00002000

@@ -58,6 +58,19 @@ import utime
 import rp2
 import gc
 
+LED_1PPS_PIN = 2
+if not 'Waveshare' in uname().machine:
+    # assume we're running on RaPI Pico-1 board for demo purpose
+    # Note: also uses GPIO26 for MTC Quarter-Clock
+    LED_1PPS_PIN = 25
+else:
+    # check for presence of NeoPixel, assume Pico-1 if not detected
+    test = Pin(16,Pin.IN,Pin.PULL_UP)
+    sleep(0.1)
+    if test.value():
+        LED_1PPS_PIN = 25
+
+
 # Set up (extra) globals
 high_output_level = 0       # MIC level
 
@@ -223,12 +236,12 @@ def start_state_machines(mode=pt.RUN):
     # TX State Machines
     if pt._hasUsbDevice:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq_4x, freq=sm_freq,
-                               jmp_pin=Pin(3),          # Qtr_Clk on GPIO3
-                               out_base=Pin(2)))        # LED on GPIO2
+                               jmp_pin=Pin(LED_1PPS_PIN+1), # Qtr_Clk on GPIO3
+                               out_base=Pin(LED_1PPS_PIN))) # LED on GPIO2
     else:
         pt.eng.sm.append(rp2.StateMachine(pt.SM_BLINK, pt.shift_led_irq_1x, freq=sm_freq,
-                               jmp_pin=Pin(3),          # Qtr_Clk on GPIO3
-                               out_base=Pin(2)))        # LED on GPIO2
+                               jmp_pin=Pin(LED_1PPS_PIN+1), # 1PPS_Clk on GPIO3
+                               out_base=Pin(LED_1PPS_PIN))) # LED on GPIO2
 
     pt.eng.sm.append(rp2.StateMachine(pt.SM_BUFFER, pt.buffer_out, freq=sm_freq,
                            out_base=Pin(22)))       # Output of 'raw' bitstream

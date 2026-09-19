@@ -49,7 +49,7 @@ from libs.ht16k33segment14 import HT16K33Segment14
 
 import pico_timecode as pt
 
-from machine import Pin,freq,reset,mem32,ADC,I2C
+from machine import Pin,freq,reset,mem32,ADC,I2C,unique_id
 from utime import sleep, ticks_ms
 from neopixel import NeoPixel
 from os import uname
@@ -63,7 +63,7 @@ if not 'Waveshare' in uname().machine:
     # assume we're running on RaPI Pico-1 board for demo purpose
     # Note: also uses GPIO26 for MTC Quarter-Clock
     LED_1PPS_PIN = 25
-else:
+elif unique_id()[0] == 0xe6:
     # check for presence of NeoPixel, assume Pico-1 if not detected
     test = Pin(16,Pin.IN,Pin.PULL_UP)
     sleep(0.1)

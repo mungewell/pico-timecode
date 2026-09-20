@@ -868,7 +868,7 @@ class engine(object):
     def __init__(self):
         self.mode = RUN
         self.flashframe = 0
-        self.flashtime = 0  # 'raw' TC
+        self.fc = None          # timecode()
         self.dlock = _thread.allocate_lock()
 
         self.tc = timecode()
@@ -999,10 +999,18 @@ class engine(object):
 
         return self.calval
 
-    def set_flashtime(self, ft):
+    def set_flashtime(self, ft, sep=True):
         self.dlock.acquire()
-        self.flashtime = (ft.df << 7) + (ft.hh << 24) + (ft.mm << 16) + (ft.ss << 8) + ft.ff
+        if not ft:
+            self.fc = None
+            self.dlock.release()
+            return
+
+        if not self.fc:
+            self.fc = timecode()
         self.dlock.release()
+
+        self.fc.from_ascii(ft, sep)
 
 #-------------------------------------------------------
 
@@ -1178,7 +1186,9 @@ def pico_timecode_thread(eng, stop):
                     eng.sm[SM_BLINK].put(BLINK_IRQ1)
                     eng.sm[SM_BLINK].put(BLINK_IRQ2)
             else:
-                if eng.tc.to_raw() == eng.flashtime:
+                # flash on a specific TC (ignoring DF flag)
+                if eng.fc and (eng.tc.to_raw() & 0xFFFFFF7F) == \
+                        (eng.fc.to_raw() & 0xFFFFFF7F):
                     eng.sm[SM_BLINK].put(BLINK_IRQ1 | BLINK_LED)
                     eng.sm[SM_BLINK].put(BLINK_IRQ2)
                 else:

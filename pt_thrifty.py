@@ -836,6 +836,13 @@ def thrifty_display_thread(mode=pt.RUN):
         setting = config.setting['flashframe']
         if setting[0]=="Off":
             pt.eng.flashframe = -1
+
+            # Apply flashtime instead, if given
+            try:
+                setting = config.setting['flashtime']
+                pt.eng.set_flashtime(setting, len(setting) > 8)
+            except:
+                pass
         else:
             pt.eng.flashframe = int(setting[0])
     except:

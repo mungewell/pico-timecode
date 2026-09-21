@@ -1188,12 +1188,12 @@ def thrifty_display_callback(sm=None):
         if pt.mtc:
             if pt.mtc.is_open():
                 # MTC Short Packet(s), sync to 0th quarter (inc has happened)
-                if quarters==1 and pt.mtc.open_seen==1:
-                    pt.mtc.open_seen=2
+                if quarters==1 and pt.mtc.open_seen==2:
+                    pt.mtc.open_seen=3
                     gc.collect()
                     gc.disable()
 
-                if pt.mtc.open_seen==2:
+                if pt.mtc.open_seen==3:
                     #debug.on()
                     if quarters == (pt.mtc.count + 1) & 0x3:
                         pt.mtc.send_quarter_mtc(raw)
@@ -1204,7 +1204,6 @@ def thrifty_display_callback(sm=None):
                     else:
                         # Abort/restart, rather than send bad data
                         pt.mtc.open_seen = 0
-                        pt.mtc.count = 0
                         gc.enable()
 
                     #debug.off()
@@ -1222,9 +1221,11 @@ def thrifty_display_callback(sm=None):
 
             # MTC full/long packet, sync'ed to odd frame so 1st short packet is even frame
             if pt.mtc and pt.mtc.is_open():
-                if quarters==1 and not pt.mtc.open_seen and (raw & 0x01):
+                if quarters==1 and pt.mtc.open_seen == 1 and (raw & 0x01):
                     pt.mtc.send_long_mtc(raw)           # 'seek' to position
                     pt.mtc.count = 0
+                    pt.mtc.open_seen = 2
+                elif quarters==1 and not pt.mtc.open_seen:
                     pt.mtc.open_seen = 1
 
             if pt.eng.mode == pt.RUN:

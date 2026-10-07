@@ -417,7 +417,7 @@ def callback_monitor():
             pt.eng.mode = pt.RUN
             monitor = False
     else:
-        callback_setting_monitor(config.hwconfig['automon'][0])
+        callback_setting_monitor(config.pt_papa['automon'][0])
         if monitor:
             pt.eng.mode = pt.MONITOR
         else:
@@ -447,7 +447,7 @@ def callback_jam():
     add_more_state_machines()
 
     pt.eng.mode = pt.JAM
-    callback_setting_monitor(config.hwconfig['automon'][0])
+    callback_setting_monitor(config.pt_papa['automon'][0])
     _thread.start_new_thread(pt.pico_timecode_thread, (pt.eng, lambda: pt.stop))
 
     # apply previously saved calibration value
@@ -563,13 +563,13 @@ def callback_setting_save():
         except AttributeError:
             pass
 
-def callback_hwconfig_save():
+def callback_pt_papa_save():
     global menu, menu_hidden
 
     menu_hidden = True
     for j in menu.current_screen._visible_items[0].parent._visible_items:
         try:
-            config.set('hwconfig', j.name, [j.items[j.selected], j.items])
+            config.set('pt_papa', j.name, [j.items[j.selected], j.items])
         except AttributeError:
             pass
 
@@ -660,10 +660,10 @@ def OLED_display_thread(mode=pt.RUN):
 
     callback_userbits_userbits(config.userbits['userbits'][0])
 
-    callback_setting_powersave(config.hwconfig['powersave'][0])
-    callback_setting_zoom(config.hwconfig['zoom'][0])
-    callback_setting_monitor(config.hwconfig['automon'][0])      # Monitor after Jam
-    callback_setting_calibrate(config.hwconfig['calibrate'][0])
+    callback_setting_powersave(config.pt_papa['powersave'][0])
+    callback_setting_zoom(config.pt_papa['zoom'][0])
+    callback_setting_monitor(config.pt_papa['automon'][0])      # Monitor after Jam
+    callback_setting_calibrate(config.pt_papa['calibrate'][0])
 
     keyA = Pin(15,Pin.IN,Pin.PULL_UP)
     keyB = Pin(17,Pin.IN,Pin.PULL_UP)
@@ -685,7 +685,7 @@ def OLED_display_thread(mode=pt.RUN):
     batWarn = Neotimer(1000)
 
     # Check which mode we start in
-    startmode = config.hwconfig['startmode'][0]
+    startmode = config.pt_papa['startmode'][0]
     if startmode == 'Jam':
         pt.eng.mode = pt.JAM
     elif startmode == 'Monitor':
@@ -699,7 +699,7 @@ def OLED_display_thread(mode=pt.RUN):
         pt.eng.mode = pt.JAM
 
     # Initilize the display and menu
-    display = config.hwconfig['display'][0]
+    display = config.pt_papa['display'][0]
     OLED = False
     timecode_fb = []
     if display != "None":
@@ -749,15 +749,15 @@ def OLED_display_thread(mode=pt.RUN):
             .add(CallbackItem("Start TX", callback_stop_start, visible=pt.eng.is_stopped))
 
             .add(SubMenuItem("Unit Settings")
-                .add(EnumItem("powersave", config.hwconfig['powersave'][1], callback_setting_powersave, \
-                    selected=config.hwconfig['powersave'][1].index(config.hwconfig['powersave'][0])))
-                .add(EnumItem("zoom", config.hwconfig['zoom'][1], callback_setting_zoom, \
-                    selected=config.hwconfig['zoom'][1].index(config.hwconfig['zoom'][0])))
-                .add(EnumItem("automon", config.hwconfig['automon'][1], callback_setting_monitor, \
-                    selected=config.hwconfig['automon'][1].index(config.hwconfig['automon'][0])))
-                .add(EnumItem("calibrate", config.hwconfig['calibrate'][1], callback_setting_calibrate, \
-                    selected=config.hwconfig['calibrate'][1].index(config.hwconfig['calibrate'][0])))
-                .add(ConfirmItem("Save as Default", callback_hwconfig_save, "Confirm?", ('Yes', 'No'))))
+                .add(EnumItem("powersave", config.pt_papa['powersave'][1], callback_setting_powersave, \
+                    selected=config.pt_papa['powersave'][1].index(config.pt_papa['powersave'][0])))
+                .add(EnumItem("zoom", config.pt_papa['zoom'][1], callback_setting_zoom, \
+                    selected=config.pt_papa['zoom'][1].index(config.pt_papa['zoom'][0])))
+                .add(EnumItem("automon", config.pt_papa['automon'][1], callback_setting_monitor, \
+                    selected=config.pt_papa['automon'][1].index(config.pt_papa['automon'][0])))
+                .add(EnumItem("calibrate", config.pt_papa['calibrate'][1], callback_setting_calibrate, \
+                    selected=config.pt_papa['calibrate'][1].index(config.pt_papa['calibrate'][0])))
+                .add(ConfirmItem("Save as Default", callback_pt_papa_save, "Confirm?", ('Yes', 'No'))))
 
             .add(SubMenuItem("User Bits")
                 .add(EnumItem("userbits", config.userbits['userbits'][1], callback_userbits_userbits, \

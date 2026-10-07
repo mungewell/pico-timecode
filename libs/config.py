@@ -13,7 +13,7 @@ userbits = {
     'ub_date'   : "Y74-M02-D01+0000",
 }
 
-hwconfig = {
+pt_papa = {
     'startmode' : ['Run', ['Run', 'Monitor', 'Jam']],
     'display'   : ['Pico1.3', ['None', 'Pico1.3', 'SSD1306']],
     'board'     : ['Rev1', ['None', 'Rev1']],

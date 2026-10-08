@@ -146,8 +146,8 @@ def apply_calibration():
     except:
         pass
 
-    check = displayfps
-    if int(float(displayfps)) == float(displayfps):
+    check = displayfps.split("-")[0]
+    if int(float(check)) == float(check):
         # Note: '30.00' may also be written '30' or '30.0'
         root = check.split('.')[0]
         try:

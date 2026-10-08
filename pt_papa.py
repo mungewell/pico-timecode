@@ -712,15 +712,29 @@ def OLED_display_thread(mode=pt.RUN):
     elif display == 'SSD1306':
         OLED = override_SSD1306_SPI(128, 64, SPI(1, sck=Pin(10), mosi=Pin(11)),
                 dc=Pin(8), res=Pin(12), cs=Pin(9))
+    elif display == 'SSD1306_32':
+        OLED = override_SSD1306_SPI(128, 32, SPI(1, sck=Pin(10), mosi=Pin(11)),
+                dc=Pin(8), res=Pin(12), cs=Pin(9))
 
     if OLED:
+        ty = OLED.height - 16
         OLED.fill(0x0000)
-        OLED.text("Pico-Timecode " + pt.VERSION,64,0,OLED.white,0,2)
-        OLED.text("www.github.com/",0,24,OLED.white,0,0)
-        OLED.text("mungewell/",64,36,OLED.white,0,2)
-        OLED.text("pico-timecode",128,48,OLED.white,0,1)
-        OLED.show()
+        OLED.text("PT-Papa " + pt.VERSION,64,0,OLED.white,0,2)
+        if OLED.height > 32:
+            ry = 22
+            ly = 32
+            OLED.text("www.github.com/",0,24,OLED.white,0,0)
+            OLED.text("mungewell/",64,36,OLED.white,0,2)
+            OLED.text("pico-timecode",126,48,OLED.white,0,1)
+            OLED.show()
+        else:
+            ry = 10
+            ly = 18
+            OLED.text("www.github.com/",0,10,OLED.white,0,0)
+            OLED.text("mungewell/",64,17,OLED.white,0,2)
+            OLED.text("pico-timecode",126,25,OLED.white,0,1)
 
+        OLED.show()
         utime.sleep(2)
         OLED.fill(0x0000)
         OLED.show()
@@ -956,24 +970,30 @@ def OLED_display_thread(mode=pt.RUN):
                 # check which characters of the TC have changed
                 asc = disp.to_ascii(False)
                 if tx_asc != asc:
-                    if OLED:
+                    if OLED and (OLED.height > 32 or pt.eng.mode == pt.RUN):
                         for c in range(len(asc)):
                             if asc[c]!=tx_asc[c]:
                                 break
                         for i in range(7,(c&6)-1,-1):
                             # blit in reverse order, offsetting to hide ':'
                             OLED.blit(timecode_fb[int(asc[i])],
-                                (16*i)-(4 if i&1 else 0), 48)
+                                (16*i)-(4 if i&1 else 0), ty)
 
                         # Drop Frame, convert ":" to "."
                         if disp.df:
-                            OLED.fill_rect(96,52,4,4,OLED.black)
+                            OLED.fill_rect(96,ty+4,4,4,OLED.black)
 
                         # blank left most ':'
                         if c < 2:
-                            OLED.fill_rect(0,48,4,16,OLED.black)
+                            OLED.fill_rect(0,ty,4,16,OLED.black)
 
                         OLED.show(49 ,64, c*16)
+                    elif OLED:
+                        # display RX & TX in small characters for small screen
+                        asc = disp.to_ascii(True)
+                        OLED.fill_rect(0,25,128,10,OLED.black)
+                        OLED.text(asc,64,25,OLED.white,1,2)
+                        OLED.show(25,32)
                     elif pt.eng.mode == pt.RUN:     # don't flood monitor/calibration prints
                         print(disp.to_ascii()) #, utime.ticks_diff(t1, tx_ticks))
 
@@ -984,7 +1004,7 @@ def OLED_display_thread(mode=pt.RUN):
                     # update Userbits display
                     ub = pt.eng.tc.user_to_ascii()
                     if tx_ub != ub:
-                        if OLED:
+                        if OLED and OLED.height > 32:
                             OLED.fill_rect(0,38,128,8,OLED.black)
                             OLED.text(ub,64,38,OLED.white,1,2)
                             OLED.show(38,46)
@@ -997,15 +1017,15 @@ def OLED_display_thread(mode=pt.RUN):
 
                     if rx_asc != asc:
                         if OLED:
-                            OLED.fill_rect(0,22,128,10,OLED.black)
-                            OLED.text(asc,64,22,OLED.white,1,2)
-                            OLED.show(22,32)
+                            OLED.fill_rect(0,ry,128,10,OLED.black)
+                            OLED.text(asc,64,ry,OLED.white,1,2)
+                            OLED.show(ry,32)
                         rx_asc = asc
 
                     # Show RX Userbits
                     ub = pt.eng.rc.user_to_ascii()
                     if rx_ub != ub:
-                        if OLED:
+                        if OLED and OLED.height > 32:
                             OLED.fill_rect(0,12,128,8,OLED.black)
                             OLED.text(ub,64,12,OLED.white,1,2)
                             OLED.show(12,20)
@@ -1104,38 +1124,38 @@ def OLED_display_thread(mode=pt.RUN):
                         if OLED:
                             if pt.eng.mode == pt.MONITOR and cal_after_jam > 0:
                                 # CAL = Sync'ed to RX and calibrating XTAL
-                                OLED.text("CAL ",0,22,OLED.white)
+                                OLED.text("CAL ",0,ry,OLED.white)
                             else:
-                                OLED.text("RX  ",0,22,OLED.white)
+                                OLED.text("RX  ",0,ry,OLED.white)
 
-                            OLED.vline(64, 33, 2, OLED.white)
+                            OLED.vline(64, ly+1, 2, OLED.white)
                             if zoom == True:
                                 length = int(1280 * d)
-                                OLED.vline(0, 32, 4, OLED.black)
-                                OLED.vline(127, 32, 4, OLED.black)
+                                OLED.vline(0, ly, 4, OLED.black)
+                                OLED.vline(127, ly, 4, OLED.black)
                             else:
                                 length = int(128 * d)
 
                                 # markers at side to indicate full view
                                 # -1/2 to +1/2 a frame is displayed
-                                OLED.vline(0, 32, 4, OLED.white)
-                                OLED.vline(127, 32, 4, OLED.white)
+                                OLED.vline(0, ly, 4, OLED.white)
+                                OLED.vline(127, ly, 4, OLED.white)
 
                             if d > 0:
-                                OLED.hline(64, 33, length, OLED.white)
-                                OLED.hline(64, 34, length, OLED.white)
+                                OLED.hline(64, ly+1, length, OLED.white)
+                                OLED.hline(64, ly+2, length, OLED.white)
                             else:
-                                OLED.hline(64+length, 33, -length, OLED.white)
-                                OLED.hline(64+length, 34, -length, OLED.white)
+                                OLED.hline(64+length, ly+1, -length, OLED.white)
+                                OLED.hline(64+length, ly+2, -length, OLED.white)
 
                     if pt.eng.mode > pt.MONITOR:
                         if OLED:
-                            OLED.text("Jam ",0,22,OLED.white)
+                            OLED.text("Jam ",0,ry,OLED.white)
 
                             # Draw a line representing time until Jam complete
-                            OLED.vline(0, 32, 4, OLED.white)
-                            OLED.hline(0, 33, pt.eng.mode * 2, OLED.white)
-                            OLED.hline(0, 34, pt.eng.mode * 2, OLED.white)
+                            OLED.vline(0, ly, 4, OLED.white)
+                            OLED.hline(0, ly+1, pt.eng.mode * 2, OLED.white)
+                            OLED.hline(0, ly+2, pt.eng.mode * 2, OLED.white)
 
                         cal_after_jam = calibrate
 

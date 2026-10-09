@@ -468,6 +468,19 @@ def callback_fps_df(set):
     else:
         fps = float(set)
 
+    try:
+        setting = config.setting['hfr_mode'][0]
+        if setting == "Wide_LTC":
+            pt.eng.tc.set_wide_ltc(True)
+        elif setting == "Frame_Pair":
+            pt.eng.tc.set_frame_pair(True)
+        else:
+            pt.eng.tc.set_wide_ltc(False)
+            pt.eng.tc.set_frame_pair(False)
+    except:
+            pt.eng.tc.set_wide_ltc(False)
+            pt.eng.tc.set_frame_pair(False)
+
     pt.eng.tc.set_fps_df(fps, df)
 
 

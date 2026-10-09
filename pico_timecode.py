@@ -464,6 +464,7 @@ class timecode(object):
     def __init__(self):
         self.fps = 30.0
         self.df = False      # Drop-Frame
+        self.enforce_parity = False
 
         # Alternate schemes for high FPS
         self.wide_ltc = False
@@ -617,6 +618,11 @@ class timecode(object):
             self.wide_ltc = False
         self.release()
 
+    def enforce_parity(self, enforce_parity=True):
+        self.acquire()
+        self.enforce_parity = enforce_parity
+        self.release()
+
     def next_frame(self, repeats=1):
         while repeats:
             repeats -= 1
@@ -703,15 +709,15 @@ class timecode(object):
                 (self.uf7 << 20) + ((self.hh % 10) << 16))
 
         if self.wide_ltc:
-            # high bit of FF
-            p[1] += (int(ff/10) & 0x4) << 24    # f58
+            # high bit of FF -> BGF1
+            p[1] += (int(self.ff/10) & 0x4) << 24   # f58
 
         if self.frame_pair:
-            # low bit of FF
+            # low bit of FF -> Partity
             if self.fps == 25.0 or self.fps == 50.0:
-                p[1] += (ff & 0x1) << 27    # f59
+                p[1] += (self.ff & 0x1) << 27    # f59
             else:
-                p[0] += (ff & 0x1) << 27    # f27
+                p[0] += (self.ff & 0x1) << 27    # f27
         else:
             # polarity correction
             count = 13
@@ -745,13 +751,12 @@ class timecode(object):
                 self.release()
             return False
 
-        # reject if parity is not 1, note we are not including Sync word
-        '''
-        c = self.lp(p[0])
-        c+= self.lp(p[1])
-        if not c & 1:
-            return False
-        '''
+        if self.enforce_parity and not self.wide_ltc:
+            # reject if parity is not 1, note we are not including Sync word
+            c = self.lp(p[0])
+            c+= self.lp(p[1])
+            if not c & 1:
+                return False
 
         if acquire:
             self.acquire()

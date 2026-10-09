@@ -465,6 +465,10 @@ class timecode(object):
         self.fps = 30.0
         self.df = False      # Drop-Frame
 
+        # Alternate schemes for high FPS
+        self.wide_ltc = False
+        self.frame_pair = False
+
         # Timecode - starting value
         self.hh = 0
         self.mm = 0
@@ -573,7 +577,7 @@ class timecode(object):
         self.hh = (raw & 0x1F000000) >> 24
         self.mm = (raw & 0x003F0000) >> 16
         self.ss = (raw & 0x00003F00) >> 8
-        self.ff = (raw & 0x0000001F)
+        self.ff = (raw & 0x0000003F)
         self.release()
 
     def to_raw(self):
@@ -583,18 +587,35 @@ class timecode(object):
 
         return raw
 
-    def set_fps_df(self, fps=25.0, df=False):
+    def set_fps_df(self, fps=30.0, df=False):
         # should probably validate FPS/DF combo
 
         self.acquire()
         self.fps = fps
         self.df = df
+        if fps > 39.0 and not self.wide_ltc and not self.frame_pair:
+            # use 'wide_ltc' as default scheme
+            self.wide_ltc = True
         self.release()
 
         if self.df:
             self.validate_for_drop_frame()
 
         return True
+
+    def set_wide_ltc(self, wide_ltc=True):
+        self.acquire()
+        self.wide_ltc = wide_ltc
+        if wide_ltc and self.frame_pair:
+            self.frame_pair = False
+        self.release()
+
+    def set_frame_pair(self, frame_pair=True):
+        self.acquire()
+        self.frame_pair = frame_pair
+        if frame_pair and self.wide_ltc:
+            self.wide_ltc = False
+        self.release()
 
     def next_frame(self, repeats=1):
         while repeats:
@@ -654,17 +675,22 @@ class timecode(object):
         f59 = False
 
         self.acquire()
-        if self.fps == 25.0:
+        if self.fps == 25.0 or self.fps == 50.00:
             f27 = self.bgf0
             f43 = self.bgf2
         else:
             f43 = self.bgf0
             f59 = self.bgf2
 
+        if self.frame_pair:
+            ff = self.ff >> 1
+        else:
+            ff = self.ff
+
         p = []
         p.append((self.uf2 << 12) + (self.cf  << 11) + (self.df << 10) +
-                ((int(self.ff/10) & 0x3) << 8) +
-                (self.uf1 << 4) + (self.ff % 10) +
+                ((int(ff/10) & 0x3) << 8) +
+                (self.uf1 << 4) + (ff % 10) +
                 (self.uf4 << 28) + (f27 << 27) +
                 ((int(self.ss/10) & 0x7) << 24) +
                 (self.uf3 << 20) + ((self.ss % 10) << 16))
@@ -676,16 +702,27 @@ class timecode(object):
                 ((int(self.hh/10) & 0x3) << 24) +
                 (self.uf7 << 20) + ((self.hh % 10) << 16))
 
-        # polarity correction
-        count = 13
-        for i in p:
-            count += self.lp(i)
+        if self.wide_ltc:
+            # high bit of FF
+            p[1] += (int(ff/10) & 0x4) << 24    # f58
 
-        if count & 1:
-            if self.fps == 25.0:
-                p[1] += (True << 27)    # f59
+        if self.frame_pair:
+            # low bit of FF
+            if self.fps == 25.0 or self.fps == 50.0:
+                p[1] += (ff & 0x1) << 27    # f59
             else:
-                p[0] += (True << 27)    # f27
+                p[0] += (ff & 0x1) << 27    # f27
+        else:
+            # polarity correction
+            count = 13
+            for i in p:
+                count += self.lp(i)
+
+            if count & 1:
+                if self.fps == 25.0:
+                    p[1] += (True << 27)    # f59
+                else:
+                    p[0] += (True << 27)    # f27
 
         if release:
             self.release()
@@ -724,14 +761,23 @@ class timecode(object):
         self.mm = (((p[1] >>  8) & 0x7) * 10) + (p[1] & 0xF)
         self.hh = (((p[1] >> 24) & 0x3) * 10) + ((p[1] >> 16) & 0xF)
 
-        if self.fps == 25.0:
+        if self.fps == 25.0 or self.fps == 50.0:
             self.bgf0 = (p[0] >> 27) & 0x01 # f27
             self.bgf2 = (p[1] >> 11) & 0x01 # f43
+            if self.frame_pair:
+                self.ff = (self.ff << 1) + ((p[1] >> 27) & 0x1) #f59
         else:
             self.bgf0 = (p[1] >> 11) & 0x01 # f43
             self.bgf2 = (p[1] >> 27) & 0x01 # f59
+            if self.frame_pair:
+                self.ff = (self.ff << 1) + ((p[0] >> 27) & 0x1) #f27
 
-        self.bgf1 = (p[1] >> 26) & 0x01
+        if self.wide_ltc:
+            if (p[1] >> 26) & 0x01:
+                self.ff += 40
+            self.bgf1 = False
+        else:
+            self.bgf1 = (p[1] >> 26) & 0x01
 
         self.uf1 = ((p[0] >>  4) & 0x0F)
         self.uf2 = ((p[0] >> 12) & 0x0F)
@@ -932,6 +978,10 @@ class engine(object):
             new_div = 0x0b71b000
         elif fps == 23.98:
             new_div = 0x0b749e00
+        elif fps == 60.00:
+            new_div = 0x0493e000
+        elif fps == 50.00:
+            new_div = 0x057e4000
         else:
             return
 

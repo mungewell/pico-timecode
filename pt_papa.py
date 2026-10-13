@@ -730,9 +730,9 @@ def OLED_display_thread(mode=pt.RUN):
                 dc=Pin(8), res=Pin(12), cs=Pin(9))
 
     if OLED:
-        ty = OLED.height - 16
         OLED.fill(0x0000)
         OLED.text("PT-Papa " + pt.VERSION,64,0,OLED.white,0,2)
+        ty = OLED.height - 15
         if OLED.height > 32:
             ry = 22
             ly = 32
@@ -1002,10 +1002,12 @@ def OLED_display_thread(mode=pt.RUN):
 
                         OLED.show(49 ,64, c*16)
                     elif OLED:
-                        # display RX & TX in small characters for small screen
+                        # display TX in small characters for small screen
                         asc = disp.to_ascii(True)
                         OLED.fill_rect(0,25,128,10,OLED.black)
                         OLED.text(asc,64,25,OLED.white,1,2)
+                        if pt.eng.mode > pt.RUN:
+                            OLED.text("TX",0,25,OLED.white)
                         OLED.show(25,32)
                     elif pt.eng.mode == pt.RUN:     # don't flood monitor/calibration prints
                         print(disp.to_ascii()) #, utime.ticks_diff(t1, tx_ticks))
@@ -1021,6 +1023,10 @@ def OLED_display_thread(mode=pt.RUN):
                             OLED.fill_rect(0,38,128,8,OLED.black)
                             OLED.text(ub,64,38,OLED.white,1,2)
                             OLED.show(38,46)
+                        elif OLED:
+                            OLED.fill_rect(0,10,128,8,OLED.black)
+                            OLED.text(ub,64,10,OLED.white,1,2)
+                            OLED.show(10,18)
                         tx_ub = ub
 
 
@@ -1031,6 +1037,7 @@ def OLED_display_thread(mode=pt.RUN):
                     if rx_asc != asc:
                         if OLED:
                             OLED.fill_rect(0,ry,128,10,OLED.black)
+                            #OLED.text(asc,125,ry,OLED.white,1,1)
                             OLED.text(asc,64,ry,OLED.white,1,2)
                             OLED.show(ry,32)
                         rx_asc = asc
@@ -1134,32 +1141,33 @@ def OLED_display_thread(mode=pt.RUN):
 
                             monTimer.start()
 
-                        if OLED:
+                        if OLED and OLED.height <= 32:
                             if pt.eng.mode == pt.MONITOR and cal_after_jam > 0:
                                 # CAL = Sync'ed to RX and calibrating XTAL
                                 OLED.text("CAL ",0,ry,OLED.white)
                             else:
                                 OLED.text("RX  ",0,ry,OLED.white)
 
-                            OLED.vline(64, ly+1, 2, OLED.white)
+                        if OLED:
+                            OLED.vline(63, ly+1, 2, OLED.white)
                             if zoom == True:
                                 length = int(1280 * d)
                                 OLED.vline(0, ly, 4, OLED.black)
-                                OLED.vline(127, ly, 4, OLED.black)
+                                OLED.vline(125, ly, 4, OLED.black)
                             else:
                                 length = int(128 * d)
 
                                 # markers at side to indicate full view
                                 # -1/2 to +1/2 a frame is displayed
                                 OLED.vline(0, ly, 4, OLED.white)
-                                OLED.vline(127, ly, 4, OLED.white)
+                                OLED.vline(125, ly, 4, OLED.white)
 
                             if d > 0:
-                                OLED.hline(64, ly+1, length, OLED.white)
-                                OLED.hline(64, ly+2, length, OLED.white)
+                                OLED.hline(63, ly+1, length, OLED.white)
+                                OLED.hline(63, ly+2, length, OLED.white)
                             else:
-                                OLED.hline(64+length, ly+1, -length, OLED.white)
-                                OLED.hline(64+length, ly+2, -length, OLED.white)
+                                OLED.hline(63+length, ly+1, -length, OLED.white)
+                                OLED.hline(63+length, ly+2, -length, OLED.white)
 
                     if pt.eng.mode > pt.MONITOR:
                         if OLED:
@@ -1175,18 +1183,20 @@ def OLED_display_thread(mode=pt.RUN):
                     if pt.eng.mode > pt.RUN:
                         if OLED:
                             # Show RX bar
-                            OLED.show(33,36)
+                            OLED.show(ry,ly+4)
 
                             # clear bar ready for next frame
-                            OLED.hline(1, 33, 127, OLED.black)
-                            OLED.hline(1, 34, 127, OLED.black)
+                            OLED.hline(1, ly+1, 126, OLED.black)
+                            OLED.hline(1, ly+2, 125, OLED.black)
 
                         if not (monitor or cal_after_jam) \
                                and pt.eng.mode == pt.MONITOR:
                             if OLED:
-                                OLED.fill_rect(0,12,128,24,OLED.black)
+                                OLED.fill_rect(0,12,128,OLED.height-12,OLED.black)
                                 OLED.show()
                             pt.eng.mode = pt.RUN
+                            tx_asc = "--------"
+                            tx_ub = ""
                     else:
                         monitor = False
 
